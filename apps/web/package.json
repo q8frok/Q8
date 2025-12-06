@@ -16,6 +16,8 @@
   "dependencies": {
     "@supabase/ssr": "^0.1.0",
     "@supabase/supabase-js": "^2.39.0",
+    "@tanstack/react-query": "^5.90.12",
+    "@tanstack/react-virtual": "^3.13.12",
     "@tiptap/extension-code-block-lowlight": "^3.11.1",
     "@tiptap/extension-link": "^3.11.1",
     "@tiptap/extension-placeholder": "^3.11.1",
@@ -26,6 +28,8 @@
     "ai": "^3.0.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
+    "colorthief": "^2.6.0",
+    "date-fns": "^4.1.0",
     "dexie": "4.0.10",
     "framer-motion": "^11.0.0",
     "lowlight": "^3.3.0",
@@ -37,12 +41,15 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-markdown": "^10.1.0",
+    "react-player": "^3.4.0",
     "react-syntax-highlighter": "^16.1.0",
+    "react-youtube": "^10.1.0",
     "rxdb": "^15.24.0",
     "rxdb-hooks": "^5.0.2",
     "rxjs": "^7.8.2",
     "tailwind-merge": "^2.2.1",
-    "zod": "^3.22.4"
+    "zod": "^3.22.4",
+    "zustand": "^5.0.9"
   },
   "devDependencies": {
     "@storybook/addon-essentials": "^7.6.0",

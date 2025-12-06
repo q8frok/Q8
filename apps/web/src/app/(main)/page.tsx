@@ -7,6 +7,7 @@ import {
   StatusWidget,
   WeatherWidget,
   SpotifyWidget,
+  ContentHubWidget,
   GitHubPRWidget,
   TaskWidget,
   CalendarWidget,
@@ -136,9 +137,9 @@ export default function DashboardPage() {
                 <FocusWidget />
               </BentoItem>
 
-              {/* Spotify Widget */}
-              <BentoItem colSpan={2} rowSpan={1}>
-                <SpotifyWidget />
+              {/* ContentHub Widget - Unified Media Hub */}
+              <BentoItem colSpan={2} rowSpan={2}>
+                <ContentHubWidget />
               </BentoItem>
 
               {/* Quick Notes */}

@@ -17,6 +17,9 @@ export { WeatherWidget } from './WeatherWidget';
 export { TaskWidget } from './TaskWidget';
 export { SuggestionsWidget } from './SuggestionsWidget';
 
+// Phase 6 - ContentHub (replaces SpotifyWidget)
+export { ContentHubWidget } from './ContentHubWidget';
+
 // Phase 4 Widgets
 export { ClockWidget } from './ClockWidget';
 export { QuickNotesWidget } from './QuickNotesWidget';

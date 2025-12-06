@@ -46,7 +46,11 @@
       "mcp__serena__list_memories",
       "Bash(del /F \"C:\\Users\\Minki\\.claude\\BUSINESS_PANEL_EXAMPLES.md\" \"C:\\Users\\Minki\\.claude\\BUSINESS_SYMBOLS.md\" \"C:\\Users\\Minki\\.claude\\MODE_Business_Panel.md\")",
       "mcp__serena__think_about_whether_you_are_done",
-      "Bash(pnpm remove:*)"
+      "Bash(pnpm remove:*)",
+      "Bash(wc:*)",
+      "Bash(if exist \"C:\\Users\\Minki\\Q8\\apps\\web\\.next\" rmdir /s /q \"C:\\Users\\Minki\\Q8\\apps\\web\\.next\")",
+      "Bash(timeout /t 60)",
+      "Bash(node:*)"
     ],
     "deny": [],
     "ask": []
