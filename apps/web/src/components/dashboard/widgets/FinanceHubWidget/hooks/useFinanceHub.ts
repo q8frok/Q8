@@ -1,0 +1,313 @@
+'use client';
+
+import { useCallback, useEffect, useRef } from 'react';
+import { useFinanceHubStore } from '@/lib/stores/financehub';
+import type { FinanceAccount, FinanceTransaction, RecurringItem, FinanceSnapshot } from '@/types/finance';
+
+const SYNC_INTERVAL = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * useFinanceHub Hook
+ *
+ * Handles data fetching, syncing, and API interactions for FinanceHub.
+ * Mirrors the pattern used in useContentHub.
+ */
+export function useFinanceHub() {
+  const {
+    accounts,
+    transactions,
+    recurring,
+    snapshots,
+    isLoading,
+    isSyncing,
+    error,
+    setAccounts,
+    setTransactions,
+    setRecurring,
+    setSnapshots,
+    setLoading,
+    setSyncing,
+    setError,
+    recalculateTotals,
+  } = useFinanceHubStore();
+
+  const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastSyncRef = useRef<number>(0);
+
+  /**
+   * Fetch all finance data for the current user
+   */
+  const fetchFinanceData = useCallback(async (userId: string) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Fetch accounts, transactions, recurring, and snapshots in parallel
+      const [accountsRes, transactionsRes, recurringRes] = await Promise.all([
+        fetch(`/api/finance/accounts?userId=${userId}`),
+        fetch(`/api/finance/transactions?userId=${userId}&limit=100`),
+        fetch(`/api/finance/recurring?userId=${userId}`),
+      ]);
+
+      if (accountsRes.ok) {
+        const accountsData = await accountsRes.json();
+        setAccounts(Array.isArray(accountsData) ? accountsData : []);
+      }
+
+      if (transactionsRes.ok) {
+        const txData = await transactionsRes.json();
+        setTransactions(txData.transactions || []);
+      }
+
+      if (recurringRes.ok) {
+        const recurringData = await recurringRes.json();
+        setRecurring(Array.isArray(recurringData) ? recurringData : []);
+      }
+
+      // Fetch snapshots for the last 30 days
+      const snapshotsRes = await fetch(`/api/finance/snapshots?userId=${userId}&days=30`);
+      if (snapshotsRes.ok) {
+        const snapshotsData = await snapshotsRes.json();
+        setSnapshots(Array.isArray(snapshotsData) ? snapshotsData : []);
+      }
+
+      recalculateTotals();
+    } catch (err) {
+      console.error('Failed to fetch finance data:', err);
+      setError('Failed to load finance data');
+    } finally {
+      setLoading(false);
+    }
+  }, [setAccounts, setTransactions, setRecurring, setSnapshots, setLoading, setError, recalculateTotals]);
+
+  /**
+   * Sync all linked accounts with Plaid/SnapTrade
+   */
+  const syncAccounts = useCallback(async (userId: string, fullSync = false) => {
+    // Prevent rapid re-syncing
+    const now = Date.now();
+    if (now - lastSyncRef.current < 30000 && !fullSync) {
+      console.log('Sync skipped - too soon since last sync');
+      return;
+    }
+
+    setSyncing(true);
+    setError(null);
+    lastSyncRef.current = now;
+
+    try {
+      const response = await fetch('/api/finance/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, fullSync }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Sync failed');
+      }
+
+      const result = await response.json();
+      console.log('Sync complete:', result);
+
+      // Refetch data after sync
+      await fetchFinanceData(userId);
+    } catch (err) {
+      console.error('Sync error:', err);
+      setError(err instanceof Error ? err.message : 'Sync failed');
+    } finally {
+      setSyncing(false);
+    }
+  }, [fetchFinanceData, setSyncing, setError]);
+
+  /**
+   * Create a Plaid Link token
+   */
+  const createPlaidLinkToken = useCallback(async (userId: string): Promise<string | null> => {
+    try {
+      const response = await fetch('/api/finance/plaid/link-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create link token');
+      }
+
+      const data = await response.json();
+      
+      if (!data.linkToken) {
+        console.warn('Plaid not configured:', data.message);
+        return null;
+      }
+
+      return data.linkToken;
+    } catch (err) {
+      console.error('Create link token error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to create link token');
+      return null;
+    }
+  }, [setError]);
+
+  /**
+   * Exchange Plaid public token after Link success
+   */
+  const exchangePlaidToken = useCallback(async (
+    publicToken: string,
+    userId: string,
+    metadata: any
+  ): Promise<boolean> => {
+    try {
+      const response = await fetch('/api/finance/plaid/exchange', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ publicToken, userId, metadata }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to link account');
+      }
+
+      const result = await response.json();
+      console.log('Account linked:', result);
+
+      // Refetch data after linking
+      await fetchFinanceData(userId);
+      return true;
+    } catch (err) {
+      console.error('Exchange token error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to link account');
+      return false;
+    }
+  }, [fetchFinanceData, setError]);
+
+  /**
+   * Create a SnapTrade connection URL
+   */
+  const createSnapTradeConnection = useCallback(async (
+    userId: string,
+    broker?: string
+  ): Promise<string | null> => {
+    try {
+      const response = await fetch('/api/finance/snaptrade/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, broker }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create connection');
+      }
+
+      const data = await response.json();
+
+      if (!data.redirectUrl) {
+        console.warn('SnapTrade not configured:', data.message);
+        return null;
+      }
+
+      return data.redirectUrl;
+    } catch (err) {
+      console.error('SnapTrade connect error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to connect to SnapTrade');
+      return null;
+    }
+  }, [setError]);
+
+  /**
+   * Add a manual account
+   */
+  const addManualAccount = useCallback(async (
+    userId: string,
+    accountData: Partial<FinanceAccount>
+  ): Promise<FinanceAccount | null> => {
+    try {
+      const response = await fetch('/api/finance/accounts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, ...accountData }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add account');
+      }
+
+      const newAccount = await response.json();
+      
+      // Update local state
+      setAccounts([...accounts, newAccount]);
+      recalculateTotals();
+      
+      return newAccount;
+    } catch (err) {
+      console.error('Add account error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to add account');
+      return null;
+    }
+  }, [accounts, setAccounts, recalculateTotals, setError]);
+
+  /**
+   * Set up periodic sync
+   */
+  const startPeriodicSync = useCallback((userId: string) => {
+    // Clear existing timeout
+    if (syncTimeoutRef.current) {
+      clearTimeout(syncTimeoutRef.current);
+    }
+
+    // Set up new periodic sync
+    const doSync = async () => {
+      await syncAccounts(userId, false);
+      syncTimeoutRef.current = setTimeout(doSync, SYNC_INTERVAL);
+    };
+
+    syncTimeoutRef.current = setTimeout(doSync, SYNC_INTERVAL);
+  }, [syncAccounts]);
+
+  /**
+   * Stop periodic sync
+   */
+  const stopPeriodicSync = useCallback(() => {
+    if (syncTimeoutRef.current) {
+      clearTimeout(syncTimeoutRef.current);
+      syncTimeoutRef.current = null;
+    }
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stopPeriodicSync();
+    };
+  }, [stopPeriodicSync]);
+
+  return {
+    // Data
+    accounts,
+    transactions,
+    recurring,
+    snapshots,
+
+    // Status
+    isLoading,
+    isSyncing,
+    error,
+
+    // Actions
+    fetchFinanceData,
+    syncAccounts,
+    createPlaidLinkToken,
+    exchangePlaidToken,
+    createSnapTradeConnection,
+    addManualAccount,
+    startPeriodicSync,
+    stopPeriodicSync,
+  };
+}
+
+export default useFinanceHub;

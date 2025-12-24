@@ -4,6 +4,7 @@
  * Phase 1 - RxDB Integration
  * Phase 3 - Dashboard Widgets
  * Phase 4 - Enhanced Widgets
+ * Phase 7 - FinanceHub
  */
 
 // Phase 1 Widget
@@ -27,6 +28,9 @@ export { FocusWidget } from './FocusWidget';
 
 // Phase 5 Widgets - Smart Home Integration
 export { SmartHomeWidget } from './SmartHomeWidget';
+
+// Phase 7 - FinanceHub
+export { FinanceHubWidget } from './FinanceHubWidget';
 
 // UI/UX Components
 export { WidgetSkeleton } from './WidgetSkeleton';

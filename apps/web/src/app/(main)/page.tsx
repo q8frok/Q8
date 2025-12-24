@@ -16,6 +16,7 @@ import {
   QuickNotesWidget,
   FocusWidget,
   SmartHomeWidget,
+  FinanceHubWidget,
 } from '@/components/dashboard/widgets';
 import { ChatWithThreads } from '@/components/chat/ChatWithThreads';
 import { VoiceConversation } from '@/components/voice';
@@ -176,6 +177,11 @@ export default function DashboardPage() {
               {/* Smart Home Widget */}
               <BentoItem colSpan={2} rowSpan={3}>
                 <SmartHomeWidget />
+              </BentoItem>
+
+              {/* Finance Hub Widget */}
+              <BentoItem colSpan={2} rowSpan={2}>
+                <FinanceHubWidget />
               </BentoItem>
             </BentoGrid>
           </div>
