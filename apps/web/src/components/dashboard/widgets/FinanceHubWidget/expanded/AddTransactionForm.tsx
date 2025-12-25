@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useFinanceHubStore, useFinanceAccounts } from '@/lib/stores/financehub';
 import type { FinanceTransaction, TransactionStatus } from '@/types/finance';
+import { categorizeTransaction } from '@/types/finance';
 
 interface AddTransactionFormProps {
   isOpen: boolean;
@@ -17,16 +18,22 @@ interface AddTransactionFormProps {
 }
 
 const COMMON_CATEGORIES = [
-  'Food and Drink',
+  'Groceries',
+  'Restaurants',
+  'Coffee Shops',
   'Shopping',
-  'Transportation',
-  'Entertainment',
+  'Gas & Fuel',
+  'Rideshare',
+  'Streaming',
   'Bills & Utilities',
   'Healthcare',
+  'Pharmacy',
+  'Fitness',
+  'Entertainment',
   'Travel',
-  'Personal',
-  'Income',
   'Transfer',
+  'Salary',
+  'Other',
 ];
 
 /**
@@ -59,6 +66,24 @@ export function AddTransactionForm({
   const [merchantName, setMerchantName] = useState(editTransaction?.merchantName || '');
   const [description, setDescription] = useState(editTransaction?.description || '');
   const [category, setCategory] = useState(editTransaction?.category[0] || '');
+  const [categoryManuallySet, setCategoryManuallySet] = useState(!!editTransaction?.category[0]);
+
+  // Auto-categorize when merchant name changes (only if category wasn't manually set)
+  const handleMerchantChange = useCallback((value: string) => {
+    setMerchantName(value);
+    if (!categoryManuallySet && value.trim()) {
+      const suggestedCategory = categorizeTransaction(value);
+      if (suggestedCategory !== 'Other') {
+        setCategory(suggestedCategory);
+      }
+    }
+  }, [categoryManuallySet]);
+
+  // Track when user manually selects a category
+  const handleCategorySelect = useCallback((cat: string) => {
+    setCategory(cat);
+    setCategoryManuallySet(true);
+  }, []);
   const [date, setDate] = useState(
     editTransaction?.date || new Date().toISOString().slice(0, 10)
   );
@@ -72,6 +97,7 @@ export function AddTransactionForm({
     setMerchantName('');
     setDescription('');
     setCategory('');
+    setCategoryManuallySet(false);
     setDate(new Date().toISOString().slice(0, 10));
     setAccountId(accounts[0]?.id || '');
     setIsRecurring(false);
@@ -154,7 +180,7 @@ export function AddTransactionForm({
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
-          className="relative w-full max-w-md mx-4 bg-glass-bg backdrop-blur-xl border border-glass-border rounded-2xl shadow-2xl overflow-hidden"
+          className="relative w-full max-w-md mx-4 bg-[#1a1a2e]/95 backdrop-blur-xl border border-glass-border rounded-2xl shadow-2xl overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
@@ -185,7 +211,7 @@ export function AddTransactionForm({
                   'flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all',
                   isExpense
                     ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                    : 'bg-glass-bg text-muted-foreground border border-glass-border hover:border-red-500/30'
+                    : 'bg-glass-bg text-white/60 border border-glass-border hover:border-red-500/30'
                 )}
               >
                 Expense
@@ -197,7 +223,7 @@ export function AddTransactionForm({
                   'flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all',
                   !isExpense
                     ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                    : 'bg-glass-bg text-muted-foreground border border-glass-border hover:border-green-500/30'
+                    : 'bg-glass-bg text-white/60 border border-glass-border hover:border-green-500/30'
                 )}
               >
                 Income
@@ -206,9 +232,9 @@ export function AddTransactionForm({
 
             {/* Amount */}
             <div>
-              <label className="block text-sm text-muted-foreground mb-1.5">Amount</label>
+              <label className="block text-sm text-white/60 mb-1.5">Amount</label>
               <div className="relative">
-                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/50" />
                 <Input
                   type="number"
                   step="0.01"
@@ -224,16 +250,16 @@ export function AddTransactionForm({
 
             {/* Merchant/Description */}
             <div>
-              <label className="block text-sm text-muted-foreground mb-1.5">
+              <label className="block text-sm text-white/60 mb-1.5">
                 {isExpense ? 'Merchant' : 'Source'}
               </label>
               <div className="relative">
-                <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/50" />
                 <Input
                   type="text"
                   placeholder={isExpense ? 'e.g., Starbucks, Amazon' : 'e.g., Paycheck, Freelance'}
                   value={merchantName}
-                  onChange={(e) => setMerchantName(e.target.value)}
+                  onChange={(e) => handleMerchantChange(e.target.value)}
                   className="pl-9 bg-glass-bg border-glass-border"
                 />
               </div>
@@ -241,18 +267,18 @@ export function AddTransactionForm({
 
             {/* Category */}
             <div>
-              <label className="block text-sm text-muted-foreground mb-1.5">Category</label>
+              <label className="block text-sm text-white/60 mb-1.5">Category</label>
               <div className="flex flex-wrap gap-1.5 mb-2">
-                {COMMON_CATEGORIES.slice(0, 6).map((cat) => (
+                {COMMON_CATEGORIES.slice(0, 8).map((cat) => (
                   <button
                     key={cat}
                     type="button"
-                    onClick={() => setCategory(cat)}
+                    onClick={() => handleCategorySelect(cat)}
                     className={cn(
                       'px-2 py-1 text-xs rounded-md transition-all',
                       category === cat
                         ? 'bg-neon-primary/20 text-neon-primary border border-neon-primary/30'
-                        : 'bg-glass-bg text-muted-foreground border border-glass-border hover:border-neon-primary/30'
+                        : 'bg-glass-bg text-white/60 border border-glass-border hover:border-neon-primary/30'
                     )}
                   >
                     {cat}
@@ -260,12 +286,12 @@ export function AddTransactionForm({
                 ))}
               </div>
               <div className="relative">
-                <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/50" />
                 <Input
                   type="text"
                   placeholder="Or type custom category..."
                   value={category}
-                  onChange={(e) => setCategory(e.target.value)}
+                  onChange={(e) => handleCategorySelect(e.target.value)}
                   className="pl-9 bg-glass-bg border-glass-border"
                 />
               </div>
@@ -275,9 +301,9 @@ export function AddTransactionForm({
             <div className="grid grid-cols-2 gap-4">
               {/* Date */}
               <div>
-                <label className="block text-sm text-muted-foreground mb-1.5">Date</label>
+                <label className="block text-sm text-white/60 mb-1.5">Date</label>
                 <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/50" />
                   <Input
                     type="date"
                     value={date}
@@ -289,7 +315,7 @@ export function AddTransactionForm({
 
               {/* Account */}
               <div>
-                <label className="block text-sm text-muted-foreground mb-1.5">Account</label>
+                <label className="block text-sm text-white/60 mb-1.5">Account</label>
                 <select
                   value={accountId}
                   onChange={(e) => setAccountId(e.target.value)}
@@ -311,7 +337,7 @@ export function AddTransactionForm({
             <div className="flex items-center gap-4">
               {/* Status */}
               <div className="flex items-center gap-2">
-                <label className="text-sm text-muted-foreground">Status:</label>
+                <label className="text-sm text-white/60">Status:</label>
                 <select
                   value={status}
                   onChange={(e) => setStatus(e.target.value as TransactionStatus)}
@@ -330,7 +356,7 @@ export function AddTransactionForm({
                   'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-all',
                   isRecurring
                     ? 'bg-neon-primary/20 text-neon-primary border border-neon-primary/30'
-                    : 'bg-glass-bg text-muted-foreground border border-glass-border hover:border-neon-primary/30'
+                    : 'bg-glass-bg text-white/60 border border-glass-border hover:border-neon-primary/30'
                 )}
               >
                 <Repeat className="h-3.5 w-3.5" />
@@ -340,7 +366,7 @@ export function AddTransactionForm({
 
             {/* Description (optional) */}
             <div>
-              <label className="block text-sm text-muted-foreground mb-1.5">
+              <label className="block text-sm text-white/60 mb-1.5">
                 Notes (optional)
               </label>
               <Input

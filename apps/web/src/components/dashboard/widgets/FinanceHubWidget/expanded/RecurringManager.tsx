@@ -92,7 +92,7 @@ export function RecurringManager({ className }: RecurringManagerProps) {
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold text-white">Recurring</h3>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-white/60">
             Manage your bills, subscriptions, and recurring income
           </p>
         </div>
@@ -107,13 +107,13 @@ export function RecurringManager({ className }: RecurringManagerProps) {
 
       {/* Bills Section */}
       <div>
-        <h4 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+        <h4 className="text-sm font-medium text-white/70 mb-3 flex items-center gap-2">
           <Calendar className="h-4 w-4" />
           Bills & Expenses ({bills.length})
         </h4>
         
         {bills.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground text-sm">
+          <div className="text-center py-8 text-white/50 text-sm">
             No recurring bills. Add your first one!
           </div>
         ) : (
@@ -135,13 +135,13 @@ export function RecurringManager({ className }: RecurringManagerProps) {
 
       {/* Income Section */}
       <div>
-        <h4 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+        <h4 className="text-sm font-medium text-white/70 mb-3 flex items-center gap-2">
           <DollarSign className="h-4 w-4" />
           Recurring Income ({income.length})
         </h4>
         
         {income.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground text-sm">
+          <div className="text-center py-8 text-white/50 text-sm">
             No recurring income. Add salary, dividends, etc.
           </div>
         ) : (
@@ -205,7 +205,7 @@ function RecurringItemCard({
   const getStatusIcon = () => {
     if (isOverdue) return <AlertTriangle className="h-4 w-4 text-red-400" />;
     if (isDueSoon) return <Clock className="h-4 w-4 text-yellow-400" />;
-    return <Calendar className="h-4 w-4 text-muted-foreground" />;
+    return <Calendar className="h-4 w-4 text-white/50" />;
   };
 
   const getDueText = () => {
@@ -233,12 +233,12 @@ function RecurringItemCard({
         <div className="flex items-center gap-2">
           <span className="font-medium truncate">{item.name}</span>
           {item.category[0] && (
-            <span className="text-xs text-muted-foreground bg-glass-bg px-2 py-0.5 rounded">
+            <span className="text-xs text-white/60 bg-glass-bg px-2 py-0.5 rounded">
               {item.category[0]}
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+        <div className="flex items-center gap-2 text-xs text-white/60 mt-0.5">
           <span className={cn(isOverdue && 'text-red-400', isDueSoon && 'text-yellow-400')}>
             {getDueText()}
           </span>
@@ -368,7 +368,7 @@ function RecurringFormModal({
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className="relative w-full max-w-md mx-4 bg-glass-bg backdrop-blur-xl border border-glass-border rounded-2xl shadow-2xl overflow-hidden"
+        className="relative w-full max-w-md mx-4 bg-[#1a1a2e]/95 backdrop-blur-xl border border-glass-border rounded-2xl shadow-2xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -397,7 +397,7 @@ function RecurringFormModal({
                 'flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all',
                 !isIncome
                   ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                  : 'bg-glass-bg text-muted-foreground border border-glass-border'
+                  : 'bg-glass-bg text-white/60 border border-glass-border'
               )}
             >
               Bill / Expense
@@ -409,7 +409,7 @@ function RecurringFormModal({
                 'flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all',
                 isIncome
                   ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                  : 'bg-glass-bg text-muted-foreground border border-glass-border'
+                  : 'bg-glass-bg text-white/60 border border-glass-border'
               )}
             >
               Income
@@ -418,7 +418,7 @@ function RecurringFormModal({
 
           {/* Name */}
           <div>
-            <label className="block text-sm text-muted-foreground mb-1.5">Name</label>
+            <label className="block text-sm text-white/60 mb-1.5">Name</label>
             <Input
               type="text"
               placeholder="e.g., Rent, Netflix, Salary"
@@ -432,9 +432,9 @@ function RecurringFormModal({
           {/* Amount & Frequency */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-muted-foreground mb-1.5">Amount</label>
+              <label className="block text-sm text-white/60 mb-1.5">Amount</label>
               <div className="relative">
-                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/50" />
                 <Input
                   type="number"
                   step="0.01"
@@ -447,7 +447,7 @@ function RecurringFormModal({
               </div>
             </div>
             <div>
-              <label className="block text-sm text-muted-foreground mb-1.5">Frequency</label>
+              <label className="block text-sm text-white/60 mb-1.5">Frequency</label>
               <select
                 value={frequency}
                 onChange={(e) => setFrequency(e.target.value as RecurringFrequency)}
@@ -465,7 +465,7 @@ function RecurringFormModal({
           {/* Next Due Date & Category */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-muted-foreground mb-1.5">Next Due</label>
+              <label className="block text-sm text-white/60 mb-1.5">Next Due</label>
               <Input
                 type="date"
                 value={nextDueDate}
@@ -474,7 +474,7 @@ function RecurringFormModal({
               />
             </div>
             <div>
-              <label className="block text-sm text-muted-foreground mb-1.5">Category</label>
+              <label className="block text-sm text-white/60 mb-1.5">Category</label>
               <Input
                 type="text"
                 placeholder="e.g., Rent, Subscription"
@@ -488,7 +488,7 @@ function RecurringFormModal({
           {/* Account */}
           {accounts.length > 0 && (
             <div>
-              <label className="block text-sm text-muted-foreground mb-1.5">
+              <label className="block text-sm text-white/60 mb-1.5">
                 Account (optional)
               </label>
               <select
@@ -514,7 +514,7 @@ function RecurringFormModal({
               onChange={(e) => setAutoConfirm(e.target.checked)}
               className="w-4 h-4 rounded border-glass-border bg-glass-bg"
             />
-            <span className="text-sm text-muted-foreground">
+            <span className="text-sm text-white/60">
               Auto-confirm on due date (for automatic payments)
             </span>
           </label>

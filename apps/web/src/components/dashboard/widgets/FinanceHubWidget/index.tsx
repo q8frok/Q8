@@ -80,11 +80,11 @@ export function FinanceHubWidget({ className }: FinanceHubWidgetProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Handle sync
+  // Handle sync - use fullSync=true to bypass throttling for manual refresh
   const handleSync = useCallback(async () => {
     setSyncing(true);
     try {
-      await syncAccounts(userId, false);
+      await syncAccounts(userId, true);
       setError(null);
     } catch (err) {
       setError('Sync failed');
@@ -286,7 +286,7 @@ function FinanceCommandCenter({ onClose }: FinanceCommandCenterProps) {
               <Wallet className="h-8 w-8 text-neon-primary" />
               <div>
                 <h1 className="text-2xl font-bold text-white">Finance Command Center</h1>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-white/60">
                   Your money, unified. Your future, simulated.
                 </p>
               </div>
@@ -296,19 +296,19 @@ function FinanceCommandCenter({ onClose }: FinanceCommandCenterProps) {
               {/* Quick Stats */}
               <div className="hidden md:flex items-center gap-6 text-sm">
                 <div>
-                  <span className="text-muted-foreground">Net Worth: </span>
+                  <span className="text-white/60">Net Worth: </span>
                   <span className="font-semibold text-white">
                     ${netWorth.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                   </span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Assets: </span>
+                  <span className="text-white/60">Assets: </span>
                   <span className="font-semibold text-green-400">
                     ${totalAssets.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                   </span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Liabilities: </span>
+                  <span className="text-white/60">Liabilities: </span>
                   <span className="font-semibold text-red-400">
                     ${totalLiabilities.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                   </span>

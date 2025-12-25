@@ -41,9 +41,9 @@ export function PrivacyToggle({ className, size = 'md' }: PrivacyToggleProps) {
       title={privacyMode ? 'Show values' : 'Hide values'}
     >
       {privacyMode ? (
-        <EyeOff className={cn(iconSizes[size], 'text-muted-foreground')} />
+        <EyeOff className={cn(iconSizes[size], 'text-white/60')} />
       ) : (
-        <Eye className={cn(iconSizes[size], 'text-muted-foreground')} />
+        <Eye className={cn(iconSizes[size], 'text-white/60')} />
       )}
     </Button>
   );

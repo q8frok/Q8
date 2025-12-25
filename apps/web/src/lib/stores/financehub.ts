@@ -268,11 +268,15 @@ export const useFinanceHubStore = create<FinanceHubState>()(
     {
       name: 'financehub-storage',
       partialize: (state) => ({
-        // Only persist UI preferences, not data (data comes from API)
+        // Persist UI preferences and local data that isn't from API
         privacyMode: state.privacyMode,
         dailyBudget: state.dailyBudget,
         activeTab: state.activeTab,
         transactionFilters: state.transactionFilters,
+        // Persist recurring items (manual entries)
+        recurring: state.recurring,
+        // Persist manual transactions
+        transactions: state.transactions.filter((t) => t.isManual),
       }),
     }
   )

@@ -3,8 +3,31 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useFinanceHubStore } from '@/lib/stores/financehub';
 import type { FinanceAccount, FinanceTransaction, RecurringItem, FinanceSnapshot } from '@/types/finance';
+import { categorizeTransaction } from '@/types/finance';
 
 const SYNC_INTERVAL = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Process transactions to apply auto-categorization for uncategorized items
+ */
+function processTransactionsWithCategories(transactions: FinanceTransaction[]): FinanceTransaction[] {
+  return transactions.map((tx) => {
+    // Only auto-categorize if category is empty, "Other", or "Uncategorized"
+    const needsCategorization = 
+      tx.category.length === 0 || 
+      tx.category[0] === 'Other' || 
+      tx.category[0] === 'Uncategorized';
+    
+    if (needsCategorization) {
+      const suggestedCategory = categorizeTransaction(tx.merchantName, tx.description);
+      if (suggestedCategory !== 'Other') {
+        return { ...tx, category: [suggestedCategory] };
+      }
+    }
+    
+    return tx;
+  });
+}
 
 /**
  * useFinanceHub Hook
@@ -56,7 +79,10 @@ export function useFinanceHub() {
 
       if (transactionsRes.ok) {
         const txData = await transactionsRes.json();
-        setTransactions(txData.transactions || []);
+        const rawTransactions = txData.transactions || [];
+        // Apply auto-categorization to uncategorized transactions
+        const processedTransactions = processTransactionsWithCategories(rawTransactions);
+        setTransactions(processedTransactions);
       }
 
       if (recurringRes.ok) {

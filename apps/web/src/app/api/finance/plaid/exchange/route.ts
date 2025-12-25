@@ -67,16 +67,41 @@ export async function POST(request: NextRequest) {
     const accounts = accountsResponse.data.accounts;
     const institution = metadata?.institution;
 
+    // Get existing accounts from this institution for this user to detect re-links
+    const institutionName = institution?.name || 'Unknown Institution';
+    const { data: existingAccounts } = await supabase
+      .from('finance_accounts')
+      .select('id, name, type, plaid_item_id, plaid_account_id')
+      .eq('user_id', userId)
+      .eq('institution_name', institutionName)
+      .not('plaid_account_id', 'is', null);
+
+    // Build a map of existing accounts by name+type for matching
+    const existingMap = new Map(
+      (existingAccounts || []).map((a) => [`${a.name}:${a.type}`, a])
+    );
+
+    // Track old item_ids that should be cleaned up (stale connections)
+    const oldItemIds = new Set(
+      (existingAccounts || [])
+        .map((a) => a.plaid_item_id)
+        .filter((id): id is string => id !== null && id !== itemId)
+    );
+
     // Save accounts to database
     const savedAccounts = [];
     
     for (const account of accounts) {
+      const accountType = mapPlaidAccountType(account.type);
+      const matchKey = `${account.name}:${accountType}`;
+      const existingAccount = existingMap.get(matchKey);
+
       const accountData = {
         user_id: userId,
         name: account.name,
-        type: mapPlaidAccountType(account.type),
+        type: accountType,
         subtype: account.subtype || null,
-        institution_name: institution?.name || 'Unknown Institution',
+        institution_name: institutionName,
         institution_id: institution?.institution_id || null,
         balance_current: account.balances.current || 0,
         balance_available: account.balances.available,
@@ -88,15 +113,33 @@ export async function POST(request: NextRequest) {
         is_manual: false,
         is_hidden: false,
         last_synced_at: new Date().toISOString(),
+        sync_error: null, // Clear any previous sync errors
       };
 
-      const { data, error } = await supabase
-        .from('finance_accounts')
-        .upsert(accountData, {
-          onConflict: 'plaid_account_id',
-        })
-        .select()
-        .single();
+      let data, error;
+
+      if (existingAccount) {
+        // Update existing account with new Plaid credentials (re-link scenario)
+        const result = await supabase
+          .from('finance_accounts')
+          .update(accountData)
+          .eq('id', existingAccount.id)
+          .select()
+          .single();
+        data = result.data;
+        error = result.error;
+        console.log(`Updated existing account: ${account.name} (${existingAccount.id})`);
+      } else {
+        // Insert new account
+        const result = await supabase
+          .from('finance_accounts')
+          .insert(accountData)
+          .select()
+          .single();
+        data = result.data;
+        error = result.error;
+        console.log(`Created new account: ${account.name}`);
+      }
 
       if (error) {
         console.error('Error saving account:', error);
@@ -113,6 +156,24 @@ export async function POST(request: NextRequest) {
         balanceAvailable: data.balance_available ? parseFloat(data.balance_available) : undefined,
         currency: data.currency,
       });
+    }
+
+    // Clean up any stale accounts from old Plaid items for this institution
+    if (oldItemIds.size > 0) {
+      console.log(`Cleaning up stale Plaid items: ${Array.from(oldItemIds).join(', ')}`);
+      // Don't delete - just mark as disconnected by clearing Plaid fields
+      // This preserves transaction history
+      for (const oldItemId of oldItemIds) {
+        await supabase
+          .from('finance_accounts')
+          .update({
+            plaid_access_token_encrypted: null,
+            plaid_item_id: null,
+            sync_error: 'Replaced by new connection',
+          })
+          .eq('plaid_item_id', oldItemId)
+          .eq('user_id', userId);
+      }
     }
 
     // Trigger initial transaction sync

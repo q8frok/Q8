@@ -198,7 +198,7 @@ export function WealthSimulator({ className }: WealthSimulatorProps) {
             <Sparkles className="h-5 w-5 text-neon-primary" />
             Wealth Simulator
           </h3>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-white/60">
             Monte Carlo projection with {years} year horizon
           </p>
         </div>
@@ -219,7 +219,7 @@ export function WealthSimulator({ className }: WealthSimulatorProps) {
       {/* Controls */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div>
-          <label className="block text-xs text-muted-foreground mb-1">Years</label>
+          <label className="block text-xs text-white/60 mb-1">Years</label>
           <Input
             type="number"
             min="1"
@@ -230,9 +230,9 @@ export function WealthSimulator({ className }: WealthSimulatorProps) {
           />
         </div>
         <div>
-          <label className="block text-xs text-muted-foreground mb-1">Monthly Contribution</label>
+          <label className="block text-xs text-white/60 mb-1">Monthly Contribution</label>
           <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/60">$</span>
             <Input
               type="number"
               min="0"
@@ -243,7 +243,7 @@ export function WealthSimulator({ className }: WealthSimulatorProps) {
           </div>
         </div>
         <div>
-          <label className="block text-xs text-muted-foreground mb-1">Expected Return %</label>
+          <label className="block text-xs text-white/60 mb-1">Expected Return %</label>
           <Input
             type="number"
             min="0"
@@ -255,7 +255,7 @@ export function WealthSimulator({ className }: WealthSimulatorProps) {
           />
         </div>
         <div>
-          <label className="block text-xs text-muted-foreground mb-1">Inflation %</label>
+          <label className="block text-xs text-white/60 mb-1">Inflation %</label>
           <Input
             type="number"
             min="0"
@@ -288,7 +288,7 @@ export function WealthSimulator({ className }: WealthSimulatorProps) {
               <div key={purchase.id} className="flex items-center justify-between text-sm">
                 <span>{purchase.description}</span>
                 <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground">
+                  <span className="text-white/60">
                     {formatCurrency(purchase.amount)} in Year {purchase.year}
                   </span>
                   <button
@@ -418,17 +418,17 @@ export function WealthSimulator({ className }: WealthSimulatorProps) {
           {/* Summary Stats */}
           <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-glass-border">
             <div className="text-center">
-              <div className="text-xs text-muted-foreground mb-1">Starting Net Worth</div>
+              <div className="text-xs text-white/60 mb-1">Starting Net Worth</div>
               <div className="text-lg font-semibold">{formatCompactCurrency(currentNetWorth)}</div>
             </div>
             <div className="text-center">
-              <div className="text-xs text-muted-foreground mb-1">Total Contributions</div>
+              <div className="text-xs text-white/60 mb-1">Total Contributions</div>
               <div className="text-lg font-semibold text-blue-400">
                 +{formatCompactCurrency(totalContributed)}
               </div>
             </div>
             <div className="text-center">
-              <div className="text-xs text-muted-foreground mb-1">
+              <div className="text-xs text-white/60 mb-1">
                 Projected in {years} Years
               </div>
               <div className="text-lg font-semibold text-green-400">
@@ -444,7 +444,7 @@ export function WealthSimulator({ className }: WealthSimulatorProps) {
               <span className="text-green-400 font-medium">
                 Projected Growth: {formatCurrency(projectedGrowth)}
               </span>
-              <span className="text-muted-foreground">
+              <span className="text-white/50">
                 ({((projectedGrowth / (currentNetWorth + totalContributed)) * 100).toFixed(1)}% return on invested capital)
               </span>
             </div>
@@ -455,8 +455,8 @@ export function WealthSimulator({ className }: WealthSimulatorProps) {
       {/* Empty state */}
       {simulationData.length === 0 && (
         <div className="text-center py-16 rounded-xl bg-glass-bg/30 border border-glass-border">
-          <Target className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-          <p className="text-muted-foreground mb-4">
+          <Target className="h-12 w-12 mx-auto mb-4 text-white/30" />
+          <p className="text-white/50 mb-4">
             Adjust parameters and click Run Simulation to see your wealth projection
           </p>
           <Button onClick={handleSimulate} disabled={isSimulating}>

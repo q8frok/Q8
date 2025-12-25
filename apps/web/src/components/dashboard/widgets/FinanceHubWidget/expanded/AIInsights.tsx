@@ -280,7 +280,7 @@ export function AIInsights({ className }: AIInsightsProps) {
             <Sparkles className="h-5 w-5 text-neon-primary" />
             AI Financial Advisor
           </h3>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-white/60">
             Personalized insights and advice
           </p>
         </div>
@@ -293,7 +293,7 @@ export function AIInsights({ className }: AIInsightsProps) {
               'px-3 py-1.5 text-sm rounded-md transition-all',
               activeTab === 'insights'
                 ? 'bg-neon-primary/20 text-neon-primary'
-                : 'text-muted-foreground hover:text-white'
+                : 'text-white/60 hover:text-white'
             )}
           >
             Insights
@@ -304,7 +304,7 @@ export function AIInsights({ className }: AIInsightsProps) {
               'px-3 py-1.5 text-sm rounded-md transition-all flex items-center gap-1',
               activeTab === 'chat'
                 ? 'bg-neon-primary/20 text-neon-primary'
-                : 'text-muted-foreground hover:text-white'
+                : 'text-white/60 hover:text-white'
             )}
           >
             <MessageSquare className="h-3.5 w-3.5" />
@@ -323,7 +323,7 @@ export function AIInsights({ className }: AIInsightsProps) {
               size="sm"
               onClick={generateInsights}
               disabled={isLoading}
-              className="text-muted-foreground"
+              className="text-white/60"
             >
               <RefreshCw className={cn('h-4 w-4 mr-1', isLoading && 'animate-spin')} />
               Refresh
@@ -372,7 +372,7 @@ export function AIInsights({ className }: AIInsightsProps) {
             </AnimatePresence>
 
             {insights.length === 0 && !isLoading && (
-              <div className="text-center py-12 text-muted-foreground">
+              <div className="text-center py-12 text-white/50">
                 <Sparkles className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p>No insights available yet.</p>
                 <p className="text-sm">Add more transactions to get personalized advice.</p>
@@ -388,7 +388,7 @@ export function AIInsights({ className }: AIInsightsProps) {
           {/* Chat messages */}
           <div className="flex-1 overflow-y-auto space-y-4 p-4 rounded-xl bg-glass-bg/30 border border-glass-border mb-4">
             {chatMessages.length === 0 && (
-              <div className="text-center py-8 text-muted-foreground">
+              <div className="text-center py-8 text-white/50">
                 <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p className="mb-2">Ask me anything about your finances!</p>
                 <div className="flex flex-wrap gap-2 justify-center">

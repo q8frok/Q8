@@ -120,7 +120,7 @@ export function SpendingBreakdown({ className }: SpendingBreakdownProps) {
         </div>
         <div className="text-sm">
           <span className="text-white">{formatCurrency(data.value)}</span>
-          <span className="text-muted-foreground ml-2">({percentage}%)</span>
+          <span className="text-white/50 ml-2">({percentage}%)</span>
         </div>
       </div>
     );
@@ -137,11 +137,11 @@ export function SpendingBreakdown({ className }: SpendingBreakdownProps) {
               className="w-2.5 h-2.5 rounded-full"
               style={{ backgroundColor: entry.color }}
             />
-            <span className="text-muted-foreground">{entry.value}</span>
+            <span className="text-white/60">{entry.value}</span>
           </div>
         ))}
         {payload && payload.length > 6 && (
-          <span className="text-xs text-muted-foreground">+{payload.length - 6} more</span>
+          <span className="text-xs text-white/50">+{payload.length - 6} more</span>
         )}
       </div>
     );
@@ -153,7 +153,7 @@ export function SpendingBreakdown({ className }: SpendingBreakdownProps) {
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold text-white">Spending Breakdown</h3>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-white/60">
             {formatCurrency(totalSpending)} total spending
           </p>
         </div>
@@ -169,7 +169,7 @@ export function SpendingBreakdown({ className }: SpendingBreakdownProps) {
                   'px-2 py-1 text-xs rounded-md transition-all',
                   timeRange === range
                     ? 'bg-neon-primary/20 text-neon-primary'
-                    : 'text-muted-foreground hover:text-white'
+                    : 'text-white/60 hover:text-white'
                 )}
               >
                 {range === 'all' ? 'All' : range}
@@ -185,7 +185,7 @@ export function SpendingBreakdown({ className }: SpendingBreakdownProps) {
                 'p-1.5 rounded-md transition-all',
                 chartView === 'pie'
                   ? 'bg-neon-primary/20 text-neon-primary'
-                  : 'text-muted-foreground hover:text-white'
+                  : 'text-white/60 hover:text-white'
               )}
             >
               <PieChartIcon className="h-4 w-4" />
@@ -196,7 +196,7 @@ export function SpendingBreakdown({ className }: SpendingBreakdownProps) {
                 'p-1.5 rounded-md transition-all',
                 chartView === 'bar'
                   ? 'bg-neon-primary/20 text-neon-primary'
-                  : 'text-muted-foreground hover:text-white'
+                  : 'text-white/60 hover:text-white'
               )}
             >
               <BarChart3 className="h-4 w-4" />
@@ -279,15 +279,15 @@ export function SpendingBreakdown({ className }: SpendingBreakdownProps) {
         </motion.div>
       ) : (
         <div className="text-center py-16 rounded-xl bg-glass-bg/30 border border-glass-border">
-          <Calendar className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-          <p className="text-muted-foreground">No spending data for this period</p>
+          <Calendar className="h-12 w-12 mx-auto mb-4 text-white/30" />
+          <p className="text-white/50">No spending data for this period</p>
         </div>
       )}
 
       {/* Top Categories List */}
       {categoryData.length > 0 && (
         <div className="space-y-2">
-          <h4 className="text-sm font-medium text-muted-foreground">Top Categories</h4>
+          <h4 className="text-sm font-medium text-white/70">Top Categories</h4>
           <div className="grid gap-2">
             {categoryData.slice(0, 5).map((cat, index) => {
               const percentage = (cat.value / totalSpending) * 100;
@@ -307,8 +307,8 @@ export function SpendingBreakdown({ className }: SpendingBreakdownProps) {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <span className="font-medium truncate">{cat.name}</span>
-                      <span className="text-sm">{formatCurrency(cat.value)}</span>
+                      <span className="font-medium truncate text-white">{cat.name}</span>
+                      <span className="text-sm text-white">{formatCurrency(cat.value)}</span>
                     </div>
                     <div className="mt-1 h-1.5 bg-glass-bg rounded-full overflow-hidden">
                       <motion.div
@@ -320,7 +320,7 @@ export function SpendingBreakdown({ className }: SpendingBreakdownProps) {
                       />
                     </div>
                   </div>
-                  <span className="text-xs text-muted-foreground w-12 text-right">
+                  <span className="text-xs text-white/50 w-12 text-right">
                     {percentage.toFixed(1)}%
                   </span>
                 </motion.div>
