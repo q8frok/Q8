@@ -94,6 +94,7 @@ function useLongPress(
   const { threshold = 500 } = options;
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const isLongPressRef = useRef(false);
+  const touchStarted = useRef(false);
 
   const start = useCallback(() => {
     isLongPressRef.current = false;
@@ -113,12 +114,31 @@ function useLongPress(
     }
   }, [onClick]);
 
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStarted.current = true;
+    start();
+  }, [start]);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (touchStarted.current) {
+      e.preventDefault(); // Prevent ghost click
+      touchStarted.current = false;
+      clear(true);
+    }
+  }, [clear]);
+
+  const handleTouchCancel = useCallback(() => {
+    touchStarted.current = false;
+    clear(false);
+  }, [clear]);
+
   return {
     onMouseDown: start,
     onMouseUp: () => clear(true),
     onMouseLeave: () => clear(false),
-    onTouchStart: start,
-    onTouchEnd: () => clear(true),
+    onTouchStart: handleTouchStart,
+    onTouchEnd: handleTouchEnd,
+    onTouchCancel: handleTouchCancel,
   };
 }
 
@@ -150,6 +170,18 @@ function LightControlModal({
   useEffect(() => {
     setBrightness(currentBrightness);
   }, [currentBrightness]);
+
+  // Prevent body scrolling when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+      document.body.style.touchAction = 'none';
+    }
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.touchAction = '';
+    };
+  }, [isOpen]);
 
   const handleBrightnessChange = useCallback((value: number) => {
     const clampedValue = Math.max(1, Math.min(100, value));
@@ -188,6 +220,8 @@ function LightControlModal({
   }, [brightness, handleBrightnessCommit]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     isDragging.current = true;
     if (e.touches[0]) {
       handleSliderInteraction(e.touches[0].clientY);
@@ -195,12 +229,16 @@ function LightControlModal({
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     if (isDragging.current && e.touches[0]) {
       handleSliderInteraction(e.touches[0].clientY);
     }
   };
 
-  const handleTouchEnd = () => {
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     if (isDragging.current) {
       isDragging.current = false;
       handleBrightnessCommit(brightness);
@@ -240,7 +278,13 @@ function LightControlModal({
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+        style={{ touchAction: 'none' }}
         onClick={onClose}
+        onTouchEnd={(e) => {
+          if (e.target === e.currentTarget) {
+            onClose();
+          }
+        }}
       >
         <motion.div
           initial={{ scale: 0.9, opacity: 0, y: 20 }}
@@ -248,7 +292,9 @@ function LightControlModal({
           exit={{ scale: 0.9, opacity: 0, y: 20 }}
           transition={{ type: 'spring', stiffness: 300, damping: 25 }}
           className="relative w-[340px] max-h-[90vh] bg-gradient-to-b from-gray-900 to-gray-950 rounded-3xl shadow-2xl border border-white/10 overflow-hidden"
+          style={{ touchAction: 'manipulation' }}
           onClick={(e) => e.stopPropagation()}
+          onTouchEnd={(e) => e.stopPropagation()}
         >
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-white/10">
@@ -270,8 +316,8 @@ function LightControlModal({
           <div className="p-6 flex justify-center">
             <div
               ref={sliderRef}
-              className="relative w-24 h-64 rounded-[40px] cursor-pointer overflow-hidden"
-              style={{ backgroundColor: lightColorDim }}
+              className="relative w-24 h-64 rounded-[40px] cursor-pointer overflow-hidden select-none"
+              style={{ backgroundColor: lightColorDim, touchAction: 'none' }}
               onMouseDown={handleMouseDown}
               onTouchStart={handleTouchStart}
               onTouchMove={handleTouchMove}
