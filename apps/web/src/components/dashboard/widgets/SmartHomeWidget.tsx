@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Home,
@@ -164,10 +165,17 @@ function LightControlModal({
 }: LightControlModalProps) {
   const [brightness, setBrightness] = useState(currentBrightness);
   const [activeTab, setActiveTab] = useState<'brightness' | 'color' | 'effects'>('brightness');
+  const [mounted, setMounted] = useState(false);
   const sliderRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
   const backdropPointerDown = useRef(false);
   const modalOpenTime = useRef(0);
+
+  // Track mounting for portal
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
 
   useEffect(() => {
     setBrightness(currentBrightness);
@@ -206,6 +214,30 @@ function LightControlModal({
   const handleBackdropPointerCancel = useCallback(() => {
     backdropPointerDown.current = false;
   }, []);
+
+  // Touch handlers for backdrop - must preventDefault to stop touch passthrough on iOS
+  const handleBackdropTouchStart = useCallback((e: React.TouchEvent) => {
+    // Only track if touch started directly on backdrop (not on child elements)
+    if (e.target === e.currentTarget) {
+      backdropPointerDown.current = true;
+    }
+    // Don't preventDefault here - we want child elements to receive touch
+  }, []);
+
+  const handleBackdropTouchEnd = useCallback((e: React.TouchEvent) => {
+    // Ignore touches within 300ms of modal opening (prevents ghost clicks from long-press)
+    if (Date.now() - modalOpenTime.current < 300) {
+      backdropPointerDown.current = false;
+      e.preventDefault();
+      return;
+    }
+    // Only close if touch started AND ended on the backdrop itself
+    if (backdropPointerDown.current && e.target === e.currentTarget) {
+      e.preventDefault();
+      onClose();
+    }
+    backdropPointerDown.current = false;
+  }, [onClose]);
 
   const handleBrightnessChange = useCallback((value: number) => {
     const clampedValue = Math.max(1, Math.min(100, value));
@@ -319,35 +351,56 @@ function LightControlModal({
   const lightColor = currentColor ? `rgb(${currentColor[0]}, ${currentColor[1]}, ${currentColor[2]})` : '#facc15';
   const lightColorDim = currentColor ? `rgba(${currentColor[0]}, ${currentColor[1]}, ${currentColor[2]}, 0.3)` : 'rgba(250, 204, 21, 0.3)';
 
-  if (!isOpen) return null;
+  // Don't render anything on server or before mount
+  if (!mounted) return null;
 
-  return (
+  const modalContent = (
     <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
-        style={{ touchAction: 'manipulation' }}
-        onPointerDown={handleBackdropPointerDown}
-        onPointerUp={handleBackdropPointerUp}
-        onPointerCancel={handleBackdropPointerCancel}
-      >
+      {isOpen && (
         <motion.div
-          initial={{ scale: 0.9, opacity: 0, y: 20 }}
-          animate={{ scale: 1, opacity: 1, y: 0 }}
-          exit={{ scale: 0.9, opacity: 0, y: 20 }}
-          transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-          className="relative w-[340px] max-h-[90vh] bg-gradient-to-b from-gray-900 to-gray-950 rounded-3xl shadow-2xl border border-white/10 overflow-hidden"
-          style={{ touchAction: 'manipulation' }}
-          onClick={(e) => e.stopPropagation()}
-          onPointerDown={(e) => e.stopPropagation()}
-          onPointerUp={(e) => e.stopPropagation()}
-          onTouchStart={(e) => e.stopPropagation()}
-          onTouchMove={(e) => e.stopPropagation()}
-          onTouchEnd={(e) => e.stopPropagation()}
-          onTouchCancel={(e) => e.stopPropagation()}
+          key="light-control-backdrop"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm"
+          style={{
+            touchAction: 'none',
+            WebkitTapHighlightColor: 'transparent',
+            WebkitTouchCallout: 'none',
+            WebkitUserSelect: 'none',
+            userSelect: 'none',
+          }}
+          onPointerDown={handleBackdropPointerDown}
+          onPointerUp={handleBackdropPointerUp}
+          onPointerCancel={handleBackdropPointerCancel}
+          onTouchStart={handleBackdropTouchStart}
+          onTouchEnd={handleBackdropTouchEnd}
+          onTouchMove={(e) => {
+            // Prevent scroll on backdrop, but allow on modal content
+            if (e.target === e.currentTarget) {
+              e.preventDefault();
+            }
+          }}
         >
+          <motion.div
+            key="light-control-modal"
+            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+            className="relative w-[340px] max-h-[90vh] bg-gradient-to-b from-gray-900 to-gray-950 rounded-3xl shadow-2xl border border-white/10 overflow-hidden"
+            style={{
+              touchAction: 'manipulation',
+              WebkitTapHighlightColor: 'transparent',
+            }}
+            onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+            onPointerUp={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchMove={(e) => e.stopPropagation()}
+            onTouchEnd={(e) => e.stopPropagation()}
+            onTouchCancel={(e) => e.stopPropagation()}
+          >
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-white/10">
             <div>
@@ -586,10 +639,13 @@ function LightControlModal({
               </motion.div>
             )}
           </AnimatePresence>
+          </motion.div>
         </motion.div>
-      </motion.div>
+      )}
     </AnimatePresence>
   );
+
+  return createPortal(modalContent, document.body);
 }
 
 // Entity IDs from Home Assistant dashboard config
