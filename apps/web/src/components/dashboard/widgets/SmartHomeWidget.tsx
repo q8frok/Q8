@@ -225,12 +225,18 @@ function LightControlModal({
     return value;
   }, [handleBrightnessChange]);
 
+  // Track the captured pointer ID for proper release
+  const capturedPointerId = useRef<number | null>(null);
+
   // Unified pointer event handlers for slider (works on both touch and mouse)
   const handleSliderPointerDown = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    // Capture pointer to receive events even if pointer moves outside element
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    // Capture pointer on the slider container (not e.target which could be a child)
+    if (sliderRef.current) {
+      sliderRef.current.setPointerCapture(e.pointerId);
+      capturedPointerId.current = e.pointerId;
+    }
     isDragging.current = true;
     handleSliderInteraction(e.clientY);
   }, [handleSliderInteraction]);
@@ -245,8 +251,13 @@ function LightControlModal({
 
   const handleSliderPointerUp = useCallback((e: React.PointerEvent) => {
     if (isDragging.current) {
+      e.preventDefault();
       e.stopPropagation();
-      (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+      // Release pointer capture on the slider container
+      if (sliderRef.current && capturedPointerId.current !== null) {
+        sliderRef.current.releasePointerCapture(capturedPointerId.current);
+        capturedPointerId.current = null;
+      }
       isDragging.current = false;
       handleBrightnessCommit(brightness);
     }
@@ -254,10 +265,21 @@ function LightControlModal({
 
   const handleSliderPointerCancel = useCallback((e: React.PointerEvent) => {
     if (isDragging.current) {
+      e.preventDefault();
       e.stopPropagation();
-      (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+      // Release pointer capture on the slider container
+      if (sliderRef.current && capturedPointerId.current !== null) {
+        sliderRef.current.releasePointerCapture(capturedPointerId.current);
+        capturedPointerId.current = null;
+      }
       isDragging.current = false;
     }
+  }, []);
+
+  // Utility handler to prevent touch/pointer events from bubbling to backdrop
+  // This is critical for mobile - without it, touches on buttons bubble up and close the modal
+  const stopPropagationHandler = useCallback((e: React.PointerEvent | React.TouchEvent) => {
+    e.stopPropagation();
   }, []);
 
   // Mouse event listeners removed - using pointer events with capture instead
@@ -315,8 +337,11 @@ function LightControlModal({
             <motion.button
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
+              onPointerDown={stopPropagationHandler}
+              onPointerUp={stopPropagationHandler}
               onClick={onClose}
               className="h-11 w-11 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"
+              style={{ touchAction: 'manipulation' }}
             >
               <X className="h-5 w-5" />
             </motion.button>
@@ -333,16 +358,16 @@ function LightControlModal({
               onPointerUp={handleSliderPointerUp}
               onPointerCancel={handleSliderPointerCancel}
             >
-              {/* Filled portion */}
+              {/* Filled portion - pointer-events-none ensures slider container captures all touch */}
               <motion.div
-                className="absolute bottom-0 left-0 right-0 rounded-[40px]"
+                className="absolute bottom-0 left-0 right-0 rounded-[40px] pointer-events-none"
                 style={{ backgroundColor: isOn ? lightColor : '#4b5563' }}
                 animate={{ height: `${isOn ? brightness : 0}%` }}
                 transition={{ type: 'spring', stiffness: 300, damping: 30 }}
               />
-              {/* Handle */}
+              {/* Handle - pointer-events-none ensures slider container captures all touch */}
               <motion.div
-                className="absolute left-1/2 -translate-x-1/2 w-16 h-2 bg-white/90 rounded-full shadow-lg"
+                className="absolute left-1/2 -translate-x-1/2 w-16 h-2 bg-white/90 rounded-full shadow-lg pointer-events-none"
                 animate={{ bottom: `calc(${isOn ? brightness : 0}% - 4px)` }}
                 transition={{ type: 'spring', stiffness: 300, damping: 30 }}
               />
@@ -358,6 +383,8 @@ function LightControlModal({
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
+              onPointerDown={stopPropagationHandler}
+              onPointerUp={stopPropagationHandler}
               onClick={togglePower}
               className={cn(
                 'h-12 w-12 rounded-full flex items-center justify-center transition-all',
@@ -365,6 +392,7 @@ function LightControlModal({
                   ? 'bg-green-500/20 text-green-400 border-2 border-green-500/50'
                   : 'bg-white/10 text-white/60 border-2 border-white/20'
               )}
+              style={{ touchAction: 'manipulation' }}
             >
               <Power className="h-5 w-5" />
             </motion.button>
@@ -372,6 +400,8 @@ function LightControlModal({
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
+              onPointerDown={stopPropagationHandler}
+              onPointerUp={stopPropagationHandler}
               onClick={() => setActiveTab('brightness')}
               className={cn(
                 'h-12 w-12 rounded-full flex items-center justify-center transition-all',
@@ -379,12 +409,15 @@ function LightControlModal({
                   ? 'bg-amber-500/20 text-amber-400 border-2 border-amber-500/50'
                   : 'bg-white/10 text-white/60 border-2 border-white/20'
               )}
+              style={{ touchAction: 'manipulation' }}
             >
               <Sun className="h-5 w-5" />
             </motion.button>
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
+              onPointerDown={stopPropagationHandler}
+              onPointerUp={stopPropagationHandler}
               onClick={() => setActiveTab('color')}
               className={cn(
                 'h-12 w-12 rounded-full flex items-center justify-center transition-all',
@@ -392,6 +425,7 @@ function LightControlModal({
                   ? 'bg-fuchsia-500/20 text-fuchsia-400 border-2 border-fuchsia-500/50'
                   : 'bg-white/10 text-white/60 border-2 border-white/20'
               )}
+              style={{ touchAction: 'manipulation' }}
             >
               <Palette className="h-5 w-5" />
             </motion.button>
@@ -399,6 +433,8 @@ function LightControlModal({
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
+                onPointerDown={stopPropagationHandler}
+                onPointerUp={stopPropagationHandler}
                 onClick={() => setActiveTab('effects')}
                 className={cn(
                   'h-12 w-12 rounded-full flex items-center justify-center transition-all',
@@ -406,6 +442,7 @@ function LightControlModal({
                     ? 'bg-cyan-500/20 text-cyan-400 border-2 border-cyan-500/50'
                     : 'bg-white/10 text-white/60 border-2 border-white/20'
                 )}
+                style={{ touchAction: 'manipulation' }}
               >
                 <Sparkles className="h-5 w-5" />
               </motion.button>
@@ -427,11 +464,14 @@ function LightControlModal({
                       key={preset.name}
                       whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.9 }}
+                      onPointerDown={stopPropagationHandler}
+                      onPointerUp={stopPropagationHandler}
                       onClick={() => setColor(preset.rgb)}
                       className={cn(
                         'h-14 w-14 rounded-full bg-gradient-to-br shadow-lg border-2 border-white/20 hover:border-white/50 transition-all mx-auto',
                         preset.gradient
                       )}
+                      style={{ touchAction: 'manipulation' }}
                       title={preset.name}
                     />
                   ))}
@@ -452,11 +492,14 @@ function LightControlModal({
                       key={effect.value}
                       whileHover={{ scale: 1.03 }}
                       whileTap={{ scale: 0.97 }}
+                      onPointerDown={stopPropagationHandler}
+                      onPointerUp={stopPropagationHandler}
                       onClick={() => setEffect(effect.value)}
                       className={cn(
                         'min-h-[44px] py-2 px-2 rounded-xl text-[10px] font-semibold bg-gradient-to-br text-white shadow-md border border-white/10',
                         effect.gradient
                       )}
+                      style={{ touchAction: 'manipulation' }}
                     >
                       {effect.name}
                     </motion.button>
@@ -478,6 +521,8 @@ function LightControlModal({
                       key={level}
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
+                      onPointerDown={stopPropagationHandler}
+                      onPointerUp={stopPropagationHandler}
                       onClick={() => {
                         handleBrightnessChange(level);
                         handleBrightnessCommit(level);
@@ -488,6 +533,7 @@ function LightControlModal({
                           ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/30 border border-white/20'
                           : 'bg-white/10 border border-white/20 text-white/80 hover:bg-white/20'
                       )}
+                      style={{ touchAction: 'manipulation' }}
                     >
                       {level}%
                     </motion.button>
