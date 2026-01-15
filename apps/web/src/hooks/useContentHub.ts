@@ -335,6 +335,56 @@ export function useContentHub() {
     }
   }, [activeMode]);
 
+  // Fetch AI-powered recommendations
+  const fetchAIRecommendations = useCallback(async () => {
+    const { nowPlaying, history } = useContentHubStore.getState();
+
+    // Determine time of day
+    const hour = new Date().getHours();
+    let timeOfDay = 'day';
+    if (hour >= 5 && hour < 12) timeOfDay = 'morning';
+    else if (hour >= 12 && hour < 17) timeOfDay = 'afternoon';
+    else if (hour >= 17 && hour < 21) timeOfDay = 'evening';
+    else timeOfDay = 'night';
+
+    try {
+      const response = await fetch('/api/contenthub/ai-recommend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: activeMode,
+          currentTrack: nowPlaying
+            ? {
+                id: nowPlaying.id,
+                title: nowPlaying.title,
+                artist: nowPlaying.subtitle,
+              }
+            : undefined,
+          recentHistory: history.slice(0, 5).map((item) => ({
+            id: item.id,
+            title: item.title,
+            artist: item.subtitle,
+          })),
+          timeOfDay,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch AI recommendations');
+      }
+
+      const data = await response.json();
+      return {
+        success: data.success,
+        recommendations: data.recommendations as ContentItem[],
+        context: data.context,
+      };
+    } catch (error) {
+      console.error('AI Recommendations error:', error);
+      return { success: false, recommendations: [], context: null };
+    }
+  }, [activeMode]);
+
   // Fetch user's Spotify library (playlists, history, top tracks)
   const fetchSpotifyLibrary = useCallback(async () => {
     try {
@@ -474,6 +524,7 @@ export function useContentHub() {
     search,
     castToDevice,
     fetchRecommendations,
+    fetchAIRecommendations,
     fetchSpotifyLibrary,
     fetchYouTubeLibrary,
     getSpotifyDevices,

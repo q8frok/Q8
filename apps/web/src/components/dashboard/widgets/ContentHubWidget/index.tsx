@@ -10,15 +10,18 @@ import {
   Sparkles,
   X,
   Play,
+  Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useContentHubStore } from '@/lib/stores/contenthub';
 import { useContentHub, useSpotifyControls, useSpotifySync } from '@/hooks/useContentHub';
+import { useSpotifyWebPlayback } from '@/hooks/useSpotifyWebPlayback';
 import { NowPlayingCard } from './NowPlayingCard';
 import { UpNextQueue } from './UpNextQueue';
 import { QuickActions } from './QuickActions';
+import { DeviceSelectorModal, type SpotifyDevice } from './DeviceSelectorModal';
 import type { ContentItem } from '@/types/contenthub';
 
 interface ContentHubWidgetProps {
@@ -55,20 +58,26 @@ export function ContentHubWidget({ className }: ContentHubWidgetProps) {
   } = useContentHubStore();
 
   // Data fetching and API controls
-  const { 
-    search, 
-    castToDevice, 
-    fetchRecommendations, 
-    fetchSpotifyLibrary, 
+  const {
+    search,
+    castToDevice,
+    fetchRecommendations,
+    fetchAIRecommendations,
+    fetchSpotifyLibrary,
     fetchYouTubeLibrary,
     fetchPlaylistTracks,
     addToPlaylist,
     createPlaylist,
+    getSpotifyDevices,
+    transferSpotifyPlayback,
   } = useContentHub();
   const spotifyControls = useSpotifyControls();
-  
+
   // Sync Spotify state (polls every 5s)
   useSpotifySync();
+
+  // Web Playback SDK - creates a player device in the browser
+  const webPlayback = useSpotifyWebPlayback();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
@@ -91,6 +100,17 @@ export function ContentHubWidget({ className }: ContentHubWidgetProps) {
   const [selectedPlaylist, setSelectedPlaylist] = useState<{ id: string; name: string } | null>(null);
   const [playlistTracks, setPlaylistTracks] = useState<ContentItem[]>([]);
   const [playlistLoading, setPlaylistLoading] = useState(false);
+
+  // Device selector state
+  const [showDeviceSelector, setShowDeviceSelector] = useState(false);
+  const [currentDeviceName, setCurrentDeviceName] = useState<string | null>(null);
+
+  // Cast feedback state
+  const [castMessage, setCastMessage] = useState<{
+    type: 'loading' | 'success' | 'error';
+    text: string;
+    fallbackUrl?: string;
+  } | null>(null);
 
   // Fetch recommendations on mount and mode change
   useEffect(() => {
@@ -353,49 +373,148 @@ export function ContentHubWidget({ className }: ContentHubWidgetProps) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handlePlayPause, handleNext, handlePrevious, isExpanded, toggleExpanded]);
 
-  // Handle AI discover action - fetch recommendations based on mode
-  const handleAIDiscover = useCallback(async () => {
-    const mode = useContentHubStore.getState().activeMode;
-    const results = await search(`${mode} music playlist`);
-    if (results.length > 0) {
-      results.forEach(item => useContentHubStore.getState().addToQueue(item));
-    }
-  }, [search]);
+  // Handle AI discover action - fetch AI-powered recommendations
+  const [aiDiscoverLoading, setAiDiscoverLoading] = useState(false);
 
-  // Handle Smart Home casting - cast to Apple TV via Home Assistant
+  const handleAIDiscover = useCallback(async () => {
+    setAiDiscoverLoading(true);
+    try {
+      const result = await fetchAIRecommendations();
+      if (result.success && result.recommendations.length > 0) {
+        result.recommendations.forEach((item) => {
+          useContentHubStore.getState().addToQueue(item);
+        });
+        // Brief success feedback (toast handled by setError with positive message)
+        setError(`Added ${result.recommendations.length} tracks to your queue`);
+        // Clear the message after 3 seconds
+        setTimeout(() => setError(null), 3000);
+      } else {
+        setError('No recommendations found. Try again later.');
+      }
+    } catch (error) {
+      console.error('AI Discover error:', error);
+      setError('Failed to get AI recommendations');
+    } finally {
+      setAiDiscoverLoading(false);
+    }
+  }, [fetchAIRecommendations, setError]);
+
+  // Get all available devices including the web player
+  const getDevicesWithWebPlayer = useCallback(async (): Promise<SpotifyDevice[]> => {
+    const devices = await getSpotifyDevices();
+
+    // Add web player device if it's ready
+    if (webPlayback.isReady && webPlayback.deviceId) {
+      const webPlayerDevice: SpotifyDevice = {
+        id: webPlayback.deviceId,
+        name: `${webPlayback.deviceName} (This Browser)`,
+        type: 'Computer',
+        isActive: webPlayback.isActive,
+        volume: webPlayback.volume,
+        supportsVolume: true,
+      };
+
+      // Put web player at the top of the list
+      return [webPlayerDevice, ...devices.filter((d: SpotifyDevice) => d.id !== webPlayback.deviceId)];
+    }
+
+    return devices;
+  }, [getSpotifyDevices, webPlayback.isReady, webPlayback.deviceId, webPlayback.deviceName, webPlayback.isActive, webPlayback.volume]);
+
+  // Handle device selection - transfer playback and start playing current track
+  const handleDeviceSelect = useCallback(async (deviceId: string, deviceName: string) => {
+    // Special handling for web player device
+    if (deviceId === webPlayback.deviceId) {
+      setCurrentDeviceName(deviceName);
+
+      // If we have a current track, start playing it on the web player
+      if (nowPlaying?.source === 'spotify' && nowPlaying?.sourceMetadata?.uri) {
+        await webPlayback.play(nowPlaying.sourceMetadata.uri as string);
+        return { success: true, message: `Playing on ${deviceName}` };
+      }
+
+      return { success: true, message: `Switched to ${deviceName}` };
+    }
+
+    // Normal device transfer
+    const result = await transferSpotifyPlayback(deviceId, deviceName);
+    if (result.success) {
+      setCurrentDeviceName(deviceName);
+
+      // If we have a current track, start playing it on the new device
+      if (nowPlaying?.source === 'spotify' && nowPlaying?.sourceMetadata?.uri) {
+        // Small delay to let the device transfer complete
+        setTimeout(async () => {
+          await spotifyControls.play(nowPlaying.sourceMetadata?.uri as string);
+        }, 500);
+      }
+    }
+    return result;
+  }, [transferSpotifyPlayback, nowPlaying, spotifyControls, webPlayback]);
+
+  // Open device selector modal
+  const openDeviceSelector = useCallback(() => {
+    setShowDeviceSelector(true);
+  }, []);
+
+  // Handle Smart Home casting - uses Spotify Connect for Spotify, Home Assistant for others
   const handleSmartHome = useCallback(async () => {
     console.log('Cast button clicked, nowPlaying:', nowPlaying);
-    
+
     if (!nowPlaying) {
       console.log('No content to cast');
       setError('No content to cast');
       return;
     }
 
+    // For Spotify content, use Spotify Connect (device selector)
+    if (nowPlaying.source === 'spotify') {
+      console.log('Spotify content - opening device selector');
+      openDeviceSelector();
+      return;
+    }
+
+    // For non-Spotify content (YouTube etc), use Home Assistant
     setCastLoading(true);
+    setCastMessage({
+      type: 'loading',
+      text: 'Launching YouTube on Apple TV...',
+    });
+
     console.log('Starting cast to media_player.living_room...');
-    
+
     try {
       const result = await castToDevice(nowPlaying, 'media_player.living_room');
       console.log('Cast result:', result);
-      
+
       if (result.success) {
-        // Show success message
         console.log('Cast successful:', result.message);
         setError(null);
-        // Show a brief success indicator
-        alert(`Cast: ${result.message}`);
+        setCastMessage({
+          type: 'success',
+          text: 'YouTube launched on Apple TV!',
+        });
+        // Auto-dismiss success after 4 seconds
+        setTimeout(() => setCastMessage(null), 4000);
       } else {
         console.log('Cast failed:', result.error);
-        setError(result.error || 'Cast failed');
+        setCastMessage({
+          type: 'error',
+          text: result.error || 'Cast failed. Try opening in browser instead.',
+          fallbackUrl: nowPlaying.playbackUrl || nowPlaying.deepLinkUrl,
+        });
       }
     } catch (err) {
       console.error('Cast error:', err);
-      setError('Cast failed');
+      setCastMessage({
+        type: 'error',
+        text: 'Cast failed. Try opening in browser instead.',
+        fallbackUrl: nowPlaying.playbackUrl || nowPlaying.deepLinkUrl,
+      });
     } finally {
       setCastLoading(false);
     }
-  }, [nowPlaying, castToDevice, setError]);
+  }, [nowPlaying, castToDevice, setError, openDeviceSelector]);
 
   // Handle Voice control
   const handleVoice = useCallback(() => {
@@ -538,6 +657,41 @@ export function ContentHubWidget({ className }: ContentHubWidgetProps) {
           )}
         </AnimatePresence>
 
+        {/* Cast feedback banner */}
+        <AnimatePresence>
+          {castMessage && (
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className={cn(
+                'absolute top-0 left-0 right-0 z-50 text-white text-xs px-3 py-1.5 flex items-center gap-2',
+                castMessage.type === 'loading' && 'bg-neon-primary/90',
+                castMessage.type === 'success' && 'bg-green-500/90',
+                castMessage.type === 'error' && 'bg-red-500/90'
+              )}
+            >
+              {castMessage.type === 'loading' && (
+                <Loader2 className="h-3 w-3 animate-spin flex-shrink-0" />
+              )}
+              <span className="flex-1">{castMessage.text}</span>
+              {castMessage.type === 'error' && castMessage.fallbackUrl && (
+                <a
+                  href={castMessage.fallbackUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-2 py-0.5 bg-white/20 rounded text-[10px] hover:bg-white/30 transition-colors flex-shrink-0"
+                >
+                  Open in Browser
+                </a>
+              )}
+              <button onClick={() => setCastMessage(null)} className="flex-shrink-0">
+                <X className="h-3 w-3" />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Loading overlay */}
         <AnimatePresence>
           {isLoading && (
@@ -658,11 +812,13 @@ export function ContentHubWidget({ className }: ContentHubWidgetProps) {
           onShuffle={nowPlaying?.source === 'spotify' ? handleShuffle : undefined}
           onRepeat={nowPlaying?.source === 'spotify' ? handleRepeat : undefined}
           onVolumeChange={nowPlaying?.source === 'spotify' ? handleVolumeChange : undefined}
+          onDeviceSelect={nowPlaying?.source === 'spotify' ? openDeviceSelector : undefined}
           shuffleState={shuffleState}
           repeatState={repeatState}
           isLoading={controlLoading}
           compact={false}
           className="min-h-[200px]"
+          currentDeviceName={currentDeviceName}
         />
 
         {/* Quick Actions */}
@@ -671,6 +827,7 @@ export function ContentHubWidget({ className }: ContentHubWidgetProps) {
             onAIDiscover={handleAIDiscover}
             onSmartHome={handleSmartHome}
             onVoice={handleVoice}
+            aiDiscoverLoading={aiDiscoverLoading}
           />
         </div>
 
@@ -715,15 +872,27 @@ export function ContentHubWidget({ className }: ContentHubWidgetProps) {
               onAIDiscover={handleAIDiscover}
               onSmartHome={handleSmartHome}
               onVoice={handleVoice}
+              aiDiscoverLoading={aiDiscoverLoading}
               onOpenPlaylist={handleOpenPlaylist}
               onClosePlaylist={handleClosePlaylist}
               onAddToPlaylist={handleAddToPlaylist}
               onCreatePlaylist={handleCreatePlaylist}
+              onDeviceSelect={openDeviceSelector}
+              currentDeviceName={currentDeviceName}
             />
           )}
         </AnimatePresence>,
         document.body
       )}
+
+      {/* Device Selector Modal */}
+      <DeviceSelectorModal
+        isOpen={showDeviceSelector}
+        onClose={() => setShowDeviceSelector(false)}
+        onSelectDevice={handleDeviceSelect}
+        getDevices={getDevicesWithWebPlayer}
+        currentDeviceId={webPlayback.isActive ? webPlayback.deviceId : null}
+      />
     </>
   );
 }
@@ -761,6 +930,9 @@ interface MediaCommandCenterProps {
   onCreatePlaylist: (name: string) => Promise<{ success: boolean; playlist?: unknown; error?: string }>;
   onSmartHome: () => void;
   onVoice: () => void;
+  onDeviceSelect?: () => void;
+  currentDeviceName?: string | null;
+  aiDiscoverLoading?: boolean;
 }
 
 function MediaCommandCenter({
@@ -789,10 +961,13 @@ function MediaCommandCenter({
   onAIDiscover,
   onSmartHome,
   onVoice,
+  aiDiscoverLoading,
   onOpenPlaylist,
   onClosePlaylist,
   onAddToPlaylist,
   onCreatePlaylist,
+  onDeviceSelect,
+  currentDeviceName,
 }: MediaCommandCenterProps) {
   const { history, savedForLater, activeMode } = useContentHubStore();
   const [showAllRecommendations, setShowAllRecommendations] = useState(false);
@@ -832,6 +1007,7 @@ function MediaCommandCenter({
               onAIDiscover={onAIDiscover}
               onSmartHome={onSmartHome}
               onVoice={onVoice}
+              aiDiscoverLoading={aiDiscoverLoading}
               className="flex-row-reverse"
             />
           </div>
@@ -849,9 +1025,11 @@ function MediaCommandCenter({
                   onNext={onNext}
                   onPrevious={onPrevious}
                   onSeek={onSeek}
+                  onDeviceSelect={nowPlaying?.source === 'spotify' ? onDeviceSelect : undefined}
                   showControls={true}
                   compact={false}
                   className="min-h-[300px]"
+                  currentDeviceName={currentDeviceName}
                 />
               </div>
             </div>

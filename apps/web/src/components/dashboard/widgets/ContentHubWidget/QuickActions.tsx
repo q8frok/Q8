@@ -10,6 +10,7 @@ import {
   Sparkles,
   Home,
   Mic,
+  Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -21,6 +22,7 @@ interface QuickActionsProps {
   onAIDiscover?: () => void;
   onSmartHome?: () => void;
   onVoice?: () => void;
+  aiDiscoverLoading?: boolean;
   className?: string;
 }
 
@@ -43,6 +45,7 @@ export function QuickActions({
   onAIDiscover,
   onSmartHome,
   onVoice,
+  aiDiscoverLoading = false,
   className,
 }: QuickActionsProps) {
   const { activeMode, setMode } = useContentHubStore();
@@ -86,11 +89,18 @@ export function QuickActions({
           <Button
             variant="ghost"
             size="sm"
-            className="h-8 text-xs gap-1.5 text-text-muted hover:text-neon-primary"
+            className="h-8 text-xs gap-1.5 text-text-muted hover:text-neon-primary disabled:opacity-50"
             onClick={onAIDiscover}
+            disabled={aiDiscoverLoading}
           >
-            <Sparkles className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">AI Suggest</span>
+            {aiDiscoverLoading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="h-3.5 w-3.5" />
+            )}
+            <span className="hidden sm:inline">
+              {aiDiscoverLoading ? 'Loading...' : 'AI Suggest'}
+            </span>
           </Button>
         )}
 

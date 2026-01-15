@@ -37,12 +37,14 @@ interface NowPlayingCardProps {
   onShuffle?: () => void;
   onRepeat?: () => void;
   onVolumeChange?: (volume: number) => void;
+  onDeviceSelect?: () => void;
   shuffleState?: boolean;
   repeatState?: 'off' | 'track' | 'context';
   isLoading?: boolean;
   showControls?: boolean;
   compact?: boolean;
   className?: string;
+  currentDeviceName?: string | null;
 }
 
 /**
@@ -63,12 +65,14 @@ export function NowPlayingCard({
   onShuffle,
   onRepeat,
   onVolumeChange,
+  onDeviceSelect,
   shuffleState = false,
   repeatState = 'off',
   isLoading = false,
   showControls = true,
   compact = false,
   className,
+  currentDeviceName,
 }: NowPlayingCardProps) {
   const { volume, setVolume } = useContentHubStore();
   const { gradientStyle } = useColorTheme(item?.thumbnailUrl ?? null);
@@ -179,14 +183,18 @@ export function NowPlayingCard({
           </span>
 
           <div className="flex items-center gap-1">
-            {/* Cast button */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 text-white/70 hover:text-white"
-            >
-              <Cast className="h-3 w-3" />
-            </Button>
+            {/* Device selector button */}
+            {item?.source === 'spotify' && onDeviceSelect && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 text-white/70 hover:text-white"
+                onClick={onDeviceSelect}
+                title={currentDeviceName ? `Playing on: ${currentDeviceName}` : 'Select device'}
+              >
+                <Cast className="h-3 w-3" />
+              </Button>
+            )}
 
             {/* Expand button */}
             {onExpand && (
