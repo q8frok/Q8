@@ -270,12 +270,18 @@ export function StreamingMessage({
             {content ? (
               <ReactMarkdown
                 components={{
-                  code({ inline, className, children, ...props }: { inline?: boolean; className?: string; children?: React.ReactNode }) {
-                    const match = /language-(\w+)/.exec(className || '');
+                  // Handle block code (pre > code) - extract code element and render with syntax highlighting
+                  pre({ children }) {
+                    // Extract the code element from children
+                    const codeElement = children as React.ReactElement<{ className?: string; children?: React.ReactNode }>;
+                    const className = codeElement?.props?.className || '';
+                    const codeContent = codeElement?.props?.children;
+                    const match = /language-(\w+)/.exec(className);
                     const language = match ? match[1] : '';
+                    const codeString = String(codeContent).replace(/\n$/, '');
 
-                    return !inline ? (
-                      <div className="relative group/code">
+                    return (
+                      <div className="relative group/code my-3">
                         {language && (
                           <div className="absolute top-2 right-2 z-10 px-2 py-1 bg-surface-3 border border-border-subtle rounded text-xs text-text-muted">
                             {language}
@@ -283,19 +289,27 @@ export function StreamingMessage({
                         )}
                         <SyntaxHighlighter
                           style={vscDarkPlus}
-                          language={language}
+                          language={language || 'text'}
                           PreTag="div"
                           className="rounded-lg !bg-black/30 !p-4"
-                          {...props}
                         >
-                          {String(children).replace(/\n$/, '')}
+                          {codeString}
                         </SyntaxHighlighter>
                       </div>
-                    ) : (
-                      <code className={className} {...props}>
+                    );
+                  },
+                  // Inline code only (not wrapped in pre)
+                  code({ className, children, ...props }: { className?: string; children?: React.ReactNode }) {
+                    // This is inline code - render as styled inline element
+                    return (
+                      <code className={cn('px-1 py-0.5 rounded bg-surface-3 text-neon-accent text-sm', className)} {...props}>
                         {children}
                       </code>
                     );
+                  },
+                  // Ensure paragraphs render correctly
+                  p({ children }) {
+                    return <p className="mb-2 last:mb-0">{children}</p>;
                   },
                 }}
               >

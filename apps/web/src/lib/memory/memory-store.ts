@@ -330,6 +330,11 @@ export function getUserPreferences(userId: string): UserPreferences {
       agentPersonality: 'friendly',
       memoryRetention: 'month',
       shareAnalytics: false,
+      // Display settings for AI enhancement features
+      showToolExecutions: true,
+      showAgentMarkers: true,
+      showCitations: true,
+      showRoutingDecisions: false,
       custom: {},
       updatedAt: new Date(),
     };

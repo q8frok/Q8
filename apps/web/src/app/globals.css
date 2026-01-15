@@ -831,3 +831,69 @@
   text-decoration: underline;
   cursor: pointer;
 }
+
+/* ============================================
+   Animated Background Keyframes
+   ============================================ */
+@keyframes orb-float-1 {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+  }
+  25% {
+    transform: translate(50px, 30px) scale(1.05);
+  }
+  50% {
+    transform: translate(20px, 60px) scale(0.95);
+  }
+  75% {
+    transform: translate(-30px, 20px) scale(1.02);
+  }
+}
+
+@keyframes orb-float-2 {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(-40px, -50px) scale(1.08);
+  }
+  66% {
+    transform: translate(30px, -20px) scale(0.92);
+  }
+}
+
+@keyframes orb-float-3 {
+  0%, 100% {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+  }
+  50% {
+    transform: translate(80px, -40px) rotate(180deg) scale(1.1);
+  }
+}
+
+@keyframes orb-float-4 {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.15;
+  }
+  50% {
+    transform: translate(-60px, 40px) scale(1.2);
+    opacity: 0.25;
+  }
+}
+
+.animate-orb-1 {
+  animation: orb-float-1 25s ease-in-out infinite;
+}
+
+.animate-orb-2 {
+  animation: orb-float-2 30s ease-in-out infinite;
+}
+
+.animate-orb-3 {
+  animation: orb-float-3 35s ease-in-out infinite;
+}
+
+.animate-orb-4 {
+  animation: orb-float-4 20s ease-in-out infinite;
+}

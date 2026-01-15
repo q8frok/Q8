@@ -3,7 +3,7 @@
  * Routes different agent types to their specialized models
  */
 
-export type AgentType = 'orchestrator' | 'coder' | 'researcher' | 'secretary' | 'personality' | 'home';
+export type AgentType = 'orchestrator' | 'coder' | 'researcher' | 'secretary' | 'personality' | 'home' | 'finance';
 
 export interface ModelConfig {
   model: string;
@@ -62,6 +62,14 @@ export function getModel(agentType: AgentType): ModelConfig {
       return {
         model: 'gpt-5.1-chat-latest',
         apiKey: process.env.OPENAI_API_KEY,
+      };
+
+    case 'finance':
+      // Gemini 3.0 Pro for financial analysis (cost-efficient with long context)
+      return {
+        model: 'gemini-3-pro-preview-11-2025',
+        baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
+        apiKey: process.env.GOOGLE_GENERATIVE_AI_KEY,
       };
 
     default:

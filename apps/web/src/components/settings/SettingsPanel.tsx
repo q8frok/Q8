@@ -17,6 +17,11 @@ import {
   Check,
   Sparkles,
   AlertCircle,
+  Eye,
+  Wrench,
+  MessageSquare,
+  Quote,
+  Route,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -31,11 +36,12 @@ interface SettingsPanelProps {
   onPreferencesChange?: (preferences: Partial<UserPreferences>) => void;
 }
 
-type SettingsTab = 'profile' | 'appearance' | 'voice' | 'agents' | 'memories' | 'privacy' | 'shortcuts';
+type SettingsTab = 'profile' | 'appearance' | 'display' | 'voice' | 'agents' | 'memories' | 'privacy' | 'shortcuts';
 
 const tabs: { id: SettingsTab; label: string; icon: typeof User }[] = [
   { id: 'profile', label: 'Profile', icon: User },
   { id: 'appearance', label: 'Appearance', icon: Palette },
+  { id: 'display', label: 'Display', icon: Eye },
   { id: 'voice', label: 'Voice', icon: Volume2 },
   { id: 'agents', label: 'Agents', icon: Brain },
   { id: 'memories', label: 'Memories', icon: Sparkles },
@@ -49,6 +55,10 @@ const defaultPreferences: Partial<UserPreferences> = {
   preferredVoice: 'nova',
   speechSpeed: 1.0,
   theme: 'dark',
+  showToolExecutions: true,
+  showAgentMarkers: true,
+  showCitations: true,
+  showRoutingDecisions: false,
   defaultAgent: 'personality',
   agentPersonality: 'friendly',
   memoryRetention: 'month',
@@ -215,6 +225,13 @@ export function SettingsPanel({
 
               {activeTab === 'appearance' && (
                 <AppearanceSettings
+                  preferences={preferences}
+                  updatePreference={updatePreference}
+                />
+              )}
+
+              {activeTab === 'display' && (
+                <DisplaySettings
                   preferences={preferences}
                   updatePreference={updatePreference}
                 />
@@ -562,6 +579,71 @@ function ShortcutsSettings() {
             </div>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+function DisplaySettings({ preferences, updatePreference }: SettingsSectionProps) {
+  const displayOptions = [
+    {
+      key: 'showToolExecutions' as const,
+      label: 'Tool Executions',
+      description: 'Show when Q8 uses tools like search, calendar, or home controls',
+      icon: Wrench,
+    },
+    {
+      key: 'showAgentMarkers' as const,
+      label: 'Agent Indicators',
+      description: 'Show which specialist agent is handling your request',
+      icon: MessageSquare,
+    },
+    {
+      key: 'showCitations' as const,
+      label: 'Inline Citations',
+      description: 'Show source references in research responses',
+      icon: Quote,
+    },
+    {
+      key: 'showRoutingDecisions' as const,
+      label: 'Routing Details',
+      description: 'Show why a specific agent was chosen for your request',
+      icon: Route,
+    },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div className="setting-section">
+        <h3 className="setting-section-header">Response Visibility</h3>
+        <p className="text-sm text-text-muted mb-4">
+          Control what information is shown during AI responses. All options are toggleable during chat.
+        </p>
+        <div className="space-y-3">
+          {displayOptions.map((option) => (
+            <SettingRow
+              key={option.key}
+              label={option.label}
+              description={option.description}
+            >
+              <div className="flex items-center gap-3">
+                <option.icon className="h-4 w-4 text-text-muted" />
+                <Toggle
+                  checked={preferences[option.key] ?? true}
+                  onChange={(checked) => updatePreference(option.key, checked)}
+                  aria-label={option.label}
+                />
+              </div>
+            </SettingRow>
+          ))}
+        </div>
+      </div>
+
+      <div className="setting-section">
+        <h3 className="setting-section-header">Quick Toggle</h3>
+        <p className="text-sm text-text-muted">
+          Press <kbd className="px-1.5 py-0.5 text-xs rounded bg-surface-3 border border-border-subtle font-mono">T</kbd> during a response to toggle tool visibility on/off.
+        </p>
       </div>
     </div>
   );

@@ -42,10 +42,21 @@ interface AgentHandoffProps {
 }
 
 /**
+ * Default agent configuration (fallback)
+ */
+const defaultAgentConfig = {
+  name: 'Q8',
+  icon: Bot,
+  bgColor: 'bg-gray-500/20',
+  iconColor: 'text-gray-400',
+  borderColor: 'border-gray-500/30',
+};
+
+/**
  * Get agent configuration
  */
-function getAgentConfig(role: AgentRole) {
-  const configs = {
+function getAgentConfig(role: AgentRole | string | undefined) {
+  const configs: Record<string, typeof defaultAgentConfig> = {
     orchestrator: {
       name: 'Q8',
       icon: Bot,
@@ -90,7 +101,7 @@ function getAgentConfig(role: AgentRole) {
     },
   };
 
-  return configs[role];
+  return configs[role || ''] || defaultAgentConfig;
 }
 
 /**

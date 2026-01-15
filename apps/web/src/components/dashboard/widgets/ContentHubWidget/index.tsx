@@ -324,8 +324,13 @@ export function ContentHubWidget({ className }: ContentHubWidgetProps) {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Only handle when not in input
-      if (e.target instanceof HTMLInputElement) return;
+      // Only handle when not in input, textarea, or contenteditable element
+      const target = e.target as HTMLElement;
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target.isContentEditable
+      ) return;
 
       switch (e.key) {
         case ' ':

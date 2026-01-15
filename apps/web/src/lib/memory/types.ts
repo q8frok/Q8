@@ -111,7 +111,13 @@ export interface UserPreferences {
   // UI preferences
   theme: 'light' | 'dark' | 'system';
   dashboardLayout: string[];
-  
+
+  // Tool & Agent visibility
+  showToolExecutions: boolean;
+  showAgentMarkers: boolean;
+  showCitations: boolean;
+  showRoutingDecisions: boolean;
+
   // Agent preferences
   defaultAgent: string;
   agentPersonality: 'professional' | 'friendly' | 'witty';

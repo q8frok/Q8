@@ -66,18 +66,34 @@ export function useChat(options: UseChatOptions) {
     threadId: initialThreadId || null,
   });
 
+  // Track if we should skip the next message load (when thread is created during streaming)
+  const skipNextLoadRef = useRef(false);
+
   // Load existing messages when threadId changes
   useEffect(() => {
     if (initialThreadId) {
-      loadMessages(initialThreadId);
+      // Check current state to decide if we should load
+      const shouldLoad = !state.isStreaming && !state.isLoading && state.threadId !== initialThreadId;
+
+      // Update threadId immediately
       setState(prev => ({ ...prev, threadId: initialThreadId }));
+
+      // Only load messages if we're switching to a different thread and not streaming
+      if (shouldLoad && !skipNextLoadRef.current) {
+        loadMessages(initialThreadId);
+      }
+
+      // Reset skip flag
+      skipNextLoadRef.current = false;
     } else {
-      // Clear messages for new thread
-      setState(prev => ({
-        ...prev,
-        messages: [],
-        threadId: null,
-      }));
+      // Clear messages for new thread only if not streaming
+      if (!state.isStreaming && !state.isLoading) {
+        setState(prev => ({
+          ...prev,
+          messages: [],
+          threadId: null,
+        }));
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialThreadId]);
@@ -261,6 +277,8 @@ export function useChat(options: UseChatOptions) {
     switch (event.type) {
       case 'thread_created':
         if (event.threadId) {
+          // Skip the next message load since we're streaming and have current state
+          skipNextLoadRef.current = true;
           setState(prev => ({ ...prev, threadId: event.threadId! }));
           onThreadCreated?.(event.threadId);
         }

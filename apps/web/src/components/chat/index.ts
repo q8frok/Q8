@@ -25,3 +25,9 @@ export { ChatWithThreads } from './ChatWithThreads';
 // Supporting components
 export { AgentIndicator } from './AgentIndicator';
 export { MessageActions } from './MessageActions';
+
+// Agent markers and visibility (AI Enhancement)
+export { AgentMarker, AgentSegmentDivider, CompactAgentBadge } from './AgentMarker';
+
+// Citations for research responses (AI Enhancement)
+export { InlineCitation, CitationList, parseCitations, type CitationSource } from './Citation';

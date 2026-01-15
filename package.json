@@ -14,8 +14,9 @@
   },
   "devDependencies": {
     "@turbo/gen": "^2.0.0",
-    "turbo": "^2.0.0",
     "prettier": "^3.2.5",
+    "supabase": "^2.72.7",
+    "turbo": "^2.0.0",
     "typescript": "^5.4.5"
   },
   "packageManager": "pnpm@9.1.0",

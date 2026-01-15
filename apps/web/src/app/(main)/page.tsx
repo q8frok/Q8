@@ -24,6 +24,7 @@ import { UserProfile } from '@/components/auth/UserProfile';
 import { CommandPalette } from '@/components/CommandPalette';
 import { SettingsPanel } from '@/components/settings';
 import { ToastProvider, toast } from '@/components/ui/toast';
+import { AnimatedBackground } from '@/components/shared/AnimatedBackground';
 
 const USER_ID = 'demo-user';
 
@@ -61,17 +62,17 @@ export default function DashboardPage() {
 
   return (
     <ToastProvider>
-    <main className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-      <div className="container mx-auto py-6 px-4">
+    <main className="min-h-screen relative">
+      {/* Animated Background */}
+      <AnimatedBackground />
+
+      <div className="container mx-auto py-6 px-4 relative z-10">
         {/* Header */}
         <header className="mb-6 flex justify-between items-center">
           <div>
-            <h1 className="text-4xl font-bold text-white mb-2">
-              Q8 Dashboard
+            <h1 className="text-4xl font-bold text-white tracking-tight">
+              Q8
             </h1>
-            <p className="text-white/60">
-              Local-First Multi-Model Personal Assistant
-            </p>
           </div>
           <div className="flex items-center gap-3">
             {/* Command Palette Button */}

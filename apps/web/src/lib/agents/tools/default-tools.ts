@@ -165,7 +165,7 @@ const DEFAULT_LOCATION = {
 export async function executeDefaultTool(
   toolName: string,
   args: Record<string, unknown>
-): Promise<{ success: boolean; result?: unknown; error?: string }> {
+): Promise<{ success: boolean; message: string; data?: unknown }> {
   try {
     switch (toolName) {
       case 'get_current_datetime': {
@@ -219,7 +219,8 @@ export async function executeDefaultTool(
 
         return {
           success: true,
-          result: {
+          message: 'Current date/time retrieved',
+          data: {
             formatted: result,
             iso: now.toISOString(),
             timezone,
@@ -245,7 +246,8 @@ export async function executeDefaultTool(
 
         return {
           success: true,
-          result: {
+          message: `Weather for ${weather.cityName}`,
+          data: {
             temperature: `${Math.round(weather.temp)}°F`,
             feelsLike: `${Math.round(weather.feelsLike)}°F`,
             condition: weather.condition,
@@ -271,7 +273,8 @@ export async function executeDefaultTool(
 
         return {
           success: true,
-          result: {
+          message: `${days}-day forecast for ${city || DEFAULT_LOCATION.city}`,
+          data: {
             location: city || DEFAULT_LOCATION.city,
             forecast: forecast.map((day) => ({
               date: day.date.toLocaleDateString('en-US', {
@@ -291,7 +294,7 @@ export async function executeDefaultTool(
       case 'calculate': {
         const expression = args.expression as string;
         const result = evaluateExpression(expression);
-        return { success: true, result };
+        return { success: true, message: 'Calculation complete', data: result };
       }
 
       case 'convert_units': {
@@ -302,7 +305,8 @@ export async function executeDefaultTool(
         const result = convertUnits(value, fromUnit, toUnit);
         return {
           success: true,
-          result: {
+          message: `Converted ${value} ${fromUnit} to ${result.toFixed(2)} ${toUnit}`,
+          data: {
             original: `${value} ${fromUnit}`,
             converted: `${result.toFixed(2)} ${toUnit}`,
             value: result,
@@ -317,20 +321,20 @@ export async function executeDefaultTool(
         // For now, return a placeholder - integrate with Tavily/Brave later
         return {
           success: true,
-          result: {
+          message: `Web search for "${query}" would return ${numResults} results. Integration pending.`,
+          data: {
             query,
-            message: `Web search for "${query}" would return ${numResults} results. Integration pending.`,
             note: 'For real-time search, the Researcher agent (Perplexity) has this capability built-in.',
           },
         };
       }
 
       default:
-        return { success: false, error: `Unknown tool: ${toolName}` };
+        return { success: false, message: `Unknown tool: ${toolName}` };
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return { success: false, error: errorMessage };
+    return { success: false, message: errorMessage };
   }
 }
 
