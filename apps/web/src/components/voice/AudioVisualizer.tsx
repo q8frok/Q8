@@ -125,10 +125,10 @@ export function AudioVisualizer({
   className,
 }: AudioVisualizerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animationRef = useRef<number>();
-  const audioContextRef = useRef<AudioContext>();
-  const analyserRef = useRef<AnalyserNode>();
-  const sourceRef = useRef<MediaStreamAudioSourceNode>();
+  const animationRef = useRef<number | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
 
   const [isActive, setIsActive] = useState(false);
 
@@ -307,20 +307,20 @@ export function AudioVisualizer({
   const cleanup = () => {
     if (animationRef.current) {
       cancelAnimationFrame(animationRef.current);
-      animationRef.current = undefined;
+      animationRef.current = null;
     }
 
     if (sourceRef.current) {
       sourceRef.current.disconnect();
-      sourceRef.current = undefined;
+      sourceRef.current = null;
     }
 
     if (audioContextRef.current?.state !== 'closed') {
       audioContextRef.current?.close();
-      audioContextRef.current = undefined;
+      audioContextRef.current = null;
     }
 
-    analyserRef.current = undefined;
+    analyserRef.current = null;
     setIsActive(false);
   };
 
