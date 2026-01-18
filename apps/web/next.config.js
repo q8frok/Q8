@@ -22,6 +22,25 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'i.scdn.co',
       },
+      // Google profile images (OAuth)
+      {
+        protocol: 'https',
+        hostname: 'lh3.googleusercontent.com',
+      },
+      // Google CDN variations
+      {
+        protocol: 'https',
+        hostname: '*.googleusercontent.com',
+      },
+      // Gravatar (common email avatar fallback)
+      {
+        protocol: 'https',
+        hostname: 'www.gravatar.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'gravatar.com',
+      },
     ],
   },
 };

@@ -62,7 +62,9 @@
       "Bash(grep:*)",
       "Bash(Remove-Item -Path \"C:\\\\Users\\\\Minki\\\\Q8\\\\apps\\\\web\\\\.next\" -Recurse -Force -ErrorAction SilentlyContinue)",
       "Bash(Write-Output \"Cleared .next folder\")",
-      "mcp__ide__getDiagnostics"
+      "mcp__ide__getDiagnostics",
+      "Bash(git status:*)",
+      "Bash(cmd /c \"cd /d C:\\\\Users\\\\Minki\\\\Q8\\\\apps\\\\web && rmdir /s /q .next 2>nul & echo Cache cleaned\")"
     ],
     "deny": [],
     "ask": []
