@@ -17,6 +17,11 @@ import {
   githubPRSchema,
   calendarEventSchema,
   taskSchema,
+  notesSchema,
+  noteFoldersSchema,
+  threadsSchema,
+  agentMemoriesSchema,
+  syncCheckpointsSchema,
 } from './schema';
 
 // Add essential plugins
@@ -38,6 +43,11 @@ interface Q8DatabaseCollections {
   github_prs: RxCollection;
   calendar_events: RxCollection;
   tasks: RxCollection;
+  notes: RxCollection;
+  note_folders: RxCollection;
+  threads: RxCollection;
+  agent_memories: RxCollection;
+  sync_checkpoints: RxCollection;
   [key: string]: RxCollection;
 }
 
@@ -91,6 +101,21 @@ export async function initDatabase() {
           2: (oldDoc) => oldDoc,
           3: (oldDoc) => oldDoc,
         },
+      },
+      notes: {
+        schema: notesSchema,
+      },
+      note_folders: {
+        schema: noteFoldersSchema,
+      },
+      threads: {
+        schema: threadsSchema,
+      },
+      agent_memories: {
+        schema: agentMemoriesSchema,
+      },
+      sync_checkpoints: {
+        schema: syncCheckpointsSchema,
       },
     });
 

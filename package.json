@@ -10,12 +10,15 @@
     "test": "turbo test",
     "lint": "turbo lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "storybook": "turbo storybook"
+    "storybook": "turbo storybook",
+    "validate-schemas": "tsx scripts/validate-schema-sync.ts",
+    "generate-migration": "tsx scripts/generate-migration.ts"
   },
   "devDependencies": {
     "@turbo/gen": "^2.0.0",
     "prettier": "^3.2.5",
     "supabase": "^2.72.7",
+    "tsx": "^4.7.0",
     "turbo": "^2.0.0",
     "typescript": "^5.4.5"
   },
