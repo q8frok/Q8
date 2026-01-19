@@ -8,6 +8,7 @@ import {
   getAuthenticatedUser,
   unauthorizedResponse,
 } from '@/lib/auth/api-auth';
+import { logger } from '@/lib/logger';
 
 /**
  * GET /api/finance/ai/insights
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest) {
       generatedAt: new Date().toISOString(),
     });
   } catch (error) {
-    console.error('Finance insights error:', error);
+    logger.error('Finance insights error', { error });
     return NextResponse.json(
       { error: 'Failed to generate insights' },
       { status: 500 }
@@ -87,7 +88,7 @@ export async function POST(request: NextRequest) {
       generatedAt: new Date().toISOString(),
     });
   } catch (error) {
-    console.error('Finance insights POST error:', error);
+    logger.error('Finance insights POST error', { error });
     return NextResponse.json(
       { error: 'Failed to generate insights' },
       { status: 500 }

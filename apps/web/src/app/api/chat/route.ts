@@ -8,33 +8,32 @@ import { NextRequest, NextResponse } from 'next/server';
 import { processMessage } from '@/lib/agents';
 import { buildEnrichedContext } from '@/lib/agents/context-provider';
 import type { AgentMessage } from '@/lib/agents/types';
+import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { chatMessageSchema, validationErrorResponse } from '@/lib/validations';
+import { logger } from '@/lib/logger';
 
 export const runtime = 'nodejs';
 
-interface ChatRequest {
-  message: string;
-  userId: string;
-  conversationId: string;
-  userProfile?: {
-    name?: string;
-    timezone?: string;
-    communicationStyle?: 'concise' | 'detailed';
-  };
-}
-
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as ChatRequest;
-    const { message, userId, conversationId, userProfile } = body;
-
-    console.log('[Chat API] Received request:', { message, userId, conversationId });
-
-    if (!message || !userId) {
-      return NextResponse.json(
-        { error: 'Message and userId are required' },
-        { status: 400 }
-      );
+    // Authenticate user
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
+      return unauthorizedResponse();
     }
+
+    const body = await request.json();
+
+    // Validate input
+    const parseResult = chatMessageSchema.safeParse(body);
+    if (!parseResult.success) {
+      return validationErrorResponse(parseResult.error);
+    }
+
+    const { message, conversationId, userProfile } = parseResult.data;
+    const userId = user.id; // Use authenticated user ID
+
+    logger.info('[Chat API] Received request', { message, userId, conversationId });
 
     // Create agent message
     const agentMessage: AgentMessage = {
@@ -55,18 +54,18 @@ export async function POST(request: NextRequest) {
       } : undefined
     );
 
-    console.log('[Chat API] Enriched context built:', {
+    logger.info('[Chat API] Enriched context built', {
       time: enrichedContext.localTimeFormatted,
       location: enrichedContext.location.city,
       weather: enrichedContext.weather?.condition,
     });
 
-    console.log('[Chat API] Processing message through orchestrator...');
+    logger.info('[Chat API] Processing message through orchestrator');
 
     // Process message through agent orchestrator with enriched context
     const response = await processMessage(agentMessage, enrichedContext);
 
-    console.log('[Chat API] Response received:', {
+    logger.info('[Chat API] Response received', {
       agent: response.agent,
       contentLength: response.content.length,
     });
@@ -89,11 +88,11 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('[Chat API] Error:', error);
+    logger.error('[Chat API] Error', { error: error });
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     const errorStack = error instanceof Error ? error.stack : undefined;
 
-    console.error('[Chat API] Error details:', { errorMessage, errorStack });
+    logger.error('[Chat API] Error details', { errorMessage, errorStack });
 
     return NextResponse.json(
       {

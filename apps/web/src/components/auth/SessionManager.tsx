@@ -4,8 +4,18 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
 import { getDatabase } from '@/lib/db';
+import { logger } from '@/lib/logger';
 import type { User, Session } from '@supabase/supabase-js';
 import type { RxDatabase } from 'rxdb';
+
+/**
+ * Extended Window interface for RxDB sync interval
+ */
+declare global {
+  interface Window {
+    __rxdbSyncInterval?: ReturnType<typeof setInterval>;
+  }
+}
 
 interface SessionContextValue {
   user: User | null;
@@ -80,7 +90,7 @@ export function SessionManager({ children }: SessionManagerProps) {
 
         setIsLoading(false);
       } catch (error) {
-        console.error('Session initialization failed:', error);
+        logger.error('Session initialization failed', { error });
         setIsLoading(false);
       }
     };
@@ -127,7 +137,7 @@ export function SessionManager({ children }: SessionManagerProps) {
       await clearRxDBData();
       router.push('/login');
     } catch (error) {
-      console.error('Sign out failed:', error);
+      logger.error('Sign out failed', { error });
     }
   };
 
@@ -140,7 +150,7 @@ export function SessionManager({ children }: SessionManagerProps) {
       setSession(data.session);
       setUser(data.session?.user ?? null);
     } catch (error) {
-      console.error('Session refresh failed:', error);
+      logger.error('Session refresh failed', { error });
     }
   };
 
@@ -166,23 +176,21 @@ SessionManager.displayName = 'SessionManager';
 async function syncUserToRxDB(user: User) {
   try {
     const db = await getDatabase();
+    const userCollection = db.collections.users;
 
-    // TODO: Update once users collection is defined in RxDB schema
-    // const userCollection = db.collections.users;
-    //
-    // await userCollection.upsert({
-    //   id: user.id,
-    //   email: user.email,
-    //   full_name: user.user_metadata?.full_name,
-    //   avatar_url: user.user_metadata?.avatar_url,
-    //   role: user.user_metadata?.role || 'user',
-    //   created_at: user.created_at,
-    //   updated_at: new Date().toISOString(),
-    // });
+    await userCollection.upsert({
+      id: user.id,
+      email: user.email || '',
+      full_name: user.user_metadata?.full_name || user.user_metadata?.name,
+      avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture,
+      role: user.user_metadata?.role || 'user',
+      created_at: user.created_at,
+      updated_at: new Date().toISOString(),
+    });
 
-    // User synced to RxDB (placeholder)
+    logger.info('User synced to RxDB', { userId: user.id });
   } catch (error) {
-    console.error('Failed to sync user to RxDB:', error);
+    logger.error('Failed to sync user to RxDB', { error });
   }
 }
 
@@ -209,14 +217,14 @@ async function startReplication(session: Session) {
         // Pull remote changes
         await pullAllCollections(db);
       } catch (error) {
-        console.error('Sync error:', error);
+        logger.error('Sync error', { error });
       }
     }, 30000);
 
     // Store interval ID for cleanup
-    (window as any).__rxdbSyncInterval = syncInterval;
+    window.__rxdbSyncInterval = syncInterval;
   } catch (error) {
-    console.error('Failed to start replication:', error);
+    logger.error('Failed to start replication', { error });
   }
 }
 
@@ -224,23 +232,47 @@ async function startReplication(session: Session) {
 async function stopReplication() {
   try {
     // Clear sync interval
-    const syncInterval = (window as any).__rxdbSyncInterval;
+    const syncInterval = window.__rxdbSyncInterval;
     if (syncInterval) {
       clearInterval(syncInterval);
-      delete (window as any).__rxdbSyncInterval;
+      delete window.__rxdbSyncInterval;
     }
   } catch (error) {
-    console.error('Failed to stop replication:', error);
+    logger.error('Failed to stop replication', { error });
   }
 }
 
 // Helper: Clear RxDB data on logout
 async function clearRxDBData() {
   try {
-    // TODO: Clear user-specific data, not entire database
-    // const db = await getDatabase();
-    // await db.collections.users.remove();
+    const db = await getDatabase();
+
+    // Clear all user-specific collections
+    // This removes all documents but preserves the collections for next login
+    const collections = [
+      'users',
+      'chat_messages',
+      'user_preferences',
+      'devices',
+      'knowledge_base',
+      'github_prs',
+      'calendar_events',
+      'tasks',
+    ];
+
+    await Promise.all(
+      collections.map(async (collectionName) => {
+        const collection = db.collections[collectionName];
+        if (collection) {
+          // Find and remove all documents in the collection
+          const allDocs = await collection.find().exec();
+          await Promise.all(allDocs.map((doc: { remove: () => Promise<void> }) => doc.remove()));
+        }
+      })
+    );
+
+    logger.info('RxDB user data cleared on logout');
   } catch (error) {
-    console.error('Failed to clear RxDB data:', error);
+    logger.error('Failed to clear RxDB data', { error });
   }
 }

@@ -63,7 +63,7 @@ type CallServiceFn = (
 interface HAStateItem {
   entity_id: string;
   state: string;
-  attributes: Record<string, unknown>;
+  attributes: Record<string, string | number | boolean | string[] | null>;
 }
 
 // ============ Light Control Types & Presets ============
@@ -718,7 +718,7 @@ const ENTITIES = {
   },
 };
 
-type HAState = Record<string, { state: string; attributes: Record<string, any> }>;
+type HAState = Record<string, { state: string; attributes: Record<string, string | number | boolean | string[] | null> }>;
 type TabType = 'home' | 'lights' | 'media' | 'climate';
 
 interface SmartHomeWidgetProps {
@@ -820,8 +820,8 @@ export function SmartHomeWidget({
   const toggleEntity = (domain: string, entityId: string) => callService(domain, 'toggle', entityId);
   const activateScene = (entityId: string) => callService('scene', 'turn_on', entityId);
 
-  const sonosVolume = Math.round((getAttr(ENTITIES.media.sonos, 'volume_level') || 0) * 100);
-  const sonosMuted = getAttr(ENTITIES.media.sonos, 'is_volume_muted');
+  const sonosVolume = Math.round(((getAttr(ENTITIES.media.sonos, 'volume_level') as number) || 0) * 100);
+  const sonosMuted = getAttr(ENTITIES.media.sonos, 'is_volume_muted') as boolean;
   const setVolume = (level: number) => callService('media_player', 'volume_set', ENTITIES.media.sonos, { volume_level: level / 100 });
   const toggleMute = () => callService('media_player', 'volume_mute', ENTITIES.media.sonos, { is_volume_muted: !sonosMuted });
 
@@ -968,8 +968,8 @@ export function SmartHomeWidget({
           isOpen={!!lightModal}
           onClose={closeLightControl}
           config={lightModal}
-          currentBrightness={Math.round((getAttr(lightModal.entityId, 'brightness') || 0) / 255 * 100)}
-          currentColor={getAttr(lightModal.entityId, 'rgb_color') || null}
+          currentBrightness={Math.round(((getAttr(lightModal.entityId, 'brightness') as number) || 0) / 255 * 100)}
+          currentColor={(getAttr(lightModal.entityId, 'rgb_color') as [number, number, number] | null) || null}
           isOn={isOn(lightModal.entityId)}
           callService={callService}
         />

@@ -64,9 +64,15 @@
       "Bash(Write-Output \"Cleared .next folder\")",
       "mcp__ide__getDiagnostics",
       "Bash(git status:*)",
-      "Bash(cmd /c \"cd /d C:\\\\Users\\\\Minki\\\\Q8\\\\apps\\\\web && rmdir /s /q .next 2>nul & echo Cache cleaned\")"
+      "Bash(cmd /c \"cd /d C:\\\\Users\\\\Minki\\\\Q8\\\\apps\\\\web && rmdir /s /q .next 2>nul & echo Cache cleaned\")",
+      "Bash(pnpm test:*)",
+      "Bash(pnpm vitest run:*)"
     ],
     "deny": [],
     "ask": []
-  }
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "supabase"
+  ]
 }

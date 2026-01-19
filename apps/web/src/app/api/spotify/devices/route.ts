@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { logger } from '@/lib/logger';
 
 const SPOTIFY_API_BASE = 'https://api.spotify.com/v1';
 const TOKEN_ENDPOINT = 'https://accounts.spotify.com/api/token';
@@ -53,7 +55,13 @@ interface SpotifyDevice {
 /**
  * GET /api/spotify/devices - Get available Spotify Connect devices
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
+  // Authenticate user
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return unauthorizedResponse();
+  }
+
   try {
     const accessToken = await getAccessToken();
 
@@ -72,7 +80,7 @@ export async function GET() {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Spotify devices error:', errorText);
+      logger.error('Spotify devices error', { errorText });
       return NextResponse.json({
         devices: [],
         error: 'Failed to fetch devices',
@@ -94,7 +102,7 @@ export async function GET() {
       activeDevice: devices.find((d) => d.is_active) || null,
     });
   } catch (error) {
-    console.error('Get devices error:', error);
+    logger.error('Get devices error', { error });
     return NextResponse.json({
       devices: [],
       error: error instanceof Error ? error.message : 'Failed to fetch devices',
@@ -106,6 +114,12 @@ export async function GET() {
  * POST /api/spotify/devices - Transfer playback to a device
  */
 export async function POST(request: NextRequest) {
+  // Authenticate user
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return unauthorizedResponse();
+  }
+
   try {
     const { deviceId, deviceName, play = true } = await request.json();
 
@@ -140,7 +154,7 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok && response.status !== 204) {
       const errorText = await response.text();
-      console.error('Transfer playback error:', errorText);
+      logger.error('Transfer playback error', { errorText });
       
       let errorMessage = 'Transfer failed';
       try {
@@ -162,7 +176,7 @@ export async function POST(request: NextRequest) {
       deviceId,
     });
   } catch (error) {
-    console.error('Transfer error:', error);
+    logger.error('Transfer error', { error });
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Transfer failed' },
       { status: 500 }

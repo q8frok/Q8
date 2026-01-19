@@ -132,7 +132,7 @@ export function SpotifyWidget({
   }, [state?.isPlaying, state?.track, fetchPlayback]);
 
   // Playback control helper
-  const controlPlayback = async (action: string, params?: Record<string, any>) => {
+  const controlPlayback = async (action: string, params?: Record<string, string | number | boolean>) => {
     try {
       await fetch('/api/spotify', {
         method: 'POST',

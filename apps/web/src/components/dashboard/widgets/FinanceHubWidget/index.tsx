@@ -16,6 +16,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useFinanceHubStore } from '@/lib/stores/financehub';
+import { useSession } from '@/components/auth/SessionManager';
 import { NetWorthCard } from './compact/NetWorthCard';
 import { DailyBurnMeter } from './compact/DailyBurnMeter';
 import { AlertCarousel } from './compact/AlertCarousel';
@@ -76,17 +77,20 @@ export function FinanceHubWidget({ className }: FinanceHubWidgetProps) {
   const [showSettings, setShowSettings] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
 
-  // TODO: Replace with actual user ID from auth
-  const userId = 'demo-user';
+  // Get authenticated user from session
+  const { user, isAuthenticated } = useSession();
+  const userId = user?.id;
 
   // Fetch finance data on mount - cleanup duplicates and fetch fresh data
   useEffect(() => {
-    cleanupAndRefresh(userId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (userId) {
+      cleanupAndRefresh(userId);
+    }
+  }, [userId, cleanupAndRefresh]);
 
   // Handle sync - use fullSync=true to bypass throttling for manual refresh
   const handleSync = useCallback(async () => {
+    if (!userId) return;
     setSyncing(true);
     try {
       await syncAccounts(userId, true);
@@ -97,8 +101,7 @@ export function FinanceHubWidget({ className }: FinanceHubWidgetProps) {
     } finally {
       setSyncing(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]);
+  }, [userId, syncAccounts]);
 
   // Auto-sync twice daily at 6 AM and 6 PM
   useEffect(() => {
@@ -126,7 +129,6 @@ export function FinanceHubWidget({ className }: FinanceHubWidgetProps) {
   // Handle link account
   const handleLinkAccount = useCallback(() => {
     setShowLinkModal(true);
-    // TODO: Implement Plaid Link in Phase 3
   }, []);
 
   // Clear error after 5 seconds

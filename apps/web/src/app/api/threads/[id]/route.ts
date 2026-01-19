@@ -8,6 +8,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import type { ThreadUpdate } from '@/lib/supabase/types';
+import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { logger } from '@/lib/logger';
 
 export const runtime = 'edge';
 
@@ -20,6 +22,12 @@ interface RouteParams {
  * Get thread with messages
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
+  // Authenticate user
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return unauthorizedResponse();
+  }
+
   try {
     const { id } = await params;
     const { searchParams } = new URL(request.url);
@@ -51,7 +59,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         .limit(messageLimit);
 
       if (messagesError) {
-        console.error('[Thread API] Error fetching messages:', messagesError);
+        logger.error('[Thread API] Error fetching messages', { messagesError: messagesError });
       } else {
         messages = messageData || [];
       }
@@ -59,7 +67,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ thread, messages });
   } catch (error) {
-    console.error('[Thread API] Error:', error);
+    logger.error('[Thread API] Error', { error: error });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -72,6 +80,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
  * Update thread
  */
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
+  // Authenticate user
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return unauthorizedResponse();
+  }
+
   try {
     const { id } = await params;
     const body = await request.json();
@@ -91,7 +105,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .single();
 
     if (error) {
-      console.error('[Thread API] Error updating thread:', error);
+      logger.error('[Thread API] Error updating thread', { error: error });
       return NextResponse.json(
         { error: 'Failed to update thread' },
         { status: 500 }
@@ -100,7 +114,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ thread });
   } catch (error) {
-    console.error('[Thread API] Error:', error);
+    logger.error('[Thread API] Error', { error: error });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -113,6 +127,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
  * Soft delete (archive) thread
  */
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
+  // Authenticate user
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return unauthorizedResponse();
+  }
+
   try {
     const { id } = await params;
     const { searchParams } = new URL(request.url);
@@ -126,7 +146,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         .eq('id', id);
 
       if (error) {
-        console.error('[Thread API] Error deleting thread:', error);
+        logger.error('[Thread API] Error deleting thread', { error: error });
         return NextResponse.json(
           { error: 'Failed to delete thread' },
           { status: 500 }
@@ -140,7 +160,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         .eq('id', id);
 
       if (error) {
-        console.error('[Thread API] Error archiving thread:', error);
+        logger.error('[Thread API] Error archiving thread', { error: error });
         return NextResponse.json(
           { error: 'Failed to archive thread' },
           { status: 500 }
@@ -150,7 +170,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('[Thread API] Error:', error);
+    logger.error('[Thread API] Error', { error: error });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

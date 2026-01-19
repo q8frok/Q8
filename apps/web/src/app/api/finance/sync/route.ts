@@ -6,22 +6,21 @@ import {
   getAuthenticatedUser,
   unauthorizedResponse,
 } from '@/lib/auth/api-auth';
+import { getServerEnv, clientEnv, integrations } from '@/lib/env';
+import { logger } from '@/lib/logger';
 
-const PLAID_CLIENT_ID = process.env.PLAID_CLIENT_ID;
-const PLAID_SECRET = process.env.PLAID_SECRET;
-const PLAID_ENV = (process.env.PLAID_ENV || 'sandbox') as keyof typeof PlaidEnvironments;
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+const supabase = createClient(
+  clientEnv.NEXT_PUBLIC_SUPABASE_URL,
+  getServerEnv().SUPABASE_SERVICE_ROLE_KEY
+);
 
 // Initialize Plaid client
 const plaidConfiguration = new Configuration({
-  basePath: PlaidEnvironments[PLAID_ENV],
+  basePath: PlaidEnvironments[integrations.plaid.env as keyof typeof PlaidEnvironments],
   baseOptions: {
     headers: {
-      'PLAID-CLIENT-ID': PLAID_CLIENT_ID,
-      'PLAID-SECRET': PLAID_SECRET,
+      'PLAID-CLIENT-ID': integrations.plaid.clientId ?? '',
+      'PLAID-SECRET': integrations.plaid.secret ?? '',
     },
   },
 });
@@ -261,7 +260,7 @@ export async function POST(request: NextRequest) {
       ...results,
     });
   } catch (error: unknown) {
-    console.error('Sync error:', error);
+    logger.error('Sync error', { error });
     const errorObj = error as { message?: string };
     return NextResponse.json(
       { error: errorObj.message || 'Sync failed' },
@@ -326,6 +325,6 @@ async function updateDailySnapshot(userId: string) {
       { onConflict: 'user_id,date' }
     );
   } catch (error) {
-    console.error('Snapshot update error:', error);
+    logger.error('Snapshot update error', { error });
   }
 }

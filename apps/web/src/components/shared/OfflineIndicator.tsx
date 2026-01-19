@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { WifiOff, Wifi, RefreshCw } from 'lucide-react';
+import { WifiOff, Wifi, RefreshCw, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '../ui/button';
+import { getSyncEngine } from '@/lib/sync';
+import { getPushQueueManager } from '@/lib/sync/queue';
 
 interface OfflineIndicatorProps {
   /**
@@ -78,6 +80,7 @@ export function OfflineIndicator({
   const [isOnline, setIsOnline] = useState(true);
   const [justReconnected, setJustReconnected] = useState(false);
   const [pendingChanges, setPendingChanges] = useState(0);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
     // Set initial online state
@@ -87,6 +90,12 @@ export function OfflineIndicator({
     const handleOnline = () => {
       setIsOnline(true);
       setJustReconnected(true);
+
+      // Trigger sync when back online
+      const syncEngine = getSyncEngine();
+      if (syncEngine) {
+        syncEngine.sync().catch(console.error);
+      }
 
       // Auto-dismiss success message
       setTimeout(() => {
@@ -102,28 +111,33 @@ export function OfflineIndicator({
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // TODO: Subscribe to pending changes from RxDB
-    // This would connect to your sync service to get pending count
-    // Example:
-    // const subscription = db.pending$.subscribe({
-    //   next: (count) => setPendingChanges(count),
-    // });
+    // Subscribe to pending changes from RxDB sync queue
+    const queueManager = getPushQueueManager();
+    const subscription = queueManager.getQueueCount().subscribe({
+      next: (count) => setPendingChanges(count),
+    });
 
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
-      // subscription?.unsubscribe();
+      subscription.unsubscribe();
     };
   }, [dismissDelay]);
 
   // Handle manual retry
   const handleRetry = async () => {
-    // Trigger manual sync attempt
+    if (isSyncing) return;
+
+    setIsSyncing(true);
     try {
-      // TODO: Implement manual sync trigger
-      // await db.sync();
+      const syncEngine = getSyncEngine();
+      if (syncEngine) {
+        await syncEngine.sync();
+      }
     } catch (error) {
       console.error('Sync retry failed:', error);
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -188,11 +202,16 @@ export function OfflineIndicator({
                 variant="ghost"
                 size="sm"
                 onClick={handleRetry}
-                className="text-yellow-500 hover:text-yellow-400"
-                aria-label="Retry synchronization"
+                disabled={isSyncing}
+                className="text-yellow-500 hover:text-yellow-400 disabled:opacity-50"
+                aria-label={isSyncing ? 'Synchronizing...' : 'Retry synchronization'}
               >
-                <RefreshCw className="h-4 w-4 mr-2" aria-hidden="true" />
-                Retry
+                {isSyncing ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" aria-hidden="true" />
+                ) : (
+                  <RefreshCw className="h-4 w-4 mr-2" aria-hidden="true" />
+                )}
+                {isSyncing ? 'Syncing...' : 'Retry'}
               </Button>
             )}
           </div>

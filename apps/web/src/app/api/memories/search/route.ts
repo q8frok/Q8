@@ -7,6 +7,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import OpenAI from 'openai';
 import type { MemoryType, MemoryImportance } from '@/lib/supabase/types';
+import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { logger } from '@/lib/logger';
 
 export const runtime = 'edge';
 
@@ -19,17 +21,21 @@ const openai = new OpenAI({
  * Search memories using semantic similarity
  */
 export async function POST(request: NextRequest) {
+  // Authenticate user
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return unauthorizedResponse();
+  }
+
   try {
     const body = await request.json();
     const {
-      userId,
       query,
       memoryTypes,
       minImportance,
       limit = 10,
       threshold = 0.7,
     } = body as {
-      userId: string;
       query: string;
       memoryTypes?: MemoryType[];
       minImportance?: MemoryImportance;
@@ -37,9 +43,11 @@ export async function POST(request: NextRequest) {
       threshold?: number;
     };
 
-    if (!userId || !query) {
+    const userId = user.id; // Use authenticated user
+
+    if (!query) {
       return NextResponse.json(
-        { error: 'userId and query are required' },
+        { error: 'query is required' },
         { status: 400 }
       );
     }
@@ -68,7 +76,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (error) {
-      console.error('[Memory Search API] Error:', error);
+      logger.error('[Memory Search API] Error', { error: error });
       return NextResponse.json(
         { error: 'Search failed' },
         { status: 500 }
@@ -94,7 +102,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ memories: filteredResults });
   } catch (error) {
-    console.error('[Memory Search API] Error:', error);
+    logger.error('[Memory Search API] Error', { error: error });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

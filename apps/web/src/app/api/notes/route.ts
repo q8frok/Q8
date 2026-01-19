@@ -13,6 +13,7 @@ import {
   unauthorizedResponse,
 } from '@/lib/auth/api-auth';
 import type { Note, NoteInsert } from '@/lib/supabase/types';
+import { logger } from '@/lib/logger';
 
 // Changed from 'edge' to 'nodejs' for cookie-based auth support
 export const runtime = 'nodejs';
@@ -153,7 +154,7 @@ export async function GET(request: NextRequest) {
     const { data: notes, error, count } = await query;
 
     if (error) {
-      console.error('[Notes API] Error fetching notes:', error);
+      logger.error('[Notes API] Error fetching notes', { error });
       return NextResponse.json(
         { error: 'Failed to fetch notes' },
         { status: 500 }
@@ -165,7 +166,7 @@ export async function GET(request: NextRequest) {
       count: count || notes?.length || 0,
     });
   } catch (error) {
-    console.error('[Notes API] Error:', error);
+    logger.error('[Notes API] Error', { error });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -256,7 +257,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      console.error('[Notes API] Error creating note:', error);
+      logger.error('[Notes API] Error creating note', { error });
       return NextResponse.json(
         { error: 'Failed to create note' },
         { status: 500 }
@@ -265,7 +266,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ note });
   } catch (error) {
-    console.error('[Notes API] Error:', error);
+    logger.error('[Notes API] Error', { error });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

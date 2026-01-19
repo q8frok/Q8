@@ -5,8 +5,24 @@
  */
 
 import { getModel } from '../model_factory';
-import { initGitHubTools } from '@/lib/mcp/tools/github';
-import { initSupabaseTools } from '@/lib/mcp/tools/supabase';
+import {
+  initGitHubTools,
+  searchCode,
+  getFileContent,
+  createIssue,
+  createPR,
+  listPRs,
+  triggerWorkflow,
+  GITHUB_MCP_URL,
+} from '@/lib/mcp/tools/github';
+import {
+  initSupabaseTools,
+  runSQL,
+  getSchema,
+  vectorSearch,
+  SUPABASE_MCP_URL,
+} from '@/lib/mcp/tools/supabase';
+import { mcpClient } from '@/lib/mcp/client';
 import type { Tool, OpenAITool } from '../types';
 
 /**
@@ -287,13 +303,110 @@ export async function executeCoderTool(
   toolName: string,
   args: Record<string, unknown>
 ): Promise<{ success: boolean; message: string; data?: unknown }> {
-  console.log(`[Coder] Executing tool: ${toolName}`, args);
+  try {
+    let result: unknown;
 
-  // TODO: Implement actual GitHub/Supabase API calls
-  // For now, return a placeholder
-  return {
-    success: false,
-    message: `Tool "${toolName}" integration pending. MCP server connection required.`,
-    data: { tool: toolName, args },
-  };
+    switch (toolName) {
+      // GitHub Tools
+      case 'github_search_code':
+        result = await searchCode(
+          args.query as string,
+          args.repo as string | undefined
+        );
+        break;
+
+      case 'github_get_file':
+        result = await getFileContent(
+          args.repo as string,
+          args.path as string,
+          args.ref as string | undefined
+        );
+        break;
+
+      case 'github_list_prs':
+        result = await listPRs(
+          args.repo as string,
+          args.state as 'open' | 'closed' | 'all' | undefined
+        );
+        break;
+
+      case 'github_create_issue':
+        result = await createIssue(
+          args.repo as string,
+          args.title as string,
+          args.body as string
+        );
+        break;
+
+      case 'github_create_pr':
+        result = await createPR(
+          args.repo as string,
+          args.title as string,
+          args.head as string,
+          args.base as string,
+          args.body as string | undefined
+        );
+        break;
+
+      case 'github_trigger_workflow':
+        result = await triggerWorkflow(
+          args.repo as string,
+          args.workflowId as string,
+          args.ref as string
+        );
+        break;
+
+      // Supabase Tools
+      case 'supabase_run_sql':
+        result = await runSQL(args.query as string);
+        break;
+
+      case 'supabase_get_schema':
+        result = await getSchema(args.table as string | undefined);
+        break;
+
+      case 'supabase_list_tables':
+        result = await mcpClient.executeTool('supabase_list_tables', args);
+        break;
+
+      case 'supabase_vector_search':
+        result = await vectorSearch(
+          args.query as string,
+          args.table as string,
+          args.limit as number | undefined
+        );
+        break;
+
+      default:
+        return {
+          success: false,
+          message: `Unknown tool: ${toolName}`,
+          data: { tool: toolName, args },
+        };
+    }
+
+    return {
+      success: true,
+      message: `Successfully executed ${toolName}`,
+      data: result,
+    };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+    // Check if it's an MCP connection error
+    if (errorMessage.includes('Failed to fetch') || errorMessage.includes('not found in any registered server')) {
+      const serverUrl = toolName.startsWith('github_') ? GITHUB_MCP_URL : SUPABASE_MCP_URL;
+      return {
+        success: false,
+        message: `MCP server not available. Please ensure the server is running at ${serverUrl}.`,
+        data: { tool: toolName, args, error: errorMessage },
+      };
+    }
+
+    return {
+      success: false,
+      message: `Failed to execute ${toolName}: ${errorMessage}`,
+      data: { tool: toolName, args, error: errorMessage },
+    };
+  }
 }

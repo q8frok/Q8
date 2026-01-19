@@ -1,14 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
+import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { getServerEnv, clientEnv, integrations } from '@/lib/env';
+import { logger } from '@/lib/logger';
 
-const SNAPTRADE_CLIENT_ID = process.env.SNAPTRADE_CLIENT_ID;
-const SNAPTRADE_CONSUMER_KEY = process.env.SNAPTRADE_CONSUMER_KEY;
 const SNAPTRADE_API_BASE = 'https://api.snaptrade.com/api/v1';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+/**
+ * SnapTrade holding type for investment positions
+ */
+interface SnapTradeHolding {
+  marketValue?: number;
+  symbol?: string;
+  units?: number;
+}
+
+const supabase = createClient(
+  clientEnv.NEXT_PUBLIC_SUPABASE_URL,
+  getServerEnv().SUPABASE_SERVICE_ROLE_KEY
+);
 
 /**
  * Generate SnapTrade signature for API requests
@@ -34,14 +45,14 @@ async function snaptradeRequest(
   path: string,
   body?: object
 ): Promise<Response> {
-  if (!SNAPTRADE_CLIENT_ID || !SNAPTRADE_CONSUMER_KEY) {
+  if (!integrations.snaptrade.clientId || !integrations.snaptrade.consumerKey) {
     throw new Error('SnapTrade not configured');
   }
 
   const timestamp = Math.floor(Date.now() / 1000).toString();
   const requestBody = body ? JSON.stringify(body) : '';
   const signature = generateSignature(
-    SNAPTRADE_CONSUMER_KEY,
+    integrations.snaptrade.consumerKey,
     path,
     requestBody,
     timestamp
@@ -51,7 +62,7 @@ async function snaptradeRequest(
     method,
     headers: {
       'Content-Type': 'application/json',
-      'clientId': SNAPTRADE_CLIENT_ID,
+      'clientId': integrations.snaptrade.clientId,
       'Signature': signature,
       'Timestamp': timestamp,
     },
@@ -64,23 +75,21 @@ async function snaptradeRequest(
  * Fetch all investment accounts from SnapTrade
  */
 export async function GET(request: NextRequest) {
+  // Authenticate user
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return unauthorizedResponse();
+  }
+
   try {
-    if (!SNAPTRADE_CLIENT_ID || !SNAPTRADE_CONSUMER_KEY) {
+    if (!integrations.snaptrade.clientId || !integrations.snaptrade.consumerKey) {
       return NextResponse.json(
         { error: 'SnapTrade not configured', configured: false },
         { status: 200 }
       );
     }
 
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
-
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'User ID is required' },
-        { status: 400 }
-      );
-    }
+    const userId = user.id; // Use authenticated user
 
     // Get user's accounts from SnapTrade
     const accountsResponse = await snaptradeRequest(
@@ -111,13 +120,13 @@ export async function GET(request: NextRequest) {
         );
         if (holdingsResponse.ok) {
           const holdings = await holdingsResponse.json();
-          totalValue = holdings.reduce(
-            (sum: number, h: any) => sum + (h.marketValue || 0),
+          totalValue = (holdings as SnapTradeHolding[]).reduce(
+            (sum: number, h: SnapTradeHolding) => sum + (h.marketValue ?? 0),
             0
           );
         }
       } catch (e) {
-        console.warn('Failed to fetch holdings for account:', account.id);
+        logger.warn('Failed to fetch holdings for account', { accountId: account.id });
       }
 
       const accountData = {
@@ -161,12 +170,10 @@ export async function GET(request: NextRequest) {
       accounts: savedAccounts,
       totalAccounts: savedAccounts.length,
     });
-  } catch (error: any) {
-    console.error('SnapTrade accounts error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to fetch accounts' },
-      { status: 500 }
-    );
+  } catch (error) {
+    logger.error('SnapTrade accounts error', { error });
+    const message = error instanceof Error ? error.message : 'Failed to fetch accounts';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 

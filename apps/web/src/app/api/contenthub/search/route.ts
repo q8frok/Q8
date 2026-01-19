@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { ContentItem, ContentSource } from '@/types/contenthub';
+import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
 
 /**
  * ContentHub Search API - Unified Search Across Sources
@@ -28,6 +29,12 @@ const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
  * GET /api/contenthub/search?q=query&sources=spotify,youtube&limit=20
  */
 export async function GET(request: NextRequest) {
+  // Authenticate user
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return unauthorizedResponse();
+  }
+
   const { searchParams } = new URL(request.url);
   const query = searchParams.get('q');
   const sourcesParam = searchParams.get('sources') ?? 'spotify,youtube';

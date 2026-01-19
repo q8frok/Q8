@@ -22,6 +22,7 @@ import {
   useFinanceAccounts,
   usePrivacyMode,
 } from '@/lib/stores/financehub';
+import { useAuth } from '@/hooks/useAuth';
 import { AmountDisplay } from '../shared/AmountDisplay';
 import { AddTransactionForm } from './AddTransactionForm';
 import { TransactionCategoryModal } from './TransactionCategoryModal';
@@ -52,6 +53,7 @@ export function UnifiedLedger({ className }: UnifiedLedgerProps) {
   const accounts = useFinanceAccounts();
   const privacyMode = usePrivacyMode();
   const { setTransactionFilters, deleteTransaction } = useFinanceHubStore();
+  const { userId } = useAuth();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -61,9 +63,6 @@ export function UnifiedLedger({ className }: UnifiedLedgerProps) {
   const [editingTransaction, setEditingTransaction] = useState<FinanceTransaction | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [categoryTransaction, setCategoryTransaction] = useState<FinanceTransaction | null>(null);
-
-  // TODO: Replace with actual user ID from auth
-  const userId = 'demo-user';
 
   // Filter state
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]);
@@ -500,7 +499,7 @@ export function UnifiedLedger({ className }: UnifiedLedgerProps) {
         isOpen={!!categoryTransaction}
         onClose={() => setCategoryTransaction(null)}
         transaction={categoryTransaction}
-        userId={userId}
+        userId={userId || ''}
       />
     </div>
   );

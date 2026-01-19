@@ -23,6 +23,7 @@ import {
 import { SyncHealthManager, getSyncHealthManager } from './health';
 import { PushQueueManager, getPushQueueManager } from './queue';
 import { getStrategy, logConflict, updateLogicalClock } from './strategies';
+import { logger } from '@/lib/logger';
 
 // =============================================================================
 // SYNC ENGINE
@@ -169,25 +170,46 @@ export class SyncEngine {
   // ===========================================================================
 
   /**
-   * Pull changes for all collections
+   * Pull changes for all collections (parallel by priority group)
    */
   async pullAll(): Promise<void> {
     const pullConfigs = Array.from(this.configs.values()).filter(
       (config) => config.enabled && config.direction !== 'push-only'
     );
 
-    // Sort by priority
-    pullConfigs.sort((a, b) => {
-      const priority = { high: 0, medium: 1, low: 2 };
-      return priority[a.priority] - priority[b.priority];
-    });
+    // Group by priority for parallel execution within same priority
+    type Priority = 'high' | 'medium' | 'low';
+    const priorityGroups: Record<Priority, CollectionSyncConfig[]> = {
+      high: [],
+      medium: [],
+      low: [],
+    };
 
     for (const config of pullConfigs) {
-      try {
-        await this.pullCollection(config.name);
-      } catch (error) {
-        console.error(`[SyncEngine] Pull failed for ${config.name}:`, error);
-        this.healthManager.collectionError(config.name);
+      const priority = config.priority as Priority;
+      priorityGroups[priority].push(config);
+    }
+
+    // Process priority groups sequentially, but collections within each group in parallel
+    const priorities: Priority[] = ['high', 'medium', 'low'];
+    for (const priority of priorities) {
+      const group = priorityGroups[priority];
+      if (group.length === 0) continue;
+
+      const results = await Promise.allSettled(
+        group.map((config) =>
+          this.pullCollection(config.name).catch((error) => {
+            logger.error(`[SyncEngine] Pull failed for ${config.name}`, { error });
+            this.healthManager.collectionError(config.name);
+            throw error;
+          })
+        )
+      );
+
+      // Log any failures (already logged above, but track stats)
+      const failures = results.filter((r) => r.status === 'rejected');
+      if (failures.length > 0) {
+        logger.warn(`[SyncEngine] ${failures.length}/${group.length} ${priority} priority pulls failed`);
       }
     }
   }
@@ -309,7 +331,7 @@ export class SyncEngine {
       try {
         await this.pushCollection(config.name);
       } catch (error) {
-        console.error(`[SyncEngine] Push failed for ${config.name}:`, error);
+        logger.error(`[SyncEngine] Push failed for ${config.name}`, { error });
       }
     }
   }
@@ -530,7 +552,7 @@ export class SyncEngine {
         updateLogicalClock(transformed.logicalClock);
       }
     } catch (error) {
-      console.error(`[SyncEngine] Realtime handler error for ${collectionName}:`, error);
+      logger.error(`[SyncEngine] Realtime handler error for ${collectionName}`, { error });
     }
   }
 
@@ -569,7 +591,7 @@ export class SyncEngine {
     if (this.healthManager.shouldOpenCircuitBreaker(this.circuitBreakerConfig.failureThreshold)) {
       const resetAt = new Date(Date.now() + this.circuitBreakerConfig.resetTimeoutMs);
       this.healthManager.openCircuitBreaker(resetAt);
-      console.warn('[SyncEngine] Circuit breaker opened, will reset at:', resetAt);
+      logger.warn('[SyncEngine] Circuit breaker opened', { resetAt });
     }
   }
 

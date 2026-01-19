@@ -15,6 +15,7 @@ import {
   type MemoryType,
   type MemoryImportance,
 } from '@/lib/memory';
+import { logger } from '@/lib/logger';
 
 export const runtime = 'edge';
 
@@ -127,7 +128,7 @@ export async function POST(request: NextRequest) {
         );
     }
   } catch (error) {
-    console.error('[Memory API] Error:', error);
+    logger.error('[Memory API] Error', { error: error });
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
       { error: errorMessage },

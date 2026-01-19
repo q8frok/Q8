@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useFinanceHubStore } from '@/lib/stores/financehub';
 import type { FinanceAccount, FinanceTransaction } from '@/types/finance';
 import { categorizeTransaction } from '@/types/finance';
+import type { PlaidLinkOnSuccessMetadata } from 'react-plaid-link';
 
 const SYNC_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
@@ -223,7 +224,7 @@ export function useFinanceHub() {
   const exchangePlaidToken = useCallback(async (
     publicToken: string,
     userId: string,
-    metadata: any
+    metadata: PlaidLinkOnSuccessMetadata
   ): Promise<boolean> => {
     try {
       const response = await fetch('/api/finance/plaid/exchange', {

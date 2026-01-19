@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { logger } from '@/lib/logger';
 
 const HA_URL = process.env.HASS_URL || 'http://homeassistant.local:8123';
 const HA_TOKEN = process.env.HASS_TOKEN || '';
@@ -80,6 +82,12 @@ async function tryHAService(
  * For YouTube, we use the YouTube app on Apple TV
  */
 export async function POST(request: NextRequest) {
+  // Authenticate user
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return unauthorizedResponse();
+  }
+
   try {
     const body: CastRequest = await request.json();
     const { mediaUrl, title, source, entityId } = body;
@@ -184,7 +192,7 @@ export async function POST(request: NextRequest) {
       message: 'Opening content...',
     });
   } catch (error) {
-    console.error('Cast error:', error);
+    logger.error('Cast error', { error: error });
     return NextResponse.json({
       success: false,
       error: error instanceof Error ? error.message : 'Cast failed',
@@ -194,10 +202,16 @@ export async function POST(request: NextRequest) {
 
 /**
  * GET /api/contenthub/cast
- * 
+ *
  * Get available media players for casting
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
+  // Authenticate user
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return unauthorizedResponse();
+  }
+
   try {
     if (!HA_TOKEN) {
       return NextResponse.json({
@@ -230,7 +244,7 @@ export async function GET() {
       defaultPlayer: DEFAULT_MEDIA_PLAYER,
     });
   } catch (error) {
-    console.error('Get media players error:', error);
+    logger.error('Get media players error', { error: error });
     return NextResponse.json({
       available: false,
       players: [],

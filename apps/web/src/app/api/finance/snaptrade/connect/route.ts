@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
+import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { integrations } from '@/lib/env';
+import { logger } from '@/lib/logger';
 
-const SNAPTRADE_CLIENT_ID = process.env.SNAPTRADE_CLIENT_ID;
-const SNAPTRADE_CONSUMER_KEY = process.env.SNAPTRADE_CONSUMER_KEY;
 const SNAPTRADE_API_BASE = 'https://api.snaptrade.com/api/v1';
 
 /**
@@ -29,14 +30,14 @@ async function snaptradeRequest(
   path: string,
   body?: object
 ): Promise<Response> {
-  if (!SNAPTRADE_CLIENT_ID || !SNAPTRADE_CONSUMER_KEY) {
+  if (!integrations.snaptrade.clientId || !integrations.snaptrade.consumerKey) {
     throw new Error('SnapTrade not configured');
   }
 
   const timestamp = Math.floor(Date.now() / 1000).toString();
   const requestBody = body ? JSON.stringify(body) : '';
   const signature = generateSignature(
-    SNAPTRADE_CONSUMER_KEY,
+    integrations.snaptrade.consumerKey,
     path,
     requestBody,
     timestamp
@@ -46,7 +47,7 @@ async function snaptradeRequest(
     method,
     headers: {
       'Content-Type': 'application/json',
-      'clientId': SNAPTRADE_CLIENT_ID,
+      'clientId': integrations.snaptrade.clientId,
       'Signature': signature,
       'Timestamp': timestamp,
     },
@@ -59,27 +60,27 @@ async function snaptradeRequest(
  * Generate a SnapTrade redirect URL for connecting a brokerage
  */
 export async function POST(request: NextRequest) {
+  // Authenticate user
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return unauthorizedResponse();
+  }
+
   try {
-    if (!SNAPTRADE_CLIENT_ID || !SNAPTRADE_CONSUMER_KEY) {
+    if (!integrations.snaptrade.clientId || !integrations.snaptrade.consumerKey) {
       return NextResponse.json(
         {
           error: 'SnapTrade not configured',
           configured: false,
-          message: 'Add SNAPTRADE_CLIENT_ID and SNAPTRADE_CONSUMER_KEY to your environment',
+          message: 'Add integrations.snaptrade.clientId and integrations.snaptrade.consumerKey to your environment',
         },
         { status: 200 }
       );
     }
 
     const body = await request.json();
-    const { userId, broker } = body;
-
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'User ID is required' },
-        { status: 400 }
-      );
-    }
+    const { broker } = body;
+    const userId = user.id; // Use authenticated user
 
     // First, register or get the user in SnapTrade
     const userResponse = await snaptradeRequest('POST', '/snapTrade/registerUser', {
@@ -124,11 +125,9 @@ export async function POST(request: NextRequest) {
       redirectUrl: portalData.redirectURI || portalData.loginLink,
       expiresAt: portalData.expiresAt,
     });
-  } catch (error: any) {
-    console.error('SnapTrade connect error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to connect to SnapTrade' },
-      { status: 500 }
-    );
+  } catch (error) {
+    logger.error('SnapTrade connect error', { error });
+    const message = error instanceof Error ? error.message : 'Failed to connect to SnapTrade';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

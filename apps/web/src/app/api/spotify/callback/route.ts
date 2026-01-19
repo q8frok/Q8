@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 
 /**
  * Spotify OAuth Callback Handler
@@ -70,7 +71,7 @@ export async function GET(request: NextRequest) {
 
     if (!response.ok) {
       const errorData = await response.text();
-      console.error('Token exchange failed:', errorData);
+      logger.error('Token exchange failed', { errorData });
       return new NextResponse(
         generateHTML({
           title: 'Token Exchange Failed',
@@ -96,7 +97,7 @@ export async function GET(request: NextRequest) {
       { headers: { 'Content-Type': 'text/html' } }
     );
   } catch (err) {
-    console.error('Callback error:', err);
+    logger.error('Callback error', { err });
     return new NextResponse(
       generateHTML({
         title: 'Error',

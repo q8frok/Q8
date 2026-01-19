@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { logger } from '@/lib/logger';
 
 const HA_URL = process.env.HASS_URL || 'http://homeassistant.local:8123';
 const HA_TOKEN = process.env.HASS_TOKEN || '';
@@ -6,7 +8,7 @@ const HA_TOKEN = process.env.HASS_TOKEN || '';
 interface HAState {
   entity_id: string;
   state: string;
-  attributes: Record<string, any>;
+  attributes: Record<string, string | number | boolean | string[] | null>;
   last_changed: string;
   last_updated: string;
 }
@@ -46,6 +48,12 @@ async function haFetch(endpoint: string, options: RequestInit = {}) {
  * GET /api/homeassistant?entities=light.bedroom,switch.kitchen
  */
 export async function GET(request: NextRequest) {
+  // Authenticate user
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return unauthorizedResponse();
+  }
+
   const { searchParams } = new URL(request.url);
   const entityIds = searchParams.get('entities')?.split(',').filter(Boolean) || [];
 
@@ -62,7 +70,7 @@ export async function GET(request: NextRequest) {
         try {
           return await haFetch(`/states/${entityId.trim()}`);
         } catch (error) {
-          console.warn(`Failed to fetch entity ${entityId}:`, error);
+          logger.warn('Failed to fetch entity', { entityId, error });
           return {
             entity_id: entityId,
             state: 'unavailable',
@@ -76,7 +84,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ states });
   } catch (error) {
-    console.error('Home Assistant fetch error:', error);
+    logger.error('Home Assistant fetch error', { error: error });
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to fetch Home Assistant states' },
       { status: 500 }
@@ -98,6 +106,12 @@ export async function GET(request: NextRequest) {
  * { "domain": "light", "service": "turn_on", "entity_id": "light.bedroom" }
  */
 export async function POST(request: NextRequest) {
+  // Authenticate user
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return unauthorizedResponse();
+  }
+
   try {
     const body = await request.json();
     const { domain, service, entity_id, data = {} } = body;
@@ -121,7 +135,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, result });
   } catch (error) {
-    console.error('Home Assistant service call error:', error);
+    logger.error('Home Assistant service call error', { error: error });
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to call Home Assistant service' },
       { status: 500 }

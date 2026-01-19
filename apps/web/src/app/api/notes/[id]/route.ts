@@ -8,6 +8,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import type { NoteUpdate } from '@/lib/supabase/types';
+import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { logger } from '@/lib/logger';
 
 export const runtime = 'edge';
 
@@ -19,6 +21,12 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Authenticate user
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return unauthorizedResponse();
+  }
+
   try {
     const { id } = await params;
 
@@ -29,7 +37,7 @@ export async function GET(
       .single();
 
     if (error) {
-      console.error('[Notes API] Error fetching note:', error);
+      logger.error('[Notes API] Error fetching note', { error });
       return NextResponse.json(
         { error: 'Note not found' },
         { status: 404 }
@@ -38,7 +46,7 @@ export async function GET(
 
     return NextResponse.json({ note });
   } catch (error) {
-    console.error('[Notes API] Error:', error);
+    logger.error('[Notes API] Error', { error });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -54,6 +62,12 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Authenticate user
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return unauthorizedResponse();
+  }
+
   try {
     const { id } = await params;
     const body = await request.json();
@@ -119,7 +133,7 @@ export async function PATCH(
       .single();
 
     if (error) {
-      console.error('[Notes API] Error updating note:', error);
+      logger.error('[Notes API] Error updating note', { error });
       return NextResponse.json(
         { error: 'Failed to update note' },
         { status: 500 }
@@ -128,7 +142,7 @@ export async function PATCH(
 
     return NextResponse.json({ note });
   } catch (error) {
-    console.error('[Notes API] Error:', error);
+    logger.error('[Notes API] Error', { error });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -144,6 +158,12 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Authenticate user
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return unauthorizedResponse();
+  }
+
   try {
     const { id } = await params;
     const { searchParams } = new URL(request.url);
@@ -157,7 +177,7 @@ export async function DELETE(
         .eq('id', id);
 
       if (error) {
-        console.error('[Notes API] Error deleting note:', error);
+        logger.error('[Notes API] Error deleting note', { error });
         return NextResponse.json(
           { error: 'Failed to delete note' },
           { status: 500 }
@@ -174,7 +194,7 @@ export async function DELETE(
         .eq('id', id);
 
       if (error) {
-        console.error('[Notes API] Error archiving note:', error);
+        logger.error('[Notes API] Error archiving note', { error });
         return NextResponse.json(
           { error: 'Failed to archive note' },
           { status: 500 }
@@ -184,7 +204,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('[Notes API] Error:', error);
+    logger.error('[Notes API] Error', { error });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

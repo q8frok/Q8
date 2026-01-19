@@ -23,7 +23,7 @@ import type { AccountType } from '@/types/finance';
 interface LinkAccountModalProps {
   isOpen: boolean;
   onClose: () => void;
-  userId: string;
+  userId?: string;
   onSuccess?: () => void;
 }
 
@@ -85,6 +85,11 @@ export function LinkAccountModal({
 
   // Initialize Plaid Link
   const handlePlaidSelect = useCallback(async () => {
+    if (!userId) {
+      setErrorMessage('Please sign in to link accounts');
+      return;
+    }
+
     setIsLoading(true);
     setErrorMessage(null);
 
@@ -106,6 +111,12 @@ export function LinkAccountModal({
   // Handle Plaid Link success
   const onPlaidSuccess: PlaidLinkOnSuccess = useCallback(
     async (publicToken, metadata) => {
+      if (!userId) {
+        setStep('error');
+        setErrorMessage('User session expired');
+        return;
+      }
+
       setIsLoading(true);
       try {
         const success = await exchangePlaidToken(publicToken, userId, metadata);
@@ -150,6 +161,11 @@ export function LinkAccountModal({
 
   // Handle SnapTrade connection
   const handleSnapTradeSelect = useCallback(async () => {
+    if (!userId) {
+      setErrorMessage('Please sign in to link accounts');
+      return;
+    }
+
     setIsLoading(true);
     setErrorMessage(null);
 
@@ -171,6 +187,11 @@ export function LinkAccountModal({
 
   // Handle manual account submission
   const handleManualSubmit = useCallback(async () => {
+    if (!userId) {
+      setErrorMessage('Please sign in to add accounts');
+      return;
+    }
+
     if (!manualName.trim()) {
       setErrorMessage('Please enter an account name');
       return;

@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useFinanceHubStore, useFinanceAccounts } from '@/lib/stores/financehub';
+import { useAuth } from '@/hooks/useAuth';
 import type { FinanceTransaction, TransactionStatus } from '@/types/finance';
 import { categorizeTransaction } from '@/types/finance';
 
@@ -54,6 +55,7 @@ export function AddTransactionForm({
 }: AddTransactionFormProps) {
   const accounts = useFinanceAccounts();
   const { addTransaction, updateTransaction } = useFinanceHubStore();
+  const { userId } = useAuth();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -128,7 +130,7 @@ export function AddTransactionForm({
     try {
       const transactionData: FinanceTransaction = {
         id: editTransaction?.id || `manual-${Date.now()}`,
-        userId: 'current-user', // Will be replaced by actual user ID from auth
+        userId: userId || '',
         accountId,
         amount: isExpense ? -Math.abs(parseFloat(amount)) : Math.abs(parseFloat(amount)),
         date,
@@ -143,17 +145,24 @@ export function AddTransactionForm({
         updatedAt: new Date().toISOString(),
       };
 
+      // Update local state first for optimistic UI
       if (editTransaction) {
         updateTransaction(editTransaction.id, transactionData);
       } else {
         addTransaction(transactionData);
       }
 
-      // TODO: Sync to API in Phase 3
-      // await fetch('/api/finance/transactions', {
-      //   method: editTransaction ? 'PUT' : 'POST',
-      //   body: JSON.stringify(transactionData),
-      // });
+      // Sync to API in background (don't await to keep UI responsive)
+      if (userId) {
+        fetch('/api/finance/transactions', {
+          method: editTransaction ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(transactionData),
+        }).catch((syncErr) => {
+          // Log but don't fail - local state is already updated
+          console.error('Failed to sync transaction to API:', syncErr);
+        });
+      }
 
       onSuccess?.(transactionData);
       resetForm();

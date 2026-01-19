@@ -8,6 +8,7 @@ import { getRxStorageDexie } from 'rxdb/plugins/storage-dexie';
 import { RxDBDevModePlugin } from 'rxdb/plugins/dev-mode';
 import { RxDBQueryBuilderPlugin } from 'rxdb/plugins/query-builder';
 import {
+  usersSchema,
   chatMessageSchema,
   userPreferencesSchema,
   deviceSchema,
@@ -27,6 +28,7 @@ if (process.env.NODE_ENV === 'development') {
 
 // Database collection types
 interface Q8DatabaseCollections {
+  users: RxCollection;
   chat_messages: RxCollection;
   user_preferences: RxCollection;
   devices: RxCollection;
@@ -57,6 +59,9 @@ export async function initDatabase() {
   }).then(async (db) => {
     // Create collections
     await db.addCollections({
+      users: {
+        schema: usersSchema,
+      },
       chat_messages: {
         schema: chatMessageSchema,
       },

@@ -4,11 +4,13 @@ import {
   getAuthenticatedUser,
   unauthorizedResponse,
 } from '@/lib/auth/api-auth';
+import { getServerEnv, clientEnv } from '@/lib/env';
+import { logger } from '@/lib/logger';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+const supabase = createClient(
+  clientEnv.NEXT_PUBLIC_SUPABASE_URL,
+  getServerEnv().SUPABASE_SERVICE_ROLE_KEY
+);
 
 /**
  * GET /api/finance/snapshots
@@ -38,7 +40,7 @@ export async function GET(request: NextRequest) {
       .order('date', { ascending: true });
 
     if (error) {
-      console.error('Supabase error:', error);
+      logger.error('Supabase error', { error });
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
@@ -58,7 +60,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(snapshots);
   } catch (error) {
-    console.error('Snapshots error:', error);
+    logger.error('Snapshots error', { error });
     return NextResponse.json(
       { error: 'Failed to fetch snapshots' },
       { status: 500 }
@@ -140,7 +142,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      console.error('Supabase upsert error:', error);
+      logger.error('Supabase upsert error', { error });
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
@@ -154,7 +156,7 @@ export async function POST(request: NextRequest) {
       investments: parseFloat(data.investments || '0'),
     });
   } catch (error) {
-    console.error('Create snapshot error:', error);
+    logger.error('Create snapshot error', { error });
     return NextResponse.json(
       { error: 'Failed to create snapshot' },
       { status: 500 }

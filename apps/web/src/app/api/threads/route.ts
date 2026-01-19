@@ -13,6 +13,7 @@ import {
   unauthorizedResponse,
 } from '@/lib/auth/api-auth';
 import type { Thread, ThreadInsert } from '@/lib/supabase/types';
+import { logger } from '@/lib/logger';
 
 // Changed from 'edge' to 'nodejs' for cookie-based auth support
 export const runtime = 'nodejs';
@@ -49,7 +50,7 @@ export async function GET(request: NextRequest) {
     const { data: threads, error } = await query;
 
     if (error) {
-      console.error('[Threads API] Error fetching threads:', error);
+      logger.error('[Threads API] Error fetching threads', { error: error });
       return NextResponse.json(
         { error: 'Failed to fetch threads' },
         { status: 500 }
@@ -82,7 +83,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ threads: threadsWithCounts });
   } catch (error) {
-    console.error('[Threads API] Error:', error);
+    logger.error('[Threads API] Error', { error: error });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -122,7 +123,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      console.error('[Threads API] Error creating thread:', error);
+      logger.error('[Threads API] Error creating thread', { error: error });
       return NextResponse.json(
         { error: 'Failed to create thread' },
         { status: 500 }
@@ -131,7 +132,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ thread });
   } catch (error) {
-    console.error('[Threads API] Error:', error);
+    logger.error('[Threads API] Error', { error: error });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

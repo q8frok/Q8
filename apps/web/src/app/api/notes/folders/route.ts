@@ -7,6 +7,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import type { NoteFolderInsert } from '@/lib/supabase/types';
+import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { createFolderSchema, validationErrorResponse } from '@/lib/validations';
+import { logger } from '@/lib/logger';
 
 export const runtime = 'edge';
 
@@ -15,16 +18,14 @@ export const runtime = 'edge';
  * List folders for a user
  */
 export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
+  // Authenticate user
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return unauthorizedResponse();
+  }
 
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'userId is required' },
-        { status: 400 }
-      );
-    }
+  try {
+    const userId = user.id; // Use authenticated user
 
     const { data: folders, error } = await supabaseAdmin
       .from('note_folders')
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
       .order('sort_order', { ascending: true });
 
     if (error) {
-      console.error('[Folders API] Error fetching folders:', error);
+      logger.error('[Folders API] Error fetching folders', { error });
       return NextResponse.json(
         { error: 'Failed to fetch folders' },
         { status: 500 }
@@ -61,7 +62,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ folders: foldersWithCounts || [] });
   } catch (error) {
-    console.error('[Folders API] Error:', error);
+    logger.error('[Folders API] Error', { error });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -74,22 +75,23 @@ export async function GET(request: NextRequest) {
  * Create a new folder
  */
 export async function POST(request: NextRequest) {
+  // Authenticate user
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return unauthorizedResponse();
+  }
+
   try {
     const body = await request.json();
-    const { userId, name, icon, color, parentId } = body as {
-      userId: string;
-      name: string;
-      icon?: string;
-      color?: string;
-      parentId?: string;
-    };
 
-    if (!userId || !name) {
-      return NextResponse.json(
-        { error: 'userId and name are required' },
-        { status: 400 }
-      );
+    // Validate input
+    const parseResult = createFolderSchema.safeParse(body);
+    if (!parseResult.success) {
+      return validationErrorResponse(parseResult.error);
     }
+
+    const { name, icon, color, parentId } = parseResult.data;
+    const userId = user.id; // Use authenticated user
 
     // Get max sort_order for new folder
     const { data: maxSort } = await supabaseAdmin
@@ -116,7 +118,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      console.error('[Folders API] Error creating folder:', error);
+      logger.error('[Folders API] Error creating folder', { error });
       return NextResponse.json(
         { error: 'Failed to create folder' },
         { status: 500 }
@@ -125,7 +127,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ folder });
   } catch (error) {
-    console.error('[Folders API] Error:', error);
+    logger.error('[Folders API] Error', { error });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -138,6 +140,12 @@ export async function POST(request: NextRequest) {
  * Delete a folder (moves notes to root)
  */
 export async function DELETE(request: NextRequest) {
+  // Authenticate user
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return unauthorizedResponse();
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const folderId = searchParams.get('id');
@@ -162,7 +170,7 @@ export async function DELETE(request: NextRequest) {
       .eq('id', folderId);
 
     if (error) {
-      console.error('[Folders API] Error deleting folder:', error);
+      logger.error('[Folders API] Error deleting folder', { error });
       return NextResponse.json(
         { error: 'Failed to delete folder' },
         { status: 500 }
@@ -171,7 +179,7 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('[Folders API] Error:', error);
+    logger.error('[Folders API] Error', { error });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

@@ -8,6 +8,8 @@
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { NextRequest, NextResponse } from 'next/server';
+import { clientEnv } from '@/lib/env';
+import { logger } from '@/lib/logger';
 
 /**
  * Authenticated user information extracted from session
@@ -52,8 +54,8 @@ export async function getAuthenticatedUser(
     const cookieStore = await cookies();
 
     const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      clientEnv.NEXT_PUBLIC_SUPABASE_URL,
+      clientEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY,
       {
         cookies: {
           get(name: string) {
@@ -83,7 +85,7 @@ export async function getAuthenticatedUser(
       avatarUrl: user.user_metadata?.avatar_url as string | undefined,
     };
   } catch (error) {
-    console.error('[API Auth] Error getting authenticated user:', error);
+    logger.error('[API Auth] Error getting authenticated user', { error });
     return null;
   }
 }

@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, unauthorizedResponse } from '@/lib/auth/api-auth';
 import { supabaseAdmin } from '@/lib/supabase/server';
+import { logger } from '@/lib/logger';
 
 export const runtime = 'nodejs';
 
@@ -60,7 +61,7 @@ export async function POST(request: NextRequest) {
     if (error) {
       // Handle missing table gracefully - return empty results
       if (error.code === '42P01' || error.message?.includes('does not exist')) {
-        console.warn(`[Sync Pull] Table ${tableName} does not exist yet, returning empty`);
+        logger.warn('[Sync Pull] Table does not exist yet, returning empty', { tableName });
         return NextResponse.json({
           documents: [],
           checkpoint: lastPulledAt,
@@ -69,14 +70,14 @@ export async function POST(request: NextRequest) {
 
       // Handle missing column gracefully
       if (error.code === '42703' || error.message?.includes('column')) {
-        console.warn(`[Sync Pull] Schema mismatch for ${tableName}, returning empty`);
+        logger.warn('[Sync Pull] Schema mismatch, returning empty', { tableName });
         return NextResponse.json({
           documents: [],
           checkpoint: lastPulledAt,
         });
       }
 
-      console.error(`[Sync Pull] Error fetching ${collection}:`, error);
+      logger.error('[Sync Pull] Error fetching collection', { collection, error });
       return NextResponse.json(
         { error: `Failed to fetch ${collection}: ${error.message}` },
         { status: 500 }
@@ -97,7 +98,7 @@ export async function POST(request: NextRequest) {
       checkpoint,
     });
   } catch (error) {
-    console.error('[Sync Pull] Unexpected error:', error);
+    logger.error('[Sync Pull] Unexpected error', { error: error });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

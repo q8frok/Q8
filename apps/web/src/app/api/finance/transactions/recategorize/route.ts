@@ -9,11 +9,13 @@ import {
   getAuthenticatedUser,
   unauthorizedResponse,
 } from '@/lib/auth/api-auth';
+import { getServerEnv, clientEnv } from '@/lib/env';
+import { logger } from '@/lib/logger';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+const supabase = createClient(
+  clientEnv.NEXT_PUBLIC_SUPABASE_URL,
+  getServerEnv().SUPABASE_SERVICE_ROLE_KEY
+);
 
 interface RecategorizeRequest {
   transactionId: string;
@@ -84,7 +86,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (txError || !transaction) {
-      console.error('Transaction fetch error:', txError);
+      logger.error('Transaction fetch error', { txError });
       return NextResponse.json(
         { error: 'Transaction not found' },
         { status: 404 }
@@ -159,7 +161,7 @@ export async function POST(request: NextRequest) {
           }
         }
       } catch (ruleErr) {
-        console.warn('Rule creation skipped:', ruleErr);
+        logger.warn('Rule creation skipped', { ruleErr });
         // Continue without rule creation
       }
     }
@@ -184,7 +186,7 @@ export async function POST(request: NextRequest) {
       if (!updateError) {
         updateSuccess = true;
       } else {
-        console.warn('Full update failed, trying basic update:', updateError);
+        logger.warn('Full update failed, trying basic update', { updateError });
       }
     }
 
@@ -199,7 +201,7 @@ export async function POST(request: NextRequest) {
         .eq('id', transactionId);
 
       if (basicUpdateError) {
-        console.error('Error updating transaction:', basicUpdateError);
+        logger.error('Error updating transaction', { basicUpdateError });
         return NextResponse.json(
           { error: `Failed to update transaction: ${basicUpdateError.message}` },
           { status: 500 }
@@ -302,7 +304,7 @@ export async function POST(request: NextRequest) {
       categoryRulesSupported,
     });
   } catch (error) {
-    console.error('Recategorize error:', error);
+    logger.error('Recategorize error', { error });
     return NextResponse.json(
       { error: 'Failed to recategorize transaction' },
       { status: 500 }
@@ -387,7 +389,7 @@ export async function GET(request: NextRequest) {
       })),
     });
   } catch (error) {
-    console.error('Preview recategorize error:', error);
+    logger.error('Preview recategorize error', { error });
     return NextResponse.json(
       { error: 'Failed to preview similar transactions' },
       { status: 500 }

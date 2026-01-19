@@ -7,6 +7,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { logger } from '@/lib/logger';
 
 export const runtime = 'nodejs';
 
@@ -177,7 +179,7 @@ Based on this context, suggest 3-5 Spotify seed genres and appropriate energy/va
       seedTracks: parsed.seedTrackIds || [],
     };
   } catch (error) {
-    console.error('AI recommendation error:', error);
+    logger.error('AI recommendation error', { error: error });
     const defaults = MODE_DEFAULTS[mode] ?? DEFAULT_MODE_CONFIG;
     return {
       genres: [...defaults.genres],
@@ -189,6 +191,12 @@ Based on this context, suggest 3-5 Spotify seed genres and appropriate energy/va
 }
 
 export async function POST(request: NextRequest) {
+  // Authenticate user
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return unauthorizedResponse();
+  }
+
   try {
     const body: RecommendRequest = await request.json();
     const { mode, currentTrack, recentHistory, timeOfDay } = body;
@@ -247,7 +255,7 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Spotify recommendations error:', errorText);
+      logger.error('Spotify recommendations error', { errorText: errorText });
       return NextResponse.json({
         success: false,
         error: 'Failed to fetch recommendations',
@@ -286,7 +294,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('AI recommendation error:', error);
+    logger.error('AI recommendation error', { error: error });
     return NextResponse.json(
       {
         success: false,

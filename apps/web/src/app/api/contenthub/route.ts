@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { ContentItem } from '@/types/contenthub';
+import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { contentHubActionSchema, validationErrorResponse } from '@/lib/validations';
+import { logger } from '@/lib/logger';
 
 /**
  * ContentHub API - Unified Content Aggregation
@@ -30,6 +33,12 @@ interface AggregatedContent {
  * GET /api/contenthub - Get aggregated content from all sources
  */
 export async function GET(request: NextRequest) {
+  // Authenticate user
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return unauthorizedResponse();
+  }
+
   const { searchParams } = new URL(request.url);
   const mode = searchParams.get('mode') ?? 'discover';
   const sources = searchParams.get('sources')?.split(',') ?? ['spotify', 'youtube'];
@@ -68,7 +77,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error('ContentHub aggregation error:', error);
+    logger.error('ContentHub aggregation error', { error: error });
     return NextResponse.json(
       { error: 'Failed to aggregate content' },
       { status: 500 }
@@ -171,7 +180,7 @@ async function fetchSpotifyRecommendations(
       }
     }
   } catch (error) {
-    console.warn('Failed to fetch Spotify recommendations:', error);
+    logger.warn('Failed to fetch Spotify recommendations', { error: error });
   }
 }
 
@@ -268,8 +277,22 @@ function parseDuration(isoDuration: string): number {
  * POST /api/contenthub - Perform actions (play, queue, save)
  */
 export async function POST(request: NextRequest) {
+  // Authenticate user
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return unauthorizedResponse();
+  }
+
   try {
-    const { action, item, ...params } = await request.json();
+    const body = await request.json();
+
+    // Validate input
+    const parseResult = contentHubActionSchema.safeParse(body);
+    if (!parseResult.success) {
+      return validationErrorResponse(parseResult.error);
+    }
+
+    const { action, item } = parseResult.data;
 
     switch (action) {
       case 'play':
@@ -285,7 +308,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
     }
   } catch (error) {
-    console.error('ContentHub action error:', error);
+    logger.error('ContentHub action error', { error: error });
     return NextResponse.json(
       { error: 'Action failed' },
       { status: 500 }

@@ -49,3 +49,6 @@ storybook-static/
 
 # Windows reserved names
 nul
+
+# Auto Claude data directory
+.auto-claude/

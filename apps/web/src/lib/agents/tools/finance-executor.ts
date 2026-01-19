@@ -4,9 +4,7 @@
  */
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+import { clientEnv } from '@/lib/env';
 
 // Type definitions for database records
 interface FinanceAccount {
@@ -77,7 +75,10 @@ export async function executeFinanceTool(
   args: Record<string, unknown>,
   userId: string
 ): Promise<unknown> {
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  const supabase = createClient(
+    clientEnv.NEXT_PUBLIC_SUPABASE_URL,
+    clientEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
 
   switch (toolName) {
     case 'get_balance_sheet':

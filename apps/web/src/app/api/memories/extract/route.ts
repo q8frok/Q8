@@ -7,6 +7,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import OpenAI from 'openai';
 import type { MemoryType, MemoryImportance, AgentMemoryInsert } from '@/lib/supabase/types';
+import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { logger } from '@/lib/logger';
 
 export const runtime = 'edge';
 
@@ -26,23 +28,29 @@ interface ExtractedMemory {
  * Extract memories from a message or conversation
  */
 export async function POST(request: NextRequest) {
+  // Authenticate user
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return unauthorizedResponse();
+  }
+
   try {
     const body = await request.json();
     const {
-      userId,
       threadId,
       userMessage,
       assistantMessage,
     } = body as {
-      userId: string;
       threadId: string;
       userMessage: string;
       assistantMessage: string;
     };
 
-    if (!userId || !userMessage) {
+    const userId = user.id; // Use authenticated user
+
+    if (!userMessage) {
       return NextResponse.json(
-        { error: 'userId and userMessage are required' },
+        { error: 'userMessage is required' },
         { status: 400 }
       );
     }
@@ -102,7 +110,7 @@ Return ONLY valid JSON, no explanation.`;
       const parsed = JSON.parse(responseText);
       extractedMemories = Array.isArray(parsed) ? parsed : (parsed.memories || []);
     } catch {
-      console.warn('[Memory Extract] Failed to parse AI response:', responseText);
+      logger.warn('[Memory Extract] Failed to parse AI response', { responseText: responseText });
       return NextResponse.json({ memories: [], extracted: 0 });
     }
 
@@ -164,7 +172,7 @@ Return ONLY valid JSON, no explanation.`;
       .select();
 
     if (error) {
-      console.error('[Memory Extract] Error inserting memories:', error);
+      logger.error('[Memory Extract] Error inserting memories', { error: error });
       return NextResponse.json(
         { error: 'Failed to save memories' },
         { status: 500 }
@@ -176,7 +184,7 @@ Return ONLY valid JSON, no explanation.`;
       extracted: insertedMemories?.length || 0,
     });
   } catch (error) {
-    console.error('[Memory Extract API] Error:', error);
+    logger.error('[Memory Extract API] Error', { error: error });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

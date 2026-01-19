@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/api-auth';
 import { supabaseAdmin } from '@/lib/supabase/server';
+import { logger } from '@/lib/logger';
 
 export const runtime = 'nodejs';
 
@@ -73,7 +74,7 @@ export async function POST(request: NextRequest) {
     if (tableCheckError) {
       // Handle missing table gracefully
       if (tableCheckError.code === '42P01' || tableCheckError.message?.includes('does not exist')) {
-        console.warn(`[Sync Push] Table ${tableName} does not exist yet, skipping push`);
+        logger.warn('[Sync Push] Table does not exist yet, skipping push', { tableName });
         return NextResponse.json({
           success: [],
           errors: documents.map((doc: Record<string, unknown>) => ({
@@ -99,7 +100,7 @@ export async function POST(request: NextRequest) {
         if (error) {
           // Skip column errors silently - schema mismatch
           if (error.code === '42703') {
-            console.warn(`[Sync Push] Schema mismatch for ${tableName}, skipping doc ${doc.id}`);
+            logger.warn('[Sync Push] Schema mismatch, skipping doc', { tableName, docId: doc.id });
           }
           errors.push({ id: doc.id as string, error: error.message });
         } else {
@@ -118,7 +119,7 @@ export async function POST(request: NextRequest) {
       errors,
     });
   } catch (error) {
-    console.error('[Sync Push] Unexpected error:', error);
+    logger.error('[Sync Push] Unexpected error', { error: error });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

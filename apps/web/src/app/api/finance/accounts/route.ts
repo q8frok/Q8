@@ -4,11 +4,13 @@ import {
   getAuthenticatedUser,
   unauthorizedResponse,
 } from '@/lib/auth/api-auth';
+import { getServerEnv, clientEnv } from '@/lib/env';
+import { logger } from '@/lib/logger';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+const supabase = createClient(
+  clientEnv.NEXT_PUBLIC_SUPABASE_URL,
+  getServerEnv().SUPABASE_SERVICE_ROLE_KEY
+);
 
 /**
  * GET /api/finance/accounts
@@ -30,7 +32,7 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Supabase error:', error);
+      logger.error('Supabase error', { error });
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
@@ -61,7 +63,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(accounts);
   } catch (error) {
-    console.error('Finance accounts error:', error);
+    logger.error('Finance accounts error', { error });
     return NextResponse.json(
       { error: 'Failed to fetch accounts' },
       { status: 500 }
@@ -118,7 +120,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      console.error('Supabase insert error:', error);
+      logger.error('Supabase insert error', { error });
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
@@ -138,7 +140,7 @@ export async function POST(request: NextRequest) {
       updatedAt: data.updated_at,
     });
   } catch (error) {
-    console.error('Create account error:', error);
+    logger.error('Create account error', { error });
     return NextResponse.json(
       { error: 'Failed to create account' },
       { status: 500 }

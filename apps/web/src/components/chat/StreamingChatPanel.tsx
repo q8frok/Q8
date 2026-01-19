@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bot, Loader2, PanelLeft, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -9,6 +9,10 @@ import { StreamingMessage } from './StreamingMessage';
 import { ChatInput } from './ChatInput';
 import { AgentHandoff, AgentBadge } from './AgentHandoff';
 import { Button } from '../ui/button';
+
+export interface StreamingChatPanelRef {
+  sendMessage: (message: string) => void;
+}
 
 interface StreamingChatPanelProps {
   /**
@@ -61,16 +65,20 @@ interface StreamingChatPanelProps {
  *
  * Complete chat interface with streaming support, tool visibility, and agent handoffs
  */
-export function StreamingChatPanel({
-  userId,
-  threadId,
-  userProfile,
-  onThreadCreated,
-  showSidebarToggle = false,
-  sidebarOpen = false,
-  onToggleSidebar,
-  className,
-}: StreamingChatPanelProps) {
+export const StreamingChatPanel = forwardRef<StreamingChatPanelRef, StreamingChatPanelProps>(
+  function StreamingChatPanel(
+    {
+      userId,
+      threadId,
+      userProfile,
+      onThreadCreated,
+      showSidebarToggle = false,
+      sidebarOpen = false,
+      onToggleSidebar,
+      className,
+    },
+    ref
+  ) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -109,6 +117,15 @@ export function StreamingChatPanel({
       console.error('[Chat] Error:', error);
     },
   });
+
+  // Expose sendMessage via ref for external components
+  useImperativeHandle(ref, () => ({
+    sendMessage: (message: string) => {
+      if (message.trim()) {
+        sendMessage(message);
+      }
+    },
+  }), [sendMessage]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -270,7 +287,7 @@ export function StreamingChatPanel({
       </div>
     </div>
   );
-}
+});
 
 /**
  * Suggestion Chip Component

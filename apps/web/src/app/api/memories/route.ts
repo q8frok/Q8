@@ -17,6 +17,7 @@ import type {
   MemoryType,
   MemoryImportance,
 } from '@/lib/supabase/types';
+import { logger } from '@/lib/logger';
 
 // Changed from 'edge' to 'nodejs' for cookie-based auth support
 export const runtime = 'nodejs';
@@ -58,7 +59,7 @@ export async function GET(request: NextRequest) {
     const { data: memories, error } = await query;
 
     if (error) {
-      console.error('[Memories API] Error fetching memories:', error);
+      logger.error('[Memories API] Error fetching memories', { error: error });
       return NextResponse.json(
         { error: 'Failed to fetch memories' },
         { status: 500 }
@@ -67,7 +68,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ memories: memories || [] });
   } catch (error) {
-    console.error('[Memories API] Error:', error);
+    logger.error('[Memories API] Error', { error: error });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -129,7 +130,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      console.error('[Memories API] Error creating memory:', error);
+      logger.error('[Memories API] Error creating memory', { error: error });
       return NextResponse.json(
         { error: 'Failed to create memory' },
         { status: 500 }
@@ -138,7 +139,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ memory });
   } catch (error) {
-    console.error('[Memories API] Error:', error);
+    logger.error('[Memories API] Error', { error: error });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

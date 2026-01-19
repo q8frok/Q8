@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ProactiveSuggestion } from '@/lib/memory/types';
+import { getDismissedSuggestions, dismissSuggestion } from '@/lib/memory/suggestions';
 
 interface SuggestionsWidgetProps {
   /**
@@ -97,7 +98,7 @@ export function SuggestionsWidget({
   const [suggestions, setSuggestions] = useState<ProactiveSuggestion[]>([]);
   const [quickActions, setQuickActions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => getDismissedSuggestions());
 
   /**
    * Fetch suggestions
@@ -138,10 +139,13 @@ export function SuggestionsWidget({
   }, [fetchSuggestions]);
 
   /**
-   * Dismiss a suggestion
+   * Dismiss a suggestion (persisted to localStorage)
    */
   const handleDismiss = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    // Persist to localStorage
+    dismissSuggestion(id);
+    // Update local state
     setDismissedIds(prev => new Set([...prev, id]));
   };
 

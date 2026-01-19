@@ -385,12 +385,90 @@ function getFollowUpSuggestions(recentTopics: string[]): ProactiveSuggestion[] {
   return suggestions;
 }
 
+// LocalStorage key for dismissed suggestions
+const DISMISSED_SUGGESTIONS_KEY = 'q8_dismissed_suggestions';
+const DISMISSAL_EXPIRY_DAYS = 7; // Dismissals expire after 7 days
+
+interface DismissalRecord {
+  id: string;
+  dismissedAt: number;
+}
+
+/**
+ * Get dismissed suggestion IDs from localStorage
+ */
+export function getDismissedSuggestions(): Set<string> {
+  if (typeof window === 'undefined') return new Set();
+
+  try {
+    const stored = localStorage.getItem(DISMISSED_SUGGESTIONS_KEY);
+    if (!stored) return new Set();
+
+    const records: DismissalRecord[] = JSON.parse(stored);
+    const now = Date.now();
+    const expiryMs = DISMISSAL_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
+
+    // Filter out expired dismissals
+    const validRecords = records.filter(
+      (record) => now - record.dismissedAt < expiryMs
+    );
+
+    // Update storage if we filtered some out
+    if (validRecords.length !== records.length) {
+      localStorage.setItem(
+        DISMISSED_SUGGESTIONS_KEY,
+        JSON.stringify(validRecords)
+      );
+    }
+
+    return new Set(validRecords.map((r) => r.id));
+  } catch {
+    return new Set();
+  }
+}
+
 /**
  * Mark a suggestion as dismissed
  */
 export function dismissSuggestion(suggestionId: string): void {
-  // TODO: In production, this would update a database to persist dismissal
-  void suggestionId; // Acknowledge parameter until persistence is implemented
+  if (typeof window === 'undefined') return;
+
+  try {
+    const stored = localStorage.getItem(DISMISSED_SUGGESTIONS_KEY);
+    const records: DismissalRecord[] = stored ? JSON.parse(stored) : [];
+
+    // Check if already dismissed
+    if (records.some((r) => r.id === suggestionId)) return;
+
+    // Add new dismissal
+    records.push({
+      id: suggestionId,
+      dismissedAt: Date.now(),
+    });
+
+    // Keep only the last 100 dismissals to prevent unbounded growth
+    const trimmedRecords = records.slice(-100);
+
+    localStorage.setItem(
+      DISMISSED_SUGGESTIONS_KEY,
+      JSON.stringify(trimmedRecords)
+    );
+  } catch (error) {
+    console.error('Failed to persist suggestion dismissal:', error);
+  }
+}
+
+/**
+ * Clear all dismissed suggestions (e.g., on logout)
+ */
+export function clearDismissedSuggestions(): void {
+  if (typeof window === 'undefined') return;
+
+  try {
+    localStorage.removeItem(DISMISSED_SUGGESTIONS_KEY);
+  } catch {
+    // Ignore errors
+  }
 }
 
 /**

@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { logger } from '@/lib/logger';
 
 const SPOTIFY_API_BASE = 'https://api.spotify.com/v1';
 const TOKEN_ENDPOINT = 'https://accounts.spotify.com/api/token';
@@ -29,14 +31,14 @@ async function getAccessToken(): Promise<string | null> {
     });
 
     if (!response.ok) {
-      console.error('Token refresh failed:', await response.text());
+      logger.error('Token refresh failed', { error: await response.text() });
       return null;
     }
 
     const data = await response.json();
     return data.access_token;
   } catch (error) {
-    console.error('Token refresh error:', error);
+    logger.error('Token refresh error', { error });
     return null;
   }
 }
@@ -55,8 +57,14 @@ async function getAccessToken(): Promise<string | null> {
  * - target_valence: Target mood/positivity (0.0-1.0)
  */
 export async function GET(request: NextRequest) {
+  // Authenticate user
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return unauthorizedResponse();
+  }
+
   const { searchParams } = new URL(request.url);
-  
+
   const seedTracks = searchParams.get('seed_tracks') || '';
   const seedArtists = searchParams.get('seed_artists') || '';
   const seedGenres = searchParams.get('seed_genres') || '';
@@ -101,7 +109,7 @@ export async function GET(request: NextRequest) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Spotify recommendations error:', errorText);
+      logger.error('Spotify recommendations error', { errorText });
       return NextResponse.json(
         { error: 'Failed to fetch recommendations', tracks: [] },
         { status: response.status }
@@ -115,7 +123,7 @@ export async function GET(request: NextRequest) {
       seeds: data.seeds || [],
     });
   } catch (error) {
-    console.error('Recommendations error:', error);
+    logger.error('Recommendations error', { error });
     return NextResponse.json(
       { error: 'Failed to fetch recommendations', tracks: [] },
       { status: 500 }
@@ -127,6 +135,12 @@ export async function GET(request: NextRequest) {
  * GET available genre seeds
  */
 export async function POST(request: NextRequest) {
+  // Authenticate user
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return unauthorizedResponse();
+  }
+
   const { action } = await request.json();
   
   if (action === 'get_genres') {
@@ -152,7 +166,7 @@ export async function POST(request: NextRequest) {
       const data = await response.json();
       return NextResponse.json({ genres: data.genres || [] });
     } catch (error) {
-      console.error('Genre fetch error:', error);
+      logger.error('Genre fetch error', { error });
       return NextResponse.json({ genres: [] });
     }
   }

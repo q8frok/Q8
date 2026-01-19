@@ -8,6 +8,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import type { AgentMemoryUpdate } from '@/lib/supabase/types';
+import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { logger } from '@/lib/logger';
 
 export const runtime = 'edge';
 
@@ -20,6 +22,12 @@ interface RouteParams {
  * Get memory by ID
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
+  // Authenticate user
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return unauthorizedResponse();
+  }
+
   try {
     const { id } = await params;
 
@@ -47,7 +55,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ memory });
   } catch (error) {
-    console.error('[Memory API] Error:', error);
+    logger.error('[Memory API] Error', { error: error });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -60,6 +68,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
  * Update memory
  */
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
+  // Authenticate user
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return unauthorizedResponse();
+  }
+
   try {
     const { id } = await params;
     const body = await request.json();
@@ -86,7 +100,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .single();
 
     if (error) {
-      console.error('[Memory API] Error updating memory:', error);
+      logger.error('[Memory API] Error updating memory', { error: error });
       return NextResponse.json(
         { error: 'Failed to update memory' },
         { status: 500 }
@@ -95,7 +109,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ memory });
   } catch (error) {
-    console.error('[Memory API] Error:', error);
+    logger.error('[Memory API] Error', { error: error });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -108,6 +122,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
  * Delete memory
  */
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
+  // Authenticate user
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return unauthorizedResponse();
+  }
+
   try {
     const { id } = await params;
 
@@ -117,7 +137,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       .eq('id', id);
 
     if (error) {
-      console.error('[Memory API] Error deleting memory:', error);
+      logger.error('[Memory API] Error deleting memory', { error: error });
       return NextResponse.json(
         { error: 'Failed to delete memory' },
         { status: 500 }
@@ -126,7 +146,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('[Memory API] Error:', error);
+    logger.error('[Memory API] Error', { error: error });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

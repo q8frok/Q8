@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { logger } from '@/lib/logger';
 
 const SPOTIFY_API_BASE = 'https://api.spotify.com/v1';
 const TOKEN_ENDPOINT = 'https://accounts.spotify.com/api/token';
@@ -62,6 +64,12 @@ interface PlaylistTrackItem {
  * GET /api/spotify/playlists - Get user's playlists
  */
 export async function GET(request: NextRequest) {
+  // Authenticate user
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return unauthorizedResponse();
+  }
+
   const { searchParams } = new URL(request.url);
   const playlistId = searchParams.get('id');
   const limit = parseInt(searchParams.get('limit') || '50');
@@ -173,7 +181,7 @@ export async function GET(request: NextRequest) {
       });
     }
   } catch (error) {
-    console.error('Playlist fetch error:', error);
+    logger.error('Playlist fetch error', { error });
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to fetch' },
       { status: 500 }
@@ -185,6 +193,12 @@ export async function GET(request: NextRequest) {
  * POST /api/spotify/playlists - Add tracks to a playlist or create a new playlist
  */
 export async function POST(request: NextRequest) {
+  // Authenticate user
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return unauthorizedResponse();
+  }
+
   const accessToken = await getAccessToken();
 
   if (!accessToken) {
@@ -364,7 +378,7 @@ export async function POST(request: NextRequest) {
         );
     }
   } catch (error) {
-    console.error('Playlist action error:', error);
+    logger.error('Playlist action error', { error });
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Action failed' },
       { status: 500 }

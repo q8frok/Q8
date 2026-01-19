@@ -14,8 +14,19 @@ import {
 import { cn } from '@/lib/utils';
 import { MessageActions } from './MessageActions';
 import ReactMarkdown from 'react-markdown';
+import type { Components } from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import type { ExtraProps } from 'react-markdown';
+
+/**
+ * Props for the code component in ReactMarkdown
+ */
+interface CodeComponentProps extends React.HTMLAttributes<HTMLElement>, ExtraProps {
+  inline?: boolean;
+  className?: string;
+  children?: React.ReactNode;
+}
 
 type AgentRole =
   | 'orchestrator'
@@ -220,7 +231,7 @@ export function ChatMessage({
           >
             <ReactMarkdown
               components={{
-                code({ node, inline, className, children, ...props }: any) {
+                code({ inline, className, children, ...props }: CodeComponentProps) {
                   const match = /language-(\w+)/.exec(className || '');
                   const language = match ? match[1] : '';
 
@@ -235,11 +246,10 @@ export function ChatMessage({
 
                       {/* Code Block */}
                       <SyntaxHighlighter
-                        style={vscDarkPlus}
+                        style={vscDarkPlus as Record<string, React.CSSProperties>}
                         language={language}
                         PreTag="div"
                         className="rounded-lg !bg-black/30 !p-4"
-                        {...props}
                       >
                         {String(children).replace(/\n$/, '')}
                       </SyntaxHighlighter>

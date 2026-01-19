@@ -1,25 +1,46 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { 
-  Configuration, 
-  PlaidApi, 
-  PlaidEnvironments, 
-  Products, 
+import {
+  Configuration,
+  PlaidApi,
+  PlaidEnvironments,
+  Products,
   CountryCode,
   DepositoryAccountSubtype,
   CreditAccountSubtype,
 } from 'plaid';
+import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { integrations } from '@/lib/env';
+import { logger } from '@/lib/logger';
 
-const PLAID_CLIENT_ID = process.env.PLAID_CLIENT_ID;
-const PLAID_SECRET = process.env.PLAID_SECRET;
-const PLAID_ENV = (process.env.PLAID_ENV || 'sandbox') as keyof typeof PlaidEnvironments;
+/**
+ * Type guard for Plaid API errors with response data
+ */
+interface PlaidApiError {
+  response?: {
+    data?: {
+      error_code?: string;
+      error_message?: string;
+      error_type?: string;
+    };
+  };
+  message?: string;
+}
+
+function isPlaidApiError(error: unknown): error is PlaidApiError {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    ('response' in error || 'message' in error)
+  );
+}
 
 // Initialize Plaid client
 const configuration = new Configuration({
-  basePath: PlaidEnvironments[PLAID_ENV],
+  basePath: PlaidEnvironments[integrations.plaid.env as keyof typeof PlaidEnvironments],
   baseOptions: {
     headers: {
-      'PLAID-CLIENT-ID': PLAID_CLIENT_ID,
-      'PLAID-SECRET': PLAID_SECRET,
+      'PLAID-CLIENT-ID': integrations.plaid.clientId ?? '',
+      'PLAID-SECRET': integrations.plaid.secret ?? '',
     },
   },
 });
@@ -31,11 +52,17 @@ const plaidClient = new PlaidApi(configuration);
  * Generate a Plaid Link token for initializing Link
  */
 export async function POST(request: NextRequest) {
+  // Authenticate user
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return unauthorizedResponse();
+  }
+
   try {
     // Check if Plaid is configured
-    if (!PLAID_CLIENT_ID || !PLAID_SECRET) {
+    if (!integrations.plaid.isConfigured) {
       return NextResponse.json(
-        { 
+        {
           error: 'Plaid not configured',
           configured: false,
           message: 'Add PLAID_CLIENT_ID and PLAID_SECRET to your environment variables'
@@ -45,14 +72,8 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { userId, accessToken } = body;
-
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'User ID is required' },
-        { status: 400 }
-      );
-    }
+    const { accessToken } = body;
+    const userId = user.id; // Use authenticated user
 
     // Base request config
     const linkTokenConfig: Parameters<typeof plaidClient.linkTokenCreate>[0] = {
@@ -89,16 +110,17 @@ export async function POST(request: NextRequest) {
       expiration: response.data.expiration,
       requestId: response.data.request_id,
     });
-  } catch (error: any) {
-    console.error('Plaid link token error:', error.response?.data || error.message);
-    
+  } catch (error) {
+    const plaidError = isPlaidApiError(error) ? error : null;
+    logger.error('Plaid link token error', { error: plaidError?.response?.data || plaidError?.message || error });
+
     // Handle specific Plaid errors
-    if (error.response?.data?.error_code) {
+    if (plaidError?.response?.data?.error_code) {
       return NextResponse.json(
         {
-          error: error.response.data.error_message,
-          errorCode: error.response.data.error_code,
-          errorType: error.response.data.error_type,
+          error: plaidError.response.data.error_message,
+          errorCode: plaidError.response.data.error_code,
+          errorType: plaidError.response.data.error_type,
         },
         { status: 400 }
       );

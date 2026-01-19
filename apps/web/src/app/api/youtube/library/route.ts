@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { logger } from '@/lib/logger';
 
 const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3';
 
@@ -14,6 +16,12 @@ const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3';
  * For now, we provide curated trending content.
  */
 export async function GET(request: NextRequest) {
+  // Authenticate user
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return unauthorizedResponse();
+  }
+
   const { searchParams } = new URL(request.url);
   const type = searchParams.get('type') || 'all';
   const limit = parseInt(searchParams.get('limit') || '12');
@@ -72,7 +80,7 @@ export async function GET(request: NextRequest) {
               }));
             }
           })
-          .catch(err => console.warn('Failed to fetch trending:', err))
+          .catch(err => logger.warn('Failed to fetch trending', { err: err }))
       );
     }
 
@@ -105,7 +113,7 @@ export async function GET(request: NextRequest) {
               }));
             }
           })
-          .catch(err => console.warn('Failed to fetch music:', err))
+          .catch(err => logger.warn('Failed to fetch music', { err: err }))
       );
     }
 
@@ -138,7 +146,7 @@ export async function GET(request: NextRequest) {
               }));
             }
           })
-          .catch(err => console.warn('Failed to fetch gaming:', err))
+          .catch(err => logger.warn('Failed to fetch gaming', { err: err }))
       );
     }
 
@@ -168,7 +176,7 @@ export async function GET(request: NextRequest) {
               }));
             }
           })
-          .catch(err => console.warn('Failed to fetch playlists:', err))
+          .catch(err => logger.warn('Failed to fetch playlists', { err: err }))
       );
     }
 
@@ -176,7 +184,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(results);
   } catch (error) {
-    console.error('YouTube library fetch error:', error);
+    logger.error('YouTube library fetch error', { error: error });
     return NextResponse.json({
       error: error instanceof Error ? error.message : 'Failed to fetch YouTube data',
       ...results,

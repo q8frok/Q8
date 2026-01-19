@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useRxQuery } from '@/hooks/useRxDB';
+import { useRxQuery, useRxDB } from '@/hooks/useRxDB';
+import { useAuth } from '@/hooks/useAuth';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   CheckSquare,
@@ -15,11 +16,13 @@ import { OptimisticAction } from '@/components/shared/OptimisticAction';
 
 interface Task {
   id: string;
+  userId: string;
   text: string;
   completed: boolean;
   priority: 'low' | 'medium' | 'high';
   due_date?: string;
   created_at: string;
+  updatedAt: string;
 }
 
 interface TaskWidgetProps {
@@ -88,11 +91,15 @@ export function TaskWidget({
   const [newTaskText, setNewTaskText] = useState('');
   const [isAddingTask, setIsAddingTask] = useState(false);
 
-  // Fetch tasks from RxDB
+  const { db } = useRxDB();
+  const { userId } = useAuth();
+
+  // Fetch tasks from RxDB (filtered by current user)
   const { data: tasks, isLoading: isFetching } = useRxQuery<Task>(
     'tasks',
     (collection) => {
-      let query = collection.find();
+      // Only show tasks for the current user
+      let query = collection.find().where('userId').eq(userId || '');
 
       if (!showCompleted) {
         query = query.where('completed').eq(false);
@@ -104,17 +111,19 @@ export function TaskWidget({
 
   // Add new task
   const handleAddTask = async () => {
-    if (!newTaskText.trim()) return;
+    if (!newTaskText.trim() || !db || !userId) return;
 
     try {
-      // TODO: Implement task creation
-      // await db.collections.tasks.insert({
-      //   id: generateId(),
-      //   text: newTaskText,
-      //   completed: false,
-      //   priority: 'medium',
-      //   created_at: new Date().toISOString(),
-      // });
+      const now = new Date().toISOString();
+      await db.tasks.insert({
+        id: crypto.randomUUID(),
+        userId,
+        text: newTaskText.trim(),
+        completed: false,
+        priority: 'medium',
+        created_at: now,
+        updatedAt: now,
+      });
 
       setNewTaskText('');
       setIsAddingTask(false);
@@ -125,12 +134,16 @@ export function TaskWidget({
 
   // Toggle task completion
   const toggleTaskCompletion = async (task: Task) => {
+    if (!db || !userId) return;
+
     try {
-      // TODO: Implement task update
-      // await db.collections.tasks.upsert({
-      //   ...task,
-      //   completed: !task.completed,
-      // });
+      const doc = await db.tasks.findOne(task.id).exec();
+      if (doc) {
+        await doc.patch({
+          completed: !task.completed,
+          updatedAt: new Date().toISOString(),
+        });
+      }
     } catch (error) {
       console.error('Failed to toggle task:', error);
     }
@@ -138,9 +151,13 @@ export function TaskWidget({
 
   // Delete task
   const handleDeleteTask = async (taskId: string) => {
+    if (!db) return;
+
     try {
-      // TODO: Implement task deletion
-      // await db.collections.tasks.findOne(taskId).remove();
+      const doc = await db.tasks.findOne(taskId).exec();
+      if (doc) {
+        await doc.remove();
+      }
     } catch (error) {
       console.error('Failed to delete task:', error);
     }

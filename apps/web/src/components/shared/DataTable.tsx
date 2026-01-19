@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import { ChevronUp, ChevronDown, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '../ui/button';
+import type { RxCollection, RxQuery } from 'rxdb';
 
 interface ColumnDef<T> {
   /**
@@ -60,7 +61,7 @@ interface DataTableProps<T> {
   /**
    * RxDB query modifier function
    */
-  query?: (collection: any) => any;
+  query?: (collection: RxCollection<T>) => RxQuery<T>;
 
   /**
    * Enable search functionality
@@ -141,8 +142,8 @@ export function DataTable<T extends Record<string, unknown>>({
 
   // Fetch data from RxDB
   const queryFn = useMemo(() => {
-    return (col: any) => {
-      let q = query ? query(col) : col.find();
+    return (col: RxCollection<T>) => {
+      const q = query ? query(col) : col.find();
       return q;
     };
   }, [query]);

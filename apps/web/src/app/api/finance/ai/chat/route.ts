@@ -9,10 +9,13 @@ import {
   getAuthenticatedUser,
   unauthorizedResponse,
 } from '@/lib/auth/api-auth';
+import { getServerEnv, clientEnv } from '@/lib/env';
+import { logger } from '@/lib/logger';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+const supabase = createClient(
+  clientEnv.NEXT_PUBLIC_SUPABASE_URL,
+  getServerEnv().SUPABASE_SERVICE_ROLE_KEY
+);
 
 // Message interface
 interface ChatMessage {
@@ -77,7 +80,7 @@ export async function POST(request: NextRequest) {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error('Finance chat error:', error);
+    logger.error('Finance chat error', { error });
     return NextResponse.json(
       { error: 'Failed to process chat message' },
       { status: 500 }
@@ -124,7 +127,7 @@ async function callFinanceModel(
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error('AI API error:', errorText);
+    logger.error('AI API error', { errorText });
     throw new Error(`AI API error: ${response.status}`);
   }
 
@@ -150,7 +153,7 @@ async function callFinanceModel(
       const toolName = toolCall.function.name;
       const toolArgs = JSON.parse(toolCall.function.arguments || '{}');
 
-      console.log(`[FinanceChat] Executing tool: ${toolName}`, toolArgs);
+      logger.info('[FinanceChat] Executing tool', { toolName, toolArgs });
       toolsUsed.push(toolName);
 
       const toolResult = await executeFinanceAdvisorTool(toolName, toolArgs, userId);
@@ -184,7 +187,7 @@ async function callFinanceModel(
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('AI API error on tool loop:', errorText);
+      logger.error('AI API error on tool loop', { errorText });
       throw new Error(`AI API error: ${response.status}`);
     }
 
@@ -217,11 +220,11 @@ async function storeConversation(
 
     if (error) {
       // Table might not exist yet, log but don't fail
-      console.warn('Could not store chat history:', error.message);
+      logger.warn('Could not store chat history', { message: error.message });
     }
   } catch (err) {
     // Non-critical, just log
-    console.warn('Chat history storage error:', err);
+    logger.warn('Chat history storage error', { err });
   }
 }
 
@@ -250,7 +253,7 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       // Table might not exist
-      console.warn('Could not fetch chat history:', error.message);
+      logger.warn('Could not fetch chat history', { message: error.message });
       return NextResponse.json({ history: [], count: 0 });
     }
 
@@ -267,7 +270,7 @@ export async function GET(request: NextRequest) {
       count: history.length,
     });
   } catch (error) {
-    console.error('Chat history fetch error:', error);
+    logger.error('Chat history fetch error', { error });
     return NextResponse.json(
       { error: 'Failed to fetch chat history' },
       { status: 500 }

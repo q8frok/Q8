@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { logger } from '@/lib/logger';
 
 const SPOTIFY_API_BASE = 'https://api.spotify.com/v1';
 const TOKEN_ENDPOINT = 'https://accounts.spotify.com/api/token';
@@ -78,6 +80,12 @@ interface RecentlyPlayedItem {
  * - topTracks: User's top tracks
  */
 export async function GET(request: NextRequest) {
+  // Authenticate user
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return unauthorizedResponse();
+  }
+
   const { searchParams } = new URL(request.url);
   const type = searchParams.get('type') || 'all';
   const limit = parseInt(searchParams.get('limit') || '20');
@@ -130,7 +138,7 @@ export async function GET(request: NextRequest) {
               }));
             }
           })
-          .catch(err => console.warn('Failed to fetch playlists:', err))
+          .catch(err => logger.warn('Failed to fetch playlists', { err }))
       );
     }
 
@@ -156,7 +164,7 @@ export async function GET(request: NextRequest) {
               }));
             }
           })
-          .catch(err => console.warn('Failed to fetch recently played:', err))
+          .catch(err => logger.warn('Failed to fetch recently played', { err }))
       );
     }
 
@@ -181,7 +189,7 @@ export async function GET(request: NextRequest) {
               }));
             }
           })
-          .catch(err => console.warn('Failed to fetch featured playlists:', err))
+          .catch(err => logger.warn('Failed to fetch featured playlists', { err }))
       );
     }
 
@@ -206,7 +214,7 @@ export async function GET(request: NextRequest) {
               }));
             }
           })
-          .catch(err => console.warn('Failed to fetch top tracks:', err))
+          .catch(err => logger.warn('Failed to fetch top tracks', { err }))
       );
     }
 
@@ -214,7 +222,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(results);
   } catch (error) {
-    console.error('Library fetch error:', error);
+    logger.error('Library fetch error', { error });
     return NextResponse.json({
       error: error instanceof Error ? error.message : 'Failed to fetch library',
       ...results,

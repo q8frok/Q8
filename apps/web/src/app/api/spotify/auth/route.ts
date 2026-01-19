@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 
 /**
  * Spotify OAuth Authorization Flow
@@ -81,7 +82,7 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const error = await response.text();
-      console.error('Token exchange failed:', error);
+      logger.error('Token exchange failed', { error });
       return NextResponse.json({ error: 'Token exchange failed' }, { status: 400 });
     }
 
@@ -95,7 +96,7 @@ export async function POST(request: NextRequest) {
       message: 'Copy the refresh_token to your .env.local file as SPOTIFY_REFRESH_TOKEN',
     });
   } catch (error) {
-    console.error('Auth error:', error);
+    logger.error('Auth error', { error });
     return NextResponse.json({ error: 'Authentication failed' }, { status: 500 });
   }
 }

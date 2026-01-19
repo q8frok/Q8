@@ -4,8 +4,10 @@
  * Uses unified orchestration service
  */
 
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { streamMessage, type OrchestrationEvent, type ExtendedAgentType } from '@/lib/agents/orchestration';
+import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { logger } from '@/lib/logger';
 
 // Use Node.js runtime for full compatibility with OpenAI and Supabase SDKs
 export const runtime = 'nodejs';
@@ -104,6 +106,12 @@ function encodeSSE(event: LegacyStreamEvent): string {
 }
 
 export async function POST(request: NextRequest) {
+  // Authenticate user before starting stream
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return unauthorizedResponse();
+  }
+
   const encoder = new TextEncoder();
 
   // Create a TransformStream for streaming
@@ -114,12 +122,13 @@ export async function POST(request: NextRequest) {
   (async () => {
     try {
       const body = (await request.json()) as StreamRequest;
-      const { message, userId, threadId, userProfile, forceAgent, showToolExecutions = true } = body;
+      const { message, threadId, userProfile, forceAgent, showToolExecutions = true } = body;
+      const userId = user.id; // Use authenticated user ID
 
-      if (!message || !userId) {
+      if (!message) {
         await writer.write(encoder.encode(encodeSSE({
           type: 'error',
-          message: 'Message and userId are required'
+          message: 'Message is required'
         })));
         await writer.close();
         return;
@@ -142,7 +151,7 @@ export async function POST(request: NextRequest) {
         }
       }
     } catch (error) {
-      console.error('[Stream API] Error:', error);
+      logger.error('[Stream API] Error', { error: error });
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       await writer.write(encoder.encode(encodeSSE({ type: 'error', message: errorMessage })));
     } finally {

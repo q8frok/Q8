@@ -6,6 +6,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import OpenAI from 'openai';
+import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { logger } from '@/lib/logger';
 
 export const runtime = 'edge';
 
@@ -22,6 +24,12 @@ const openai = new OpenAI({
  * Generate AI title and summary for thread
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
+  // Authenticate user
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return unauthorizedResponse();
+  }
+
   try {
     const { id } = await params;
 
@@ -100,7 +108,7 @@ Rules:
       .single();
 
     if (updateError) {
-      console.error('[Summarize API] Error updating thread:', updateError);
+      logger.error('[Summarize API] Error updating thread', { updateError: updateError });
       return NextResponse.json(
         { error: 'Failed to update thread' },
         { status: 500 }
@@ -109,7 +117,7 @@ Rules:
 
     return NextResponse.json({ thread, title, summary });
   } catch (error) {
-    console.error('[Summarize API] Error:', error);
+    logger.error('[Summarize API] Error', { error: error });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

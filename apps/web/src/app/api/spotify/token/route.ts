@@ -1,4 +1,6 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { logger } from '@/lib/logger';
 
 const TOKEN_ENDPOINT = 'https://accounts.spotify.com/api/token';
 
@@ -8,7 +10,12 @@ const TOKEN_ENDPOINT = 'https://accounts.spotify.com/api/token';
  * The Web Playback SDK requires a valid access token to initialize.
  * This endpoint refreshes the token and returns it to the client.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
+  // Authenticate user
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return unauthorizedResponse();
+  }
   const clientId = process.env.SPOTIFY_CLIENT_ID;
   const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
   const refreshToken = process.env.SPOTIFY_REFRESH_TOKEN;
@@ -35,7 +42,7 @@ export async function GET() {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Token refresh failed:', errorText);
+      logger.error('Token refresh failed', { errorText });
       return NextResponse.json(
         { error: 'Failed to refresh token' },
         { status: 500 }
@@ -49,7 +56,7 @@ export async function GET() {
       expires_in: data.expires_in,
     });
   } catch (error) {
-    console.error('Token error:', error);
+    logger.error('Token error', { error });
     return NextResponse.json(
       { error: 'Failed to get token' },
       { status: 500 }

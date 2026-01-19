@@ -5,7 +5,17 @@
  */
 
 import { getModel } from '../model_factory';
-import { initGoogleTools } from '@/lib/mcp/tools/google';
+import {
+  initGoogleTools,
+  listEmails,
+  sendEmail,
+  listCalendarEvents,
+  createCalendarEvent,
+  searchDrive,
+  getDriveFile,
+  searchYouTube,
+} from '@/lib/mcp/tools/google';
+import { mcpClient } from '@/lib/mcp/client';
 import { defaultTools } from '../tools/default-tools';
 import type { Tool, OpenAITool } from '../types';
 
@@ -333,16 +343,109 @@ export async function executeGoogleTool(
   toolName: string,
   args: Record<string, unknown>
 ): Promise<{ success: boolean; message: string; data?: unknown }> {
-  // This will integrate with the Google MCP server or direct API calls
-  // For now, return a structured response indicating the tool was called
-  
-  console.log(`[Secretary] Executing tool: ${toolName}`, args);
-  
-  // TODO: Implement actual Google API calls here
-  // For now, return a placeholder indicating the tool integration is pending
-  return {
-    success: false,
-    message: `Google Workspace tool "${toolName}" integration pending. MCP server connection required.`,
-    data: { tool: toolName, args },
-  };
+  try {
+    let result: unknown;
+
+    switch (toolName) {
+      // Gmail Tools
+      case 'gmail_list_messages':
+        result = await listEmails(
+          args.maxResults as number | undefined,
+          args.query as string | undefined
+        );
+        break;
+
+      case 'gmail_get_message':
+        result = await mcpClient.executeTool('gmail_get_message', args);
+        break;
+
+      case 'gmail_send_message':
+        result = await sendEmail(
+          args.to as string,
+          args.subject as string,
+          args.body as string
+        );
+        break;
+
+      case 'gmail_create_draft':
+        result = await mcpClient.executeTool('gmail_create_draft', args);
+        break;
+
+      // Calendar Tools
+      case 'calendar_list_events':
+        result = await listCalendarEvents(
+          args.calendarId as string | undefined,
+          args.timeMin as string | undefined,
+          args.timeMax as string | undefined
+        );
+        break;
+
+      case 'calendar_create_event':
+        result = await createCalendarEvent(
+          args.summary as string,
+          args.start as string,
+          args.end as string,
+          args.description as string | undefined
+        );
+        break;
+
+      case 'calendar_update_event':
+        result = await mcpClient.executeTool('calendar_update_event', args);
+        break;
+
+      case 'calendar_delete_event':
+        result = await mcpClient.executeTool('calendar_delete_event', args);
+        break;
+
+      // Drive Tools
+      case 'drive_search_files':
+        result = await searchDrive(
+          args.query as string,
+          args.mimeType as string | undefined
+        );
+        break;
+
+      case 'drive_get_file':
+        result = await getDriveFile(args.fileId as string);
+        break;
+
+      // YouTube Tools
+      case 'youtube_search':
+        result = await searchYouTube(
+          args.query as string,
+          args.maxResults as number | undefined
+        );
+        break;
+
+      default:
+        return {
+          success: false,
+          message: `Unknown tool: ${toolName}`,
+          data: { tool: toolName, args },
+        };
+    }
+
+    return {
+      success: true,
+      message: `Successfully executed ${toolName}`,
+      data: result,
+    };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+    // Check if it's an MCP connection error
+    if (errorMessage.includes('Failed to fetch') || errorMessage.includes('not found in any registered server')) {
+      return {
+        success: false,
+        message: `Google Workspace MCP server not available. Please ensure the MCP server is running at ${process.env.GOOGLE_MCP_URL || 'http://localhost:3002'}.`,
+        data: { tool: toolName, args, error: errorMessage },
+      };
+    }
+
+    return {
+      success: false,
+      message: `Failed to execute ${toolName}: ${errorMessage}`,
+      data: { tool: toolName, args, error: errorMessage },
+    };
+  }
 }

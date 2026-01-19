@@ -6,6 +6,58 @@
 import type { RxJsonSchema } from 'rxdb';
 
 /**
+ * Users Schema - For offline access to current user data
+ */
+export const usersSchema: RxJsonSchema<{
+  id: string;
+  email: string;
+  full_name?: string;
+  avatar_url?: string;
+  role: string;
+  created_at: string;
+  updated_at: string;
+}> = {
+  version: 0,
+  primaryKey: 'id',
+  type: 'object',
+  properties: {
+    id: {
+      type: 'string',
+      maxLength: 100,
+    },
+    email: {
+      type: 'string',
+      maxLength: 255,
+    },
+    full_name: {
+      type: 'string',
+      maxLength: 255,
+    },
+    avatar_url: {
+      type: 'string',
+      maxLength: 500,
+    },
+    role: {
+      type: 'string',
+      maxLength: 50,
+      default: 'user',
+    },
+    created_at: {
+      type: 'string',
+      format: 'date-time',
+      maxLength: 50,
+    },
+    updated_at: {
+      type: 'string',
+      format: 'date-time',
+      maxLength: 50,
+    },
+  },
+  required: ['id', 'email', 'role', 'created_at', 'updated_at'],
+  indexes: ['email'],
+};
+
+/**
  * Chat Messages Schema
  */
 export const chatMessageSchema: RxJsonSchema<{

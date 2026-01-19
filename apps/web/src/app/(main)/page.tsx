@@ -18,7 +18,7 @@ import {
   SmartHomeWidget,
   FinanceHubWidget,
 } from '@/components/dashboard/widgets';
-import { ChatWithThreads } from '@/components/chat/ChatWithThreads';
+import { ChatWithThreads, ChatWithThreadsRef } from '@/components/chat/ChatWithThreads';
 import { VoiceConversation } from '@/components/voice';
 import { UserProfile } from '@/components/auth/UserProfile';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
@@ -27,6 +27,7 @@ import { CommandPalette } from '@/components/CommandPalette';
 import { SettingsPanel } from '@/components/settings';
 import { ToastProvider, toast } from '@/components/ui/toast';
 import { AnimatedBackground } from '@/components/shared/AnimatedBackground';
+import { ChatProvider } from '@/contexts/ChatContext';
 
 function DashboardContent() {
   // SECURITY: Get userId from authenticated session, not hardcoded
@@ -35,7 +36,7 @@ function DashboardContent() {
   const [isVoiceMode, setIsVoiceMode] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const chatRef = useRef<{ sendMessage: (msg: string) => void } | null>(null);
+  const chatRef = useRef<ChatWithThreadsRef>(null);
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -58,9 +59,9 @@ function DashboardContent() {
 
   // Handle sending messages from command palette
   const handleSendMessage = (message: string) => {
-    // TODO: Connect to actual chat panel
-    console.log('Send message:', message);
-    toast.info('Message sent', message);
+    if (chatRef.current) {
+      chatRef.current.sendMessage(message);
+    }
   };
 
   // Show loading state while auth is being verified
@@ -198,6 +199,7 @@ function DashboardContent() {
           <div className="lg:col-span-1">
             <div className="surface-matte rounded-2xl h-[calc(100vh-12rem)] overflow-hidden">
               <ChatWithThreads
+                ref={chatRef}
                 userId={userId}
                 userProfile={{
                   name: fullName || 'User',
@@ -235,9 +237,11 @@ function DashboardContent() {
 export default function DashboardPage() {
   return (
     <ToastProvider>
-      <ProtectedRoute>
-        <DashboardContent />
-      </ProtectedRoute>
+      <ChatProvider>
+        <ProtectedRoute>
+          <DashboardContent />
+        </ProtectedRoute>
+      </ChatProvider>
     </ToastProvider>
   );
 }

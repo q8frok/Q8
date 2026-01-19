@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getWeather, getWeatherForecast, getWeatherByCity } from '@/lib/agents/tools/weather';
+import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { logger } from '@/lib/logger';
 
 // Default location: User's NYC location
 const DEFAULT_LAT = 40.7472;
@@ -7,6 +9,12 @@ const DEFAULT_LON = -73.9903;
 
 export async function GET(request: NextRequest) {
   try {
+    // Authenticate user
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
+      return unauthorizedResponse();
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const city = searchParams.get('city');
     const lat = searchParams.get('lat');
@@ -36,7 +44,7 @@ export async function GET(request: NextRequest) {
       updatedAt: new Date().toISOString(),
     });
   } catch (error) {
-    console.error('Weather API error:', error);
+    logger.error('Weather API error', { error: error });
     
     // Return mock data if API fails (for development without API key)
     return NextResponse.json({

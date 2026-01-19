@@ -27,7 +27,7 @@ import type { FinanceAccount } from '@/types/finance';
 interface FinanceSettingsProps {
   isOpen: boolean;
   onClose: () => void;
-  userId: string;
+  userId?: string;
   onSyncAll?: () => Promise<void>;
   lastSyncTime?: Date | null;
   isSyncing?: boolean;

@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { logger } from '@/lib/logger';
 
 /**
  * Image Proxy API
@@ -29,6 +31,12 @@ const ALLOWED_HOSTS = [
 ];
 
 export async function GET(request: NextRequest) {
+  // Authenticate user
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return unauthorizedResponse();
+  }
+
   const { searchParams } = new URL(request.url);
   const imageUrl = searchParams.get('url');
 
@@ -47,7 +55,7 @@ export async function GET(request: NextRequest) {
     if (!isAllowed) {
       // For development, allow all hosts but log warning
       if (process.env.NODE_ENV === 'development') {
-        console.warn(`Image proxy: Allowing non-whitelisted host: ${parsedUrl.hostname}`);
+        logger.warn('Image proxy: Allowing non-whitelisted host', { hostname: parsedUrl.hostname });
       } else {
         return NextResponse.json(
           { error: 'Host not allowed' },
@@ -92,7 +100,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Image proxy error:', error);
+    logger.error('Image proxy error', { error: error });
     return NextResponse.json(
       { error: 'Failed to proxy image' },
       { status: 500 }

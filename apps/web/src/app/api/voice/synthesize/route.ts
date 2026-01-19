@@ -4,37 +4,29 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { synthesizeSchema, validationErrorResponse } from '@/lib/validations';
+import { logger } from '@/lib/logger';
 
 export const runtime = 'edge';
 
-// Available voices
-type Voice = 'alloy' | 'echo' | 'fable' | 'onyx' | 'nova' | 'shimmer';
-
-interface SynthesizeRequest {
-  text: string;
-  voice?: Voice;
-  speed?: number;
-}
-
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as SynthesizeRequest;
-    const { text, voice = 'nova', speed = 1.0 } = body;
-
-    if (!text) {
-      return NextResponse.json(
-        { error: 'No text provided' },
-        { status: 400 }
-      );
+    // Authenticate user
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
+      return unauthorizedResponse();
     }
 
-    // Limit text length to avoid excessive API costs
-    if (text.length > 4096) {
-      return NextResponse.json(
-        { error: 'Text too long. Maximum 4096 characters.' },
-        { status: 400 }
-      );
+    const body = await request.json();
+
+    // Validate input
+    const parseResult = synthesizeSchema.safeParse(body);
+    if (!parseResult.success) {
+      return validationErrorResponse(parseResult.error);
     }
+
+    const { text, voice, speed } = parseResult.data;
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
@@ -62,7 +54,7 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('[Synthesize] OpenAI error:', errorText);
+      logger.error('[Synthesize] OpenAI error', { errorText: errorText });
       return NextResponse.json(
         { error: `Speech synthesis failed: ${response.status}` },
         { status: response.status }
@@ -79,7 +71,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('[Synthesize] Error:', error);
+    logger.error('[Synthesize] Error', { error: error });
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
       { error: errorMessage },
@@ -91,7 +83,13 @@ export async function POST(request: NextRequest) {
 /**
  * GET endpoint to list available voices
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
+  // Authenticate user
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return unauthorizedResponse();
+  }
+
   return NextResponse.json({
     voices: [
       { id: 'alloy', name: 'Alloy', description: 'Neutral and balanced' },

@@ -5,11 +5,13 @@ import {
   unauthorizedResponse,
   forbiddenResponse,
 } from '@/lib/auth/api-auth';
+import { getServerEnv, clientEnv } from '@/lib/env';
+import { logger } from '@/lib/logger';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+const supabase = createClient(
+  clientEnv.NEXT_PUBLIC_SUPABASE_URL,
+  getServerEnv().SUPABASE_SERVICE_ROLE_KEY
+);
 
 /**
  * GET /api/finance/accounts/[id]
@@ -38,7 +40,7 @@ export async function GET(
       if (error.code === 'PGRST116') {
         return NextResponse.json({ error: 'Account not found' }, { status: 404 });
       }
-      console.error('Supabase error:', error);
+      logger.error('Supabase error', { error });
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
@@ -74,7 +76,7 @@ export async function GET(
 
     return NextResponse.json(account);
   } catch (error) {
-    console.error('Get account error:', error);
+    logger.error('Get account error', { error });
     return NextResponse.json(
       { error: 'Failed to fetch account' },
       { status: 500 }
@@ -144,7 +146,7 @@ export async function PUT(
       .single();
 
     if (error) {
-      console.error('Supabase update error:', error);
+      logger.error('Supabase update error', { error });
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
@@ -175,7 +177,7 @@ export async function PUT(
 
     return NextResponse.json(account);
   } catch (error) {
-    console.error('Update account error:', error);
+    logger.error('Update account error', { error });
     return NextResponse.json(
       { error: 'Failed to update account' },
       { status: 500 }
@@ -240,13 +242,13 @@ export async function DELETE(
       .eq('id', id);
 
     if (deleteError) {
-      console.error('Supabase delete error:', deleteError);
+      logger.error('Supabase delete error', { error: deleteError });
       return NextResponse.json({ error: deleteError.message }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, message: 'Account deleted' });
   } catch (error) {
-    console.error('Delete account error:', error);
+    logger.error('Delete account error', { error });
     return NextResponse.json(
       { error: 'Failed to delete account' },
       { status: 500 }

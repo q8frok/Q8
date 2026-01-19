@@ -1,13 +1,18 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, forwardRef, useImperativeHandle, useRef, useEffect, useContext } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PanelLeftClose, PanelLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ThreadSidebar } from './ThreadSidebar';
-import { StreamingChatPanel } from './StreamingChatPanel';
+import { StreamingChatPanel, StreamingChatPanelRef } from './StreamingChatPanel';
 import { useThreads } from '@/hooks/useThreads';
+import { useOptionalChatContext } from '@/contexts/ChatContext';
+
+export interface ChatWithThreadsRef {
+  sendMessage: (message: string) => void;
+}
 
 interface ChatWithThreadsProps {
   userId: string;
@@ -21,16 +26,35 @@ interface ChatWithThreadsProps {
 
 /**
  * ChatWithThreads Component
- * 
+ *
  * Full chat interface with thread sidebar for managing multiple conversations
  */
-export function ChatWithThreads({
-  userId,
-  userProfile,
-  className,
-}: ChatWithThreadsProps) {
+export const ChatWithThreads = forwardRef<ChatWithThreadsRef, ChatWithThreadsProps>(
+  function ChatWithThreads({ userId, userProfile, className }, ref) {
   const [sidebarOpen, setSidebarOpen] = useState(false); // Collapsed by default
   const [currentThreadId, setCurrentThreadId] = useState<string | null>(null);
+  const chatPanelRef = useRef<StreamingChatPanelRef>(null);
+
+  // Expose sendMessage via ref for external components
+  useImperativeHandle(ref, () => ({
+    sendMessage: (message: string) => {
+      chatPanelRef.current?.sendMessage(message);
+    },
+  }), []);
+
+  // Register with ChatContext for global access (e.g., from AIButton)
+  const chatContext = useOptionalChatContext();
+
+  useEffect(() => {
+    if (chatContext) {
+      chatContext.registerChatHandler((message: string) => {
+        chatPanelRef.current?.sendMessage(message);
+      });
+      return () => {
+        chatContext.unregisterChatHandler();
+      };
+    }
+  }, [chatContext]);
 
   const { threads, currentThread, selectThread, updateThread, archiveThread, deleteThread, refreshThreads } = useThreads({
     userId,
@@ -114,6 +138,7 @@ export function ChatWithThreads({
       <div className="flex-1 flex flex-col min-w-0">
         {/* Chat Panel with integrated toggle */}
         <StreamingChatPanel
+          ref={chatPanelRef}
           userId={userId}
           threadId={currentThreadId}
           userProfile={userProfile}
@@ -125,6 +150,6 @@ export function ChatWithThreads({
       </div>
     </div>
   );
-}
+});
 
 ChatWithThreads.displayName = 'ChatWithThreads';

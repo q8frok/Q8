@@ -6,6 +6,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import OpenAI from 'openai';
+import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { logger } from '@/lib/logger';
 
 export const runtime = 'edge';
 
@@ -18,17 +20,21 @@ const openai = new OpenAI({
  * Search notes by text or semantic similarity
  */
 export async function POST(request: NextRequest) {
+  // Authenticate user
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return unauthorizedResponse();
+  }
+
   try {
     const body = await request.json();
-    const { 
-      userId, 
-      query, 
+    const {
+      query,
       limit = 10,
       semantic = false,
       tags,
       folderId,
     } = body as {
-      userId: string;
       query: string;
       limit?: number;
       semantic?: boolean;
@@ -36,9 +42,11 @@ export async function POST(request: NextRequest) {
       folderId?: string;
     };
 
-    if (!userId || !query) {
+    const userId = user.id; // Use authenticated user
+
+    if (!query) {
       return NextResponse.json(
-        { error: 'userId and query are required' },
+        { error: 'query is required' },
         { status: 400 }
       );
     }
@@ -69,7 +77,7 @@ export async function POST(request: NextRequest) {
       });
 
       if (error) {
-        console.error('[Notes Search] Semantic search error:', error);
+        logger.error('[Notes Search] Semantic search error', { error });
         return NextResponse.json(
           { error: 'Search failed' },
           { status: 500 }
@@ -100,7 +108,7 @@ export async function POST(request: NextRequest) {
     const { data: notes, error } = await dbQuery;
 
     if (error) {
-      console.error('[Notes Search] Text search error:', error);
+      logger.error('[Notes Search] Text search error', { error });
       return NextResponse.json(
         { error: 'Search failed' },
         { status: 500 }
@@ -109,7 +117,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ notes: notes || [], semantic: false });
   } catch (error) {
-    console.error('[Notes Search] Error:', error);
+    logger.error('[Notes Search] Error', { error });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

@@ -12,6 +12,7 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextResponse, type NextRequest } from 'next/server';
+import { clientEnv } from '@/lib/env';
 
 export const runtime = 'nodejs';
 
@@ -37,8 +38,8 @@ export async function GET(request: NextRequest) {
     const cookieStore = await cookies();
 
     const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      clientEnv.NEXT_PUBLIC_SUPABASE_URL,
+      clientEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY,
       {
         cookies: {
           get(name: string) {

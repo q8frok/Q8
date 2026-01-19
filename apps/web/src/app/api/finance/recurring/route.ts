@@ -4,11 +4,13 @@ import {
   getAuthenticatedUser,
   unauthorizedResponse,
 } from '@/lib/auth/api-auth';
+import { getServerEnv, clientEnv } from '@/lib/env';
+import { logger } from '@/lib/logger';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+const supabase = createClient(
+  clientEnv.NEXT_PUBLIC_SUPABASE_URL,
+  getServerEnv().SUPABASE_SERVICE_ROLE_KEY
+);
 
 /**
  * GET /api/finance/recurring
@@ -47,7 +49,7 @@ export async function GET(request: NextRequest) {
     const { data, error } = await query;
 
     if (error) {
-      console.error('Supabase error:', error);
+      logger.error('Supabase error', { error });
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
@@ -77,7 +79,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(recurring);
   } catch (error) {
-    console.error('Finance recurring error:', error);
+    logger.error('Finance recurring error', { error });
     return NextResponse.json(
       { error: 'Failed to fetch recurring items' },
       { status: 500 }
@@ -146,7 +148,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      console.error('Supabase insert error:', error);
+      logger.error('Supabase insert error', { error });
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
@@ -163,7 +165,7 @@ export async function POST(request: NextRequest) {
       createdAt: data.created_at,
     });
   } catch (error) {
-    console.error('Create recurring error:', error);
+    logger.error('Create recurring error', { error });
     return NextResponse.json(
       { error: 'Failed to create recurring item' },
       { status: 500 }
@@ -228,7 +230,7 @@ export async function PUT(request: NextRequest) {
       .single();
 
     if (error) {
-      console.error('Supabase update error:', error);
+      logger.error('Supabase update error', { error });
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
@@ -242,7 +244,7 @@ export async function PUT(request: NextRequest) {
       updatedAt: data.updated_at,
     });
   } catch (error) {
-    console.error('Update recurring error:', error);
+    logger.error('Update recurring error', { error });
     return NextResponse.json(
       { error: 'Failed to update recurring item' },
       { status: 500 }
@@ -290,13 +292,13 @@ export async function DELETE(request: NextRequest) {
       .eq('id', id);
 
     if (error) {
-      console.error('Supabase delete error:', error);
+      logger.error('Supabase delete error', { error });
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Delete recurring error:', error);
+    logger.error('Delete recurring error', { error });
     return NextResponse.json(
       { error: 'Failed to delete recurring item' },
       { status: 500 }

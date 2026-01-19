@@ -4,11 +4,13 @@ import {
   getAuthenticatedUser,
   unauthorizedResponse,
 } from '@/lib/auth/api-auth';
+import { getServerEnv, clientEnv } from '@/lib/env';
+import { logger } from '@/lib/logger';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+const supabase = createClient(
+  clientEnv.NEXT_PUBLIC_SUPABASE_URL,
+  getServerEnv().SUPABASE_SERVICE_ROLE_KEY
+);
 
 /**
  * GET /api/finance/transactions
@@ -50,7 +52,7 @@ export async function GET(request: NextRequest) {
     const { data, error, count } = await query;
 
     if (error) {
-      console.error('Supabase error:', error);
+      logger.error('Supabase error', { error });
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
@@ -117,7 +119,7 @@ export async function GET(request: NextRequest) {
       offset,
     });
   } catch (error) {
-    console.error('Finance transactions error:', error);
+    logger.error('Finance transactions error', { error });
     return NextResponse.json(
       { error: 'Failed to fetch transactions' },
       { status: 500 }
@@ -192,7 +194,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      console.error('Supabase insert error:', error);
+      logger.error('Supabase insert error', { error });
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
@@ -213,7 +215,7 @@ export async function POST(request: NextRequest) {
       updatedAt: data.updated_at,
     });
   } catch (error) {
-    console.error('Create transaction error:', error);
+    logger.error('Create transaction error', { error });
     return NextResponse.json(
       { error: 'Failed to create transaction' },
       { status: 500 }
@@ -273,7 +275,7 @@ export async function PUT(request: NextRequest) {
       .single();
 
     if (error) {
-      console.error('Supabase update error:', error);
+      logger.error('Supabase update error', { error });
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
@@ -292,7 +294,7 @@ export async function PUT(request: NextRequest) {
       updatedAt: data.updated_at,
     });
   } catch (error) {
-    console.error('Update transaction error:', error);
+    logger.error('Update transaction error', { error });
     return NextResponse.json(
       { error: 'Failed to update transaction' },
       { status: 500 }
@@ -340,13 +342,13 @@ export async function DELETE(request: NextRequest) {
       .eq('id', id);
 
     if (error) {
-      console.error('Supabase delete error:', error);
+      logger.error('Supabase delete error', { error });
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Delete transaction error:', error);
+    logger.error('Delete transaction error', { error });
     return NextResponse.json(
       { error: 'Failed to delete transaction' },
       { status: 500 }

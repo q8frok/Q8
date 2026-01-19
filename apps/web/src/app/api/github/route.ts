@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { logger } from '@/lib/logger';
 
 /**
  * GitHub API Integration
@@ -34,6 +36,21 @@ interface GitHubPR {
   mergeable_state?: string;
 }
 
+interface GitHubNotification {
+  id: string;
+  subject: {
+    title: string;
+    type: string;
+    url: string;
+  };
+  reason: string;
+  repository: {
+    full_name: string;
+  };
+  updated_at: string;
+  unread: boolean;
+}
+
 interface GitHubCheckRun {
   id: number;
   status: 'queued' | 'in_progress' | 'completed';
@@ -44,6 +61,12 @@ interface GitHubCheckRun {
  * GET /api/github - Get user's PRs and notifications
  */
 export async function GET(request: NextRequest) {
+  // Authenticate user
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return unauthorizedResponse();
+  }
+
   const searchParams = request.nextUrl.searchParams;
   const type = searchParams.get('type') || 'prs';
   const repo = searchParams.get('repo');
@@ -157,7 +180,7 @@ export async function GET(request: NextRequest) {
       const notifications = await response.json();
 
       return NextResponse.json({
-        notifications: notifications.map((n: any) => ({
+        notifications: notifications.map((n: GitHubNotification) => ({
           id: n.id,
           title: n.subject.title,
           type: n.subject.type,
@@ -173,7 +196,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ error: 'Unknown type' }, { status: 400 });
   } catch (error) {
-    console.error('GitHub API error:', error);
+    logger.error('GitHub API error', { error: error });
     return NextResponse.json(getMockData(type), { status: 200 });
   }
 }
@@ -182,6 +205,12 @@ export async function GET(request: NextRequest) {
  * POST /api/github - Perform actions (merge, approve, etc.)
  */
 export async function POST(request: NextRequest) {
+  // Authenticate user
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return unauthorizedResponse();
+  }
+
   try {
     const { action, ...params } = await request.json();
 
@@ -249,7 +278,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
     }
   } catch (error) {
-    console.error('GitHub action error:', error);
+    logger.error('GitHub action error', { error: error });
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Action failed' },
       { status: 500 }

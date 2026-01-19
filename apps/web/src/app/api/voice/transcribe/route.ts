@@ -4,11 +4,19 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { logger } from '@/lib/logger';
 
 export const runtime = 'edge';
 
 export async function POST(request: NextRequest) {
   try {
+    // Authenticate user
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
+      return unauthorizedResponse();
+    }
+
     const formData = await request.formData();
     const audioFile = formData.get('audio') as Blob;
     const language = formData.get('language') as string || 'en';
@@ -46,7 +54,7 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('[Transcribe] OpenAI error:', errorText);
+      logger.error('[Transcribe] OpenAI error', { errorText: errorText });
       return NextResponse.json(
         { error: `Transcription failed: ${response.status}` },
         { status: response.status }
@@ -60,7 +68,7 @@ export async function POST(request: NextRequest) {
       language: language,
     });
   } catch (error) {
-    console.error('[Transcribe] Error:', error);
+    logger.error('[Transcribe] Error', { error: error });
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
       { error: errorMessage },

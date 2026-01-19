@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { spotifyControlSchema, validationErrorResponse } from '@/lib/validations';
+import { logger } from '@/lib/logger';
 
 /**
  * Spotify API Integration
@@ -68,7 +71,7 @@ async function getAccessToken(): Promise<string | null> {
   }
 
   if (!CLIENT_ID || !CLIENT_SECRET || !REFRESH_TOKEN) {
-    console.error('Spotify credentials not configured');
+    logger.error('Spotify credentials not configured');
     return null;
   }
 
@@ -98,7 +101,7 @@ async function getAccessToken(): Promise<string | null> {
 
     return data.access_token;
   } catch (error) {
-    console.error('Failed to get Spotify access token:', error);
+    logger.error('Failed to get Spotify access token', { error });
     return null;
   }
 }
@@ -107,6 +110,12 @@ async function getAccessToken(): Promise<string | null> {
  * GET /api/spotify - Get current playback state
  */
 export async function GET(request: NextRequest) {
+  // Authenticate user
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return unauthorizedResponse();
+  }
+
   const { searchParams } = new URL(request.url);
   const includeDevices = searchParams.get('devices') === 'true';
 
@@ -184,7 +193,7 @@ export async function GET(request: NextRequest) {
       availableDevices,
     });
   } catch (error) {
-    console.error('Spotify API error:', error);
+    logger.error('Spotify API error', { error });
     return NextResponse.json(getMockPlaybackState(), { status: 200 });
   }
 }
@@ -193,8 +202,22 @@ export async function GET(request: NextRequest) {
  * POST /api/spotify - Control playback
  */
 export async function POST(request: NextRequest) {
+  // Authenticate user
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return unauthorizedResponse();
+  }
+
   try {
-    const { action, ...params } = await request.json();
+    const body = await request.json();
+
+    // Validate input
+    const parseResult = spotifyControlSchema.safeParse(body);
+    if (!parseResult.success) {
+      return validationErrorResponse(parseResult.error);
+    }
+
+    const { action, ...params } = parseResult.data;
     const accessToken = await getAccessToken();
 
     if (!accessToken) {
@@ -206,7 +229,7 @@ export async function POST(request: NextRequest) {
 
     let endpoint = '';
     let method = 'PUT';
-    let body = null;
+    let requestBody: string | null = null;
 
     // Build device_id query param if provided
     const deviceQuery = params.device_id ? `device_id=${params.device_id}` : '';
@@ -216,9 +239,9 @@ export async function POST(request: NextRequest) {
         endpoint = '/me/player/play';
         if (deviceQuery) endpoint += `?${deviceQuery}`;
         if (params.uri) {
-          body = JSON.stringify({ uris: [params.uri] });
+          requestBody = JSON.stringify({ uris: [params.uri] });
         } else if (params.context_uri) {
-          body = JSON.stringify({ 
+          requestBody = JSON.stringify({
             context_uri: params.context_uri,
             offset: params.offset ? { position: params.offset } : undefined,
           });
@@ -253,19 +276,23 @@ export async function POST(request: NextRequest) {
         break;
 
       case 'volume':
-        endpoint = `/me/player/volume?volume_percent=${Math.round(params.volume)}`;
-        if (deviceQuery) endpoint += `&${deviceQuery}`;
+        if (params.volume !== undefined) {
+          endpoint = `/me/player/volume?volume_percent=${Math.round(params.volume)}`;
+          if (deviceQuery) endpoint += `&${deviceQuery}`;
+        }
         break;
 
       case 'seek':
-        endpoint = `/me/player/seek?position_ms=${Math.round(params.position)}`;
-        if (deviceQuery) endpoint += `&${deviceQuery}`;
+        if (params.position !== undefined) {
+          endpoint = `/me/player/seek?position_ms=${Math.round(params.position)}`;
+          if (deviceQuery) endpoint += `&${deviceQuery}`;
+        }
         break;
 
       case 'transfer':
         // Transfer playback to a specific device
         endpoint = '/me/player';
-        body = JSON.stringify({ 
+        requestBody = JSON.stringify({
           device_ids: [params.device_id],
           play: params.play ?? true,
         });
@@ -281,7 +308,7 @@ export async function POST(request: NextRequest) {
         Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
-      body,
+      body: requestBody,
     });
 
     if (!response.ok && response.status !== 204) {
@@ -340,7 +367,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, action });
   } catch (error) {
-    console.error('Spotify control error:', error);
+    logger.error('Spotify control error', { error });
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Control failed' },
       { status: 500 }
