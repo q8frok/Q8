@@ -4,20 +4,24 @@
  * Consolidates routing, tool orchestration, and response generation
  */
 
+// Imports updated to use new modules
 import { getModel, type AgentType } from '../model_factory';
-import { buildEnrichedContext, buildContextSummary, getGreeting } from '../context-provider';
+import { buildEnrichedContext } from '../context-provider';
 import { addMessage, getConversationHistory } from '../conversation-store';
-import { buildDeviceSummary } from '../home-context';
-import { homeAssistantTools, executeHomeAssistantTool } from '../home-tools';
-import { financeAdvisorConfig, executeFinanceAdvisorTool, getFinancialContext } from '../sub-agents/finance-advisor';
-import { coderAgentConfig, executeCoderTool } from '../sub-agents/coder';
-import { secretaryAgentConfig, executeGoogleTool } from '../sub-agents/secretary';
-import { researcherAgentConfig } from '../sub-agents/researcher';
-import { executeDefaultTool, defaultTools } from '../tools/default-tools';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { logger } from '@/lib/logger';
 import type { ChatMessageInsert } from '@/lib/supabase/types';
-import type { EnrichedContext, ToolResult } from '../types';
+import type { EnrichedContext } from '../types';
+
+import {
+  buildSystemPrompt,
+  fetchMemoryContext,
+  getDocumentContext,
+} from './context-builder';
+import {
+  getAgentTools,
+  executeAgentTool,
+} from './agent-runner';
 import type {
   ExtendedAgentType,
   RoutingDecision,
@@ -30,151 +34,18 @@ import { route } from './router';
 import { logRoutingTelemetry, recordImplicitFeedback } from './metrics';
 import { getConversationContext } from '@/lib/documents/processor';
 
+
 /**
  * Agent system prompts
  */
-const AGENT_PROMPTS: Record<ExtendedAgentType, string> = {
-  coder: `You are DevBot, an expert software engineer powered by Claude Sonnet 4.5.
 
-Your capabilities:
-- **Code Review**: Analyze code for bugs, performance issues, and best practices
-- **GitHub Operations**: Search code, manage PRs/issues, access files
-- **Supabase Database**: Run SQL queries, inspect schemas, perform vector search
-- **Architecture**: Design patterns, refactoring recommendations
-
-Provide clear, well-documented code following best practices.`,
-
-  researcher: `You are ResearchBot, powered by Perplexity Sonar Pro with real-time web search.
-
-Your capabilities:
-- **Real-time Web Search**: Access to current web information
-- **Fact Verification**: Cross-reference multiple sources
-- **News & Current Events**: Latest news and developments
-- **Academic Research**: Technical papers and documentation
-
-Always cite your sources. Distinguish between facts and opinions.
-When providing sources, use inline citations like [1], [2] and list sources at the end.`,
-
-  secretary: `You are SecretaryBot, a personal secretary with access to Google Workspace.
-
-Your capabilities:
-- **Email (Gmail)**: Read, search, send, draft, and manage emails
-- **Calendar**: View, create, update, and delete events
-- **Drive**: Search and access files in Google Drive
-
-Confirm destructive actions before executing. Provide clear summaries.`,
-
-  personality: `You are Q8, a friendly, witty, and intelligent personal AI assistant.
-
-Your style:
-- Be conversational and engaging
-- Show personality while remaining helpful
-- Use humor when appropriate
-- Be concise but thorough`,
-
-  orchestrator: `You are Q8, the main orchestrator of a multi-agent AI system.`,
-
-  home: `You are HomeBot, a smart home controller with access to Home Assistant.
-
-USE THE TOOLS to execute commands. When asked to control devices:
-1. Identify the correct entity_id from the device list
-2. Use the appropriate tool (control_device, set_climate, etc.)
-3. You can control multiple devices in one request
-
-Be helpful and confirm actions after execution.`,
-
-  finance: `You are Q8's Financial Advisor, an expert personal finance assistant with deep access to the user's financial data.
-
-Your capabilities:
-- **Balance Sheet Analysis**: View all accounts, net worth, assets, and liabilities
-- **Spending Analysis**: Analyze spending by category, merchant, and time period
-- **Cash Flow Tracking**: Monitor income vs expenses over time
-- **Bill Management**: Track upcoming bills and recurring payments
-- **Subscription Audit**: Find and analyze active subscriptions
-- **Affordability Analysis**: Help users understand if they can afford purchases
-- **Wealth Projection**: Simulate future net worth with compound growth
-
-When handling financial questions:
-1. Use the appropriate finance tools to gather current data
-2. Present numbers clearly with proper currency formatting
-3. Always provide context (comparisons to previous periods, percentages)
-4. Be encouraging but honest about financial situations
-5. Never be judgmental about spending decisions`,
-};
 
 /**
  * Build complete system prompt for an agent with context
  */
-async function buildSystemPrompt(
-  agent: ExtendedAgentType,
-  context: EnrichedContext,
-  memoryContext: string = '',
-  documentContext: string = ''
-): Promise<string> {
-  const basePrompt = AGENT_PROMPTS[agent] || AGENT_PROMPTS.personality;
-  const contextBlock = buildContextSummary(context);
-  const greeting = getGreeting(context.timeOfDay);
 
-  let prompt = `${basePrompt}
 
-${greeting}!
 
-${contextBlock}`;
-
-  // Add agent-specific context
-  if (agent === 'home') {
-    const deviceSummary = await buildDeviceSummary();
-    prompt += `\n\n${deviceSummary}`;
-  }
-
-  if (agent === 'finance') {
-    const financialContext = await getFinancialContext(context.userId);
-    prompt += `\n\n${financialContext}`;
-  }
-
-  // Add memory context if available
-  if (memoryContext) {
-    prompt += `\n\n${memoryContext}`;
-  }
-
-  // Add document context if available (from uploaded documents/knowledge base)
-  if (documentContext) {
-    prompt += `\n\n## Relevant Documents\nThe following content is from the user's uploaded documents and knowledge base. Use this information to provide more accurate and contextual responses:\n\n${documentContext}`;
-  }
-
-  return prompt;
-}
-
-/**
- * Get tools for an agent
- * Each agent has a specific set of tools available for function calling
- */
-function getAgentTools(agent: ExtendedAgentType): Array<{
-  type: 'function';
-  function: { name: string; description: string; parameters: Record<string, unknown> };
-}> {
-  switch (agent) {
-    case 'home':
-      return homeAssistantTools;
-    case 'finance':
-      return financeAdvisorConfig.openaiTools;
-    case 'coder':
-      // GitHub + Supabase tools for development tasks
-      return coderAgentConfig.openaiTools;
-    case 'secretary':
-      // Google Workspace (Gmail, Calendar, Drive, YouTube) tools
-      return secretaryAgentConfig.openaiTools;
-    case 'researcher':
-      // Utility tools (date/time, calculations, weather)
-      // Note: Perplexity Sonar has native web search built-in
-      return researcherAgentConfig.openaiTools;
-    case 'personality':
-      // Personality agent uses default utility tools for context
-      return defaultTools;
-    default:
-      return defaultTools;
-  }
-}
 
 // =============================================================================
 // TOOL EXECUTION WITH TIMEOUTS AND ERROR BOUNDARIES
@@ -184,51 +55,7 @@ function getAgentTools(agent: ExtendedAgentType): Array<{
  * Per-tool timeout configuration (in milliseconds)
  * Tools that call external APIs get longer timeouts
  */
-const TOOL_TIMEOUTS: Record<string, number> = {
-  // GitHub tools - external API
-  github_search_code: 15000,
-  github_get_file: 10000,
-  github_list_prs: 10000,
-  github_create_issue: 15000,
-  github_create_pr: 20000,
 
-  // Supabase tools - database
-  supabase_run_sql: 30000, // SQL can be slow
-  supabase_get_schema: 10000,
-  supabase_vector_search: 15000,
-
-  // Google Workspace - external API
-  gmail_list_messages: 15000,
-  gmail_send_message: 20000,
-  calendar_list_events: 10000,
-  calendar_create_event: 15000,
-  drive_search_files: 15000,
-
-  // Home Assistant - local network
-  control_device: 5000,
-  set_climate: 5000,
-  activate_scene: 5000,
-  get_device_state: 5000,
-
-  // Default utilities - fast local execution
-  get_current_datetime: 1000,
-  calculate: 1000,
-  get_weather: 10000, // External API
-};
-
-const DEFAULT_TOOL_TIMEOUT = 10000; // 10 seconds default
-
-/**
- * Tools that require user confirmation before execution
- * (for future implementation of confirmation flow)
- */
-const CONFIRMATION_REQUIRED_TOOLS = new Set([
-  'gmail_send_message',
-  'github_create_issue',
-  'github_create_pr',
-  'calendar_delete_event',
-  'supabase_run_sql', // For DELETE/DROP/TRUNCATE
-]);
 
 /**
  * Execute a promise with timeout
@@ -288,137 +115,9 @@ function classifyError(error: unknown): { code: string; recoverable: boolean } {
  * Execute a tool for an agent with timeout and error boundaries
  * All tool executors return ToolResult for consistent handling
  */
-async function executeAgentTool(
-  agent: ExtendedAgentType,
-  toolName: string,
-  args: Record<string, unknown>,
-  userId: string
-): Promise<ToolResult> {
-  const startTime = Date.now();
-  const timeout = TOOL_TIMEOUTS[toolName] ?? DEFAULT_TOOL_TIMEOUT;
-  const traceId = `${agent}-${toolName}-${Date.now()}`;
 
-  // Log tool execution start
-  logger.info('[ToolExecution] Starting', {
-    agent,
-    tool: toolName,
-    traceId,
-    timeout,
-  });
 
-  try {
-    // Get the appropriate executor
-    const executorPromise = (async (): Promise<ToolResult> => {
-      switch (agent) {
-        case 'home':
-          return executeHomeAssistantTool(toolName, args);
-        case 'finance':
-          return executeFinanceAdvisorTool(toolName, args, userId);
-        case 'coder':
-          return executeCoderTool(toolName, args);
-        case 'secretary':
-          return executeGoogleTool(toolName, args);
-        case 'researcher':
-        case 'personality':
-        default:
-          return executeDefaultTool(toolName, args);
-      }
-    })();
 
-    // Execute with timeout
-    const result = await withTimeout(executorPromise, timeout, toolName);
-    const durationMs = Date.now() - startTime;
-
-    // Log success
-    logger.info('[ToolExecution] Completed', {
-      agent,
-      tool: toolName,
-      traceId,
-      success: result.success,
-      durationMs,
-    });
-
-    // Enrich with metadata
-    return {
-      ...result,
-      meta: {
-        ...result.meta,
-        durationMs,
-        source: agent,
-        traceId,
-      },
-    };
-  } catch (error) {
-    const durationMs = Date.now() - startTime;
-    const { code, recoverable } = classifyError(error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-
-    // Log failure
-    logger.error('[ToolExecution] Failed', {
-      agent,
-      tool: toolName,
-      traceId,
-      errorCode: code,
-      recoverable,
-      durationMs,
-      error: errorMessage,
-    });
-
-    return {
-      success: false,
-      message: `Tool '${toolName}' failed: ${errorMessage}`,
-      error: {
-        code,
-        details: error instanceof Error ? error.stack : undefined,
-      },
-      meta: {
-        durationMs,
-        source: agent,
-        traceId,
-      },
-    };
-  }
-}
-
-/**
- * Check if a tool requires user confirmation
- */
-export function requiresConfirmation(toolName: string, args: Record<string, unknown>): boolean {
-  if (CONFIRMATION_REQUIRED_TOOLS.has(toolName)) {
-    // Special case: SQL only needs confirmation for destructive operations
-    if (toolName === 'supabase_run_sql') {
-      const query = (args.query as string || '').toUpperCase();
-      return /\b(DELETE|DROP|TRUNCATE|ALTER|UPDATE)\b/.test(query);
-    }
-    return true;
-  }
-  return false;
-}
-
-/**
- * Fetch relevant memories for context
- */
-async function fetchMemoryContext(userId: string): Promise<string> {
-  try {
-    const { data: memories } = await supabaseAdmin
-      .from('agent_memories')
-      .select('content, memory_type, importance')
-      .eq('user_id', userId)
-      .order('importance', { ascending: false })
-      .order('created_at', { ascending: false })
-      .limit(10);
-
-    if (memories && memories.length > 0) {
-      return '\n\n## User Context (from memory)\n' +
-        memories.map((m: { content: string; memory_type: string }) =>
-          `- [${m.memory_type}] ${m.content}`
-        ).join('\n');
-    }
-  } catch (error) {
-    logger.warn('Failed to fetch memories', { userId, error });
-  }
-  return '';
-}
 
 /**
  * Process a message through the orchestration system (non-streaming)

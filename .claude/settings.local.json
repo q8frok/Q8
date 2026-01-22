@@ -70,7 +70,12 @@
       "Bash(pnpm typecheck:*)",
       "Bash(npx tsc:*)",
       "Bash(pnpm tsc:*)",
-      "Bash(pnpm exec vitest:*)"
+      "Bash(pnpm exec vitest:*)",
+      "Bash(timeout /t 10 /nobreak)",
+      "mcp__mcp-docker__browser_navigate",
+      "mcp__mcp-docker__browser_take_screenshot",
+      "mcp__mcp-docker__browser_snapshot",
+      "mcp__mcp-docker__browser_resize"
     ],
     "deny": [],
     "ask": []

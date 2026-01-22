@@ -169,7 +169,7 @@ function DashboardContent() {
               </BentoItem>
 
               {/* Task Widget */}
-              <BentoItem colSpan={1} rowSpan={2}>
+              <BentoItem colSpan={2} rowSpan={2}>
                 <TaskWidget />
               </BentoItem>
 
@@ -179,12 +179,12 @@ function DashboardContent() {
               </BentoItem>
 
               {/* GitHub PR Widget */}
-              <BentoItem colSpan={1} rowSpan={1}>
-                <GitHubPRWidget maxItems={3} />
+              <BentoItem colSpan={2} rowSpan={2}>
+                <GitHubPRWidget maxItems={5} />
               </BentoItem>
 
               {/* Suggestions Widget */}
-              <BentoItem colSpan={1} rowSpan={1}>
+              <BentoItem colSpan={2} rowSpan={1}>
                 <SuggestionsWidget
                   userId={userId}
                   sessionId="suggestions-session"
@@ -208,7 +208,7 @@ function DashboardContent() {
 
           {/* Right Column - Chat Interface */}
           <div className="lg:col-span-1">
-            <div className="surface-matte rounded-2xl h-[calc(100vh-12rem)] overflow-hidden">
+            <div className="lg:sticky lg:top-6 surface-matte rounded-2xl h-[calc(100vh-12rem)] overflow-hidden">
               <ChatWithThreads
                 ref={chatRef}
                 userId={userId}

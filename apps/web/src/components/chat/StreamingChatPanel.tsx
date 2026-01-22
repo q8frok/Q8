@@ -8,6 +8,7 @@ import { useChat, type AgentType } from '@/hooks/useChat';
 import { StreamingMessage } from './StreamingMessage';
 import { ChatInput } from './ChatInput';
 import { AgentHandoff, AgentBadge } from './AgentHandoff';
+import { SuggestionChip } from './SuggestionChip';
 import { Button } from '../ui/button';
 import { logger } from '@/lib/logger';
 
@@ -292,24 +293,6 @@ export const StreamingChatPanel = forwardRef<StreamingChatPanelRef, StreamingCha
   );
 });
 
-/**
- * Suggestion Chip Component
- */
-function SuggestionChip({
-  children,
-  onClick,
-}: {
-  children: React.ReactNode;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className="px-2.5 py-1 rounded-full text-xs bg-surface-3 border border-border-subtle hover:bg-neon-primary/10 hover:border-neon-primary/30 transition-colors focus-ring"
-    >
-      {children}
-    </button>
-  );
-}
+
 
 StreamingChatPanel.displayName = 'StreamingChatPanel';

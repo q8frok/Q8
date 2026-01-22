@@ -14,6 +14,8 @@ import { cn } from '@/lib/utils';
 import { Button } from '../ui/button';
 import { FileUploadZone } from '../documents/FileUploadZone';
 import type { Document } from '@/lib/documents/types';
+import { SelectedFilesList } from './SelectedFilesList';
+import { AgentMentionsDropdown, type Agent } from './AgentMentionsDropdown';
 
 interface ChatInputProps {
   /**
@@ -137,7 +139,7 @@ export function ChatInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Agent mentions
-  const agents = [
+  const agents: Agent[] = [
     { id: 'coder', name: 'DevBot (Claude)', icon: '💻' },
     { id: 'researcher', name: 'Research Agent (Perplexity)', icon: '🔍' },
     { id: 'secretary', name: 'Secretary (Gemini)', icon: '📅' },
@@ -226,32 +228,11 @@ export function ChatInput({
   return (
     <div className={cn('relative', className)}>
       {/* Agent Mentions Dropdown */}
-      {showMentions && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="absolute bottom-full left-0 right-0 mb-2 surface-matte rounded-xl shadow-lg overflow-hidden"
-        >
-          <div className="p-2">
-            <p className="text-xs text-text-muted px-2 py-1">
-              Mention an agent
-            </p>
-            {agents.map((agent) => (
-              <button
-                key={agent.id}
-                onClick={() => handleMentionSelect(agent.id)}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface-3 transition-colors focus-ring"
-              >
-                <span className="text-xl">{agent.icon}</span>
-                <div className="text-left">
-                  <p className="text-sm font-medium text-text-primary">{agent.name}</p>
-                  <p className="text-xs text-text-muted">@{agent.id}</p>
-                </div>
-              </button>
-            ))}
-          </div>
-        </motion.div>
-      )}
+      <AgentMentionsDropdown
+        agents={agents}
+        visible={showMentions}
+        onSelect={handleMentionSelect}
+      />
 
       {/* Uploaded Documents */}
       {uploadedDocs.length > 0 && (
@@ -279,28 +260,10 @@ export function ChatInput({
       )}
 
       {/* Legacy Selected Files (for non-document files) */}
-      {selectedFiles.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-2">
-          {selectedFiles.map((file, index) => (
-            <div
-              key={index}
-              className="bg-surface-3 border border-border-subtle px-3 py-2 rounded-lg flex items-center gap-2"
-            >
-              <FileText className="h-4 w-4 text-text-muted" />
-              <span className="text-sm text-text-primary">{file.name}</span>
-              <button
-                onClick={() =>
-                  setSelectedFiles((prev) => prev.filter((_, i) => i !== index))
-                }
-                aria-label={`Remove ${file.name}`}
-                className="h-6 w-6 flex items-center justify-center text-text-muted hover:text-text-primary transition-colors focus-ring rounded"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
+      <SelectedFilesList
+        selectedFiles={selectedFiles}
+        onRemove={(index) => setSelectedFiles((prev) => prev.filter((_, i) => i !== index))}
+      />
 
       {/* Input Container */}
       <div className="bg-surface-2 border border-border-subtle rounded-xl flex items-end gap-2 p-2.5">

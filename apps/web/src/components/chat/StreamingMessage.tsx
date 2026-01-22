@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, memo, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Bot,
@@ -153,7 +153,7 @@ function StreamingCursor() {
  *
  * Chat message with streaming support and tool execution display
  */
-export function StreamingMessage({
+export const StreamingMessage = memo(function StreamingMessage({
   id,
   role,
   content,
@@ -186,6 +186,51 @@ export function StreamingMessage({
       contentRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
     }
   }, [content, isStreaming]);
+
+  // Memoize markdown components
+  const markdownComponents = useMemo(() => ({
+    // Handle block code (pre > code) - extract code element and render with syntax highlighting
+    pre({ children }: any) {
+      // Extract the code element from children
+      const codeElement = children as React.ReactElement<{ className?: string; children?: React.ReactNode }>;
+      const className = codeElement?.props?.className || '';
+      const codeContent = codeElement?.props?.children;
+      const match = /language-(\w+)/.exec(className);
+      const language = match ? match[1] : '';
+      const codeString = String(codeContent).replace(/\n$/, '');
+
+      return (
+        <div className="relative group/code my-3">
+          {language && (
+            <div className="absolute top-2 right-2 z-10 px-2 py-1 bg-surface-3 border border-border-subtle rounded text-xs text-text-muted">
+              {language}
+            </div>
+          )}
+          <SyntaxHighlighter
+            style={vscDarkPlus}
+            language={language || 'text'}
+            PreTag="div"
+            className="rounded-lg !bg-black/30 !p-4"
+          >
+            {codeString}
+          </SyntaxHighlighter>
+        </div>
+      );
+    },
+    // Inline code only (not wrapped in pre)
+    code({ className, children, ...props }: { className?: string; children?: React.ReactNode }) {
+      // This is inline code - render as styled inline element
+      return (
+        <code className={cn('px-1 py-0.5 rounded bg-surface-3 text-neon-accent text-sm', className)} {...props}>
+          {children}
+        </code>
+      );
+    },
+    // Ensure paragraphs render correctly
+    p({ children }: any) {
+      return <p className="mb-2 last:mb-0">{children}</p>;
+    },
+  }), []);
 
   return (
     <motion.div
@@ -269,49 +314,7 @@ export function StreamingMessage({
           >
             {content ? (
               <ReactMarkdown
-                components={{
-                  // Handle block code (pre > code) - extract code element and render with syntax highlighting
-                  pre({ children }) {
-                    // Extract the code element from children
-                    const codeElement = children as React.ReactElement<{ className?: string; children?: React.ReactNode }>;
-                    const className = codeElement?.props?.className || '';
-                    const codeContent = codeElement?.props?.children;
-                    const match = /language-(\w+)/.exec(className);
-                    const language = match ? match[1] : '';
-                    const codeString = String(codeContent).replace(/\n$/, '');
-
-                    return (
-                      <div className="relative group/code my-3">
-                        {language && (
-                          <div className="absolute top-2 right-2 z-10 px-2 py-1 bg-surface-3 border border-border-subtle rounded text-xs text-text-muted">
-                            {language}
-                          </div>
-                        )}
-                        <SyntaxHighlighter
-                          style={vscDarkPlus}
-                          language={language || 'text'}
-                          PreTag="div"
-                          className="rounded-lg !bg-black/30 !p-4"
-                        >
-                          {codeString}
-                        </SyntaxHighlighter>
-                      </div>
-                    );
-                  },
-                  // Inline code only (not wrapped in pre)
-                  code({ className, children, ...props }: { className?: string; children?: React.ReactNode }) {
-                    // This is inline code - render as styled inline element
-                    return (
-                      <code className={cn('px-1 py-0.5 rounded bg-surface-3 text-neon-accent text-sm', className)} {...props}>
-                        {children}
-                      </code>
-                    );
-                  },
-                  // Ensure paragraphs render correctly
-                  p({ children }) {
-                    return <p className="mb-2 last:mb-0">{children}</p>;
-                  },
-                }}
+                components={markdownComponents}
               >
                 {content}
               </ReactMarkdown>
@@ -383,6 +386,6 @@ export function StreamingMessage({
       </div>
     </motion.div>
   );
-}
+});
 
 StreamingMessage.displayName = 'StreamingMessage';

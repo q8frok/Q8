@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, memo, useMemo, useCallback } from 'react';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import {
@@ -121,7 +121,7 @@ interface ChatMessageProps {
  * />
  * ```
  */
-export function ChatMessage({
+export const ChatMessage = memo(function ChatMessage({
   id,
   role,
   content,
@@ -144,12 +144,61 @@ export function ChatMessage({
   const agentConfig = getAgentConfig(role);
 
   // Handle copy to clipboard
-  const handleCopy = () => {
+  const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(content);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);
     onAction?.('copy', id);
-  };
+  }, [content, id, onAction]);
+
+  // Memoize markdown components to avoid re-creation
+  const markdownComponents: Components = useMemo(() => ({
+    code({ inline, className, children, ...props }: CodeComponentProps) {
+      const match = /language-(\w+)/.exec(className || '');
+      const language = match ? match[1] : '';
+
+      return !inline && enableCodeHighlight ? (
+        <div className="relative group/code">
+          {/* Language Label */}
+          {language && (
+            <div className="absolute top-2 right-2 z-10 px-2 py-1 bg-surface-3 border border-border-subtle rounded text-xs text-text-muted">
+              {language}
+            </div>
+          )}
+
+          {/* Code Block */}
+          <SyntaxHighlighter
+            style={vscDarkPlus as Record<string, React.CSSProperties>}
+            language={language}
+            PreTag="div"
+            className="rounded-lg !bg-black/30 !p-4"
+          >
+            {String(children).replace(/\n$/, '')}
+          </SyntaxHighlighter>
+
+          {/* Copy Button for Code */}
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(String(children));
+              setIsCopied(true);
+              setTimeout(() => setIsCopied(false), 2000);
+            }}
+            className="absolute top-2 left-2 z-10 px-2 py-1 bg-surface-3 border border-border-subtle rounded opacity-0 group-hover/code:opacity-100 transition-opacity focus-ring"
+          >
+            {isCopied ? (
+              <Check className="h-4 w-4 text-neon-accent" />
+            ) : (
+              <Copy className="h-4 w-4" />
+            )}
+          </button>
+        </div>
+      ) : (
+        <code className={className} {...props}>
+          {children}
+        </code>
+      );
+    },
+  }), [enableCodeHighlight, isCopied]); // Dependencies for components
 
   return (
     <motion.div
@@ -221,53 +270,7 @@ export function ChatMessage({
             )}
           >
             <ReactMarkdown
-              components={{
-                code({ inline, className, children, ...props }: CodeComponentProps) {
-                  const match = /language-(\w+)/.exec(className || '');
-                  const language = match ? match[1] : '';
-
-                  return !inline && enableCodeHighlight ? (
-                    <div className="relative group/code">
-                      {/* Language Label */}
-                      {language && (
-                        <div className="absolute top-2 right-2 z-10 px-2 py-1 bg-surface-3 border border-border-subtle rounded text-xs text-text-muted">
-                          {language}
-                        </div>
-                      )}
-
-                      {/* Code Block */}
-                      <SyntaxHighlighter
-                        style={vscDarkPlus as Record<string, React.CSSProperties>}
-                        language={language}
-                        PreTag="div"
-                        className="rounded-lg !bg-black/30 !p-4"
-                      >
-                        {String(children).replace(/\n$/, '')}
-                      </SyntaxHighlighter>
-
-                      {/* Copy Button for Code */}
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(String(children));
-                          setIsCopied(true);
-                          setTimeout(() => setIsCopied(false), 2000);
-                        }}
-                        className="absolute top-2 left-2 z-10 px-2 py-1 bg-surface-3 border border-border-subtle rounded opacity-0 group-hover/code:opacity-100 transition-opacity focus-ring"
-                      >
-                        {isCopied ? (
-                          <Check className="h-4 w-4 text-neon-accent" />
-                        ) : (
-                          <Copy className="h-4 w-4" />
-                        )}
-                      </button>
-                    </div>
-                  ) : (
-                    <code className={className} {...props}>
-                      {children}
-                    </code>
-                  );
-                },
-              }}
+              components={markdownComponents}
             >
               {content}
             </ReactMarkdown>
@@ -303,7 +306,7 @@ export function ChatMessage({
       </div>
     </motion.div>
   );
-}
+});
 
 ChatMessage.displayName = 'ChatMessage';
 
