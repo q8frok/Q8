@@ -12,7 +12,7 @@ export { StatusWidget } from './StatusWidget';
 
 // Phase 3 Widgets
 export { GitHubPRWidget } from './GitHubPRWidget';
-export { CalendarWidget } from './CalendarWidget';
+export { CalendarWidget } from './CalendarWidget/index';
 export { WeatherWidget } from './WeatherWidget/index';
 export { TaskWidget } from './TaskWidget/index';
 export { SuggestionsWidget } from './SuggestionsWidget';
@@ -23,7 +23,6 @@ export { ContentHubWidget } from './ContentHubWidget';
 // Phase 4 Widgets
 export { ClockWidget } from './ClockWidget';
 export { QuickNotesWidget } from './QuickNotesWidget/index';
-export { FocusWidget } from './FocusWidget/index';
 
 // Phase 5 Widgets - Smart Home Integration
 export { SmartHomeWidget } from './SmartHomeWidget/index';

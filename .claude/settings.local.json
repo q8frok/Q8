@@ -80,7 +80,10 @@
       "WebFetch(domain:supabase.com)",
       "WebFetch(domain:github.com)",
       "Bash(cmd /c \"taskkill /f /im node.exe\")",
-      "Bash(cmd /c \"rd /s /q C:\\\\Users\\\\Minki\\\\Q8\\\\apps\\\\web\\\\.next\")"
+      "Bash(cmd /c \"rd /s /q C:\\\\Users\\\\Minki\\\\Q8\\\\apps\\\\web\\\\.next\")",
+      "mcp__supabase__apply_migration",
+      "mcp__supabase__get_logs",
+      "mcp__supabase__execute_sql"
     ],
     "deny": [],
     "ask": []

@@ -40,15 +40,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  // Initiate Google OAuth linking
-  const { data, error } = await supabase.auth.linkIdentity({
+  // Use signInWithOAuth to authenticate/re-authenticate with Google
+  // This works even when linkIdentity is disabled in Supabase
+  // It will prompt for consent and grant all requested scopes including Calendar
+  const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
       redirectTo: `${new URL(request.url).origin}/auth/callback`,
-      scopes: 'email profile https://www.googleapis.com/auth/youtube.readonly',
+      scopes: 'email profile https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events',
       queryParams: {
         access_type: 'offline',
-        prompt: 'consent',
+        prompt: 'consent', // Force consent screen to ensure new scopes are granted
       },
     },
   });

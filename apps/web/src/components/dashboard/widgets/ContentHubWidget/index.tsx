@@ -36,6 +36,11 @@ import { VoiceControlButton, LyricsDisplay, OnboardingCard, NowPlayingSkeleton, 
 import { getSafeImageUrl } from './utils/urlValidation';
 import type { ContentHubWidgetProps, ContentItem } from './types';
 
+/** Constants */
+const PROGRESS_POLL_INTERVAL_MS = 1000;
+const ERROR_DISPLAY_DURATION_MS = 5000;
+const SUCCESS_MESSAGE_DURATION_MS = 3000;
+
 /**
  * ContentHubWidget - Unified Media Hub
  *
@@ -136,9 +141,9 @@ export function ContentHubWidget({ className }: ContentHubWidgetProps) {
 
     const interval = setInterval(() => {
       useContentHubStore.setState((state) => ({
-        progress: Math.min(state.progress + 1000, nowPlaying.duration || state.progress + 1000)
+        progress: Math.min(state.progress + PROGRESS_POLL_INTERVAL_MS, nowPlaying.duration || state.progress + PROGRESS_POLL_INTERVAL_MS)
       }));
-    }, 1000);
+    }, PROGRESS_POLL_INTERVAL_MS);
 
     return () => clearInterval(interval);
   }, [isPlaying, nowPlaying]);
@@ -153,7 +158,7 @@ export function ContentHubWidget({ className }: ContentHubWidgetProps) {
           useContentHubStore.getState().addToQueue(item);
         });
         setError(`Added ${result.recommendations.length} tracks to your queue`);
-        setTimeout(() => setError(null), 3000);
+        setTimeout(() => setError(null), SUCCESS_MESSAGE_DURATION_MS);
       } else {
         setError('No recommendations found. Try again later.');
       }
@@ -211,7 +216,7 @@ export function ContentHubWidget({ className }: ContentHubWidgetProps) {
   // Clear error after 5 seconds
   useEffect(() => {
     if (error) {
-      const timeout = setTimeout(() => setError(null), 5000);
+      const timeout = setTimeout(() => setError(null), ERROR_DISPLAY_DURATION_MS);
       return () => clearTimeout(timeout);
     }
   }, [error, setError]);
@@ -573,5 +578,3 @@ export function ContentHubWidget({ className }: ContentHubWidgetProps) {
     </>
   );
 }
-
-export default ContentHubWidget;

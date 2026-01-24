@@ -6,9 +6,23 @@
 import { useCallback, useState } from 'react';
 import { useContentHubStore } from '@/lib/stores/contenthub';
 import { useSpotifyControls } from '@/hooks/useContentHub';
+import { logger } from '@/lib/logger';
 import type { ContentItem } from '@/types/contenthub';
 
-export function usePlaybackControls() {
+interface UsePlaybackControlsReturn {
+  controlLoading: boolean;
+  handlePlayPause: () => Promise<void>;
+  handlePlay: (item: ContentItem) => void;
+  handleSeek: (position: number) => void;
+  handleNext: () => Promise<void>;
+  handlePrevious: () => Promise<void>;
+  handleShuffle: () => Promise<void>;
+  handleRepeat: () => Promise<void>;
+  handleVolumeChange: (volume: number) => Promise<void>;
+  spotifyControls: ReturnType<typeof useSpotifyControls>;
+}
+
+export function usePlaybackControls(): UsePlaybackControlsReturn {
   const {
     nowPlaying,
     isPlaying,
@@ -30,7 +44,8 @@ export function usePlaybackControls() {
         } else {
           await spotifyControls.play();
         }
-      } catch {
+      } catch (err) {
+        logger.error('Play/pause failed', { error: err });
         useContentHubStore.setState({ isPlaying });
       } finally {
         setControlLoading(false);
@@ -105,7 +120,8 @@ export function usePlaybackControls() {
       useContentHubStore.setState({ shuffleState: newState });
       try {
         await spotifyControls.shuffle(newState);
-      } catch {
+      } catch (err) {
+        logger.error('Shuffle toggle failed', { error: err });
         useContentHubStore.setState({ shuffleState: shuffleState });
       }
     }
@@ -118,7 +134,8 @@ export function usePlaybackControls() {
       useContentHubStore.setState({ repeatState: nextState });
       try {
         await spotifyControls.repeat(nextState);
-      } catch {
+      } catch (err) {
+        logger.error('Repeat toggle failed', { error: err });
         useContentHubStore.setState({ repeatState: repeatState });
       }
     }
@@ -128,8 +145,8 @@ export function usePlaybackControls() {
     if (nowPlaying?.source === 'spotify') {
       try {
         await spotifyControls.setVolume(volume);
-      } catch {
-        // Volume change failed
+      } catch (err) {
+        logger.error('Volume change failed', { error: err });
       }
     }
   }, [nowPlaying?.source, spotifyControls]);

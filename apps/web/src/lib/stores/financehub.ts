@@ -102,6 +102,7 @@ interface FinanceHubState {
   investments: number;
   dailyBudget: number;
   dailySpent: number;
+  lastDailySpentUpdate: string | null;
 
   // UI State
   isExpanded: boolean;
@@ -170,6 +171,7 @@ const initialState = {
   investments: 0,
   dailyBudget: 100,
   dailySpent: 0,
+  lastDailySpentUpdate: null as string | null,
 
   // UI
   isExpanded: false,
@@ -336,13 +338,20 @@ export const useFinanceHubStore = create<FinanceHubState>()(
 
       calculateDailySpent: () => {
         const { transactions } = get();
-        const today = new Date().toISOString().split('T')[0];
+        // Use local date format (YYYY-MM-DD) to fix timezone issues
+        // en-CA locale returns YYYY-MM-DD format
+        const today = new Date().toLocaleDateString('en-CA');
 
         const dailySpent = transactions
-          .filter((t) => t.date === today && t.amount < 0 && t.status !== 'canceled')
+          .filter((t) => {
+            // Compare dates - transactions should be in YYYY-MM-DD format
+            const txDate = t.date.split('T')[0]; // Handle both YYYY-MM-DD and ISO formats
+            // Include pending transactions in daily spending
+            return txDate === today && t.amount < 0 && t.status !== 'canceled';
+          })
           .reduce((sum, t) => sum + Math.abs(t.amount), 0);
 
-        set({ dailySpent });
+        set({ dailySpent, lastDailySpentUpdate: new Date().toISOString() });
       },
 
       // ========== RESET ==========
@@ -351,17 +360,34 @@ export const useFinanceHubStore = create<FinanceHubState>()(
     }),
     {
       name: 'financehub-storage',
-      partialize: (state) => ({
-        // Persist UI preferences and local data that isn't from API
-        privacyMode: state.privacyMode,
-        dailyBudget: state.dailyBudget,
-        activeTab: state.activeTab,
-        transactionFilters: state.transactionFilters,
-        // Persist recurring items (manual entries)
-        recurring: state.recurring,
-        // Persist manual transactions
-        transactions: state.transactions.filter((t) => t.isManual),
-      }),
+      partialize: (state) => {
+        // Calculate 90-day TTL for transaction persistence
+        const ninetyDaysAgo = new Date();
+        ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+        const ttlCutoff = ninetyDaysAgo.toISOString().slice(0, 10);
+
+        // Persist all transactions within TTL (manual transactions always kept)
+        const transactionsToKeep = state.transactions.filter((t) => {
+          // Always keep manual transactions
+          if (t.isManual) return true;
+          // Keep non-manual transactions within 90 days
+          return t.date >= ttlCutoff;
+        });
+
+        return {
+          // Persist UI preferences and local data that isn't from API
+          privacyMode: state.privacyMode,
+          dailyBudget: state.dailyBudget,
+          activeTab: state.activeTab,
+          transactionFilters: state.transactionFilters,
+          // Persist recurring items (manual entries)
+          recurring: state.recurring,
+          // Persist all transactions within TTL (enables offline viewing)
+          transactions: transactionsToKeep,
+          // Persist last daily spent update time
+          lastDailySpentUpdate: state.lastDailySpentUpdate,
+        };
+      },
       // Custom merge to prevent duplicates when hydrating
       merge: (persistedState, currentState) => {
         const persisted = persistedState as Partial<FinanceHubState>;
@@ -418,6 +444,7 @@ export const useFinanceAlerts = () => useFinanceHubStore((s) => s.alerts);
 
 export const useDailyBudget = () => useFinanceHubStore((s) => s.dailyBudget);
 export const useDailySpent = () => useFinanceHubStore((s) => s.dailySpent);
+export const useLastDailySpentUpdate = () => useFinanceHubStore((s) => s.lastDailySpentUpdate);
 
 // Derived selectors - use useShallow to prevent infinite loops
 export const useVisibleAccounts = () =>

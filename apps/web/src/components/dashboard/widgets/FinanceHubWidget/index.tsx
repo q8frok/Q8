@@ -21,6 +21,7 @@ import { AlertCarousel } from './compact/AlertCarousel';
 import { PrivacyToggle } from './shared/PrivacyToggle';
 import { LinkAccountModal } from './shared/LinkAccountModal';
 import { FinanceSettings } from './shared/FinanceSettings';
+import { SyncProgressDrawer, type SyncStatus, type AccountSyncState } from './shared/SyncProgressDrawer';
 import { FinanceCommandCenter } from './expanded/FinanceCommandCenter';
 import { useFinanceHub } from './hooks';
 
@@ -69,7 +70,10 @@ export function FinanceHubWidget({ className }: FinanceHubWidgetProps) {
 
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showSyncProgress, setShowSyncProgress] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
+  const [syncProgressStatus, setSyncProgressStatus] = useState<SyncStatus>('idle');
+  const [accountSyncStates, setAccountSyncStates] = useState<Map<string, AccountSyncState>>(new Map());
 
   // Get authenticated user from session
   const { user, isAuthenticated } = useSession();
@@ -85,17 +89,54 @@ export function FinanceHubWidget({ className }: FinanceHubWidgetProps) {
   // Handle sync - use fullSync=true to bypass throttling for manual refresh
   const handleSync = useCallback(async () => {
     if (!userId) return;
+
+    // Show progress drawer and reset states
+    setShowSyncProgress(true);
+    setSyncProgressStatus('syncing');
+    setAccountSyncStates(new Map());
     setSyncing(true);
+
+    // Mark all linked accounts as syncing
+    const linkedAccounts = accounts.filter((a) => !a.isManual);
+    const initialStates = new Map<string, AccountSyncState>();
+    linkedAccounts.forEach((account) => {
+      initialStates.set(account.id, {
+        accountId: account.id,
+        status: 'syncing',
+        startedAt: new Date(),
+      });
+    });
+    setAccountSyncStates(initialStates);
+
     try {
       await syncAccounts(userId, true);
+
+      // Mark all accounts as success
+      const successStates = new Map<string, AccountSyncState>();
+      linkedAccounts.forEach((account) => {
+        successStates.set(account.id, {
+          accountId: account.id,
+          status: 'success',
+          completedAt: new Date(),
+        });
+      });
+      setAccountSyncStates(successStates);
+      setSyncProgressStatus('success');
       setError(null);
       setLastSyncTime(new Date());
+
+      // Auto-close progress drawer after 3 seconds on success
+      setTimeout(() => {
+        setShowSyncProgress(false);
+        setSyncProgressStatus('idle');
+      }, 3000);
     } catch (err) {
+      setSyncProgressStatus('error');
       setError('Sync failed');
     } finally {
       setSyncing(false);
     }
-  }, [userId, syncAccounts, setSyncing, setError]);
+  }, [userId, accounts, syncAccounts, setSyncing, setError]);
 
   // Auto-sync twice daily at 6 AM and 6 PM
   useEffect(() => {
@@ -285,6 +326,19 @@ export function FinanceHubWidget({ className }: FinanceHubWidgetProps) {
         onSyncAll={handleSync}
         lastSyncTime={lastSyncTime}
         isSyncing={isSyncing}
+      />
+
+      {/* Sync Progress Drawer */}
+      <SyncProgressDrawer
+        isOpen={showSyncProgress}
+        onClose={() => {
+          setShowSyncProgress(false);
+          setSyncProgressStatus('idle');
+        }}
+        syncStatus={syncProgressStatus}
+        accountStates={accountSyncStates}
+        lastSyncTime={lastSyncTime}
+        onRetryAll={handleSync}
       />
     </>
   );

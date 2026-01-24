@@ -221,20 +221,35 @@ function mapPlaidAccountType(plaidType: string): string {
  */
 async function syncTransactions(accessToken: string, userId: string, itemId: string) {
   try {
-    // Get transactions for the last 30 days
+    // Get transactions for the last 90 days on initial link (increased from 30)
     const startDate = new Date();
-    startDate.setDate(startDate.getDate() - 30);
+    startDate.setDate(startDate.getDate() - 90);
     const endDate = new Date();
-    const response = await plaidClient.transactionsGet({
-      access_token: accessToken,
-      start_date: startDate.toISOString().slice(0, 10),
-      end_date: endDate.toISOString().slice(0, 10),
-      options: {
-        count: 500,
-        offset: 0,
-      },
-    });
-    const transactions = response.data.transactions;
+
+    // Paginate through all transactions
+    const transactions: Awaited<ReturnType<typeof plaidClient.transactionsGet>>['data']['transactions'] = [];
+    let offset = 0;
+    const batchSize = 500;
+    let hasMore = true;
+
+    while (hasMore) {
+      const response = await plaidClient.transactionsGet({
+        access_token: accessToken,
+        start_date: startDate.toISOString().slice(0, 10),
+        end_date: endDate.toISOString().slice(0, 10),
+        options: {
+          count: batchSize,
+          offset,
+        },
+      });
+
+      transactions.push(...response.data.transactions);
+
+      // Check if there are more transactions to fetch
+      const totalTransactions = response.data.total_transactions;
+      offset += response.data.transactions.length;
+      hasMore = offset < totalTransactions && response.data.transactions.length === batchSize;
+    }
     // Get account mapping
     const { data: accounts } = await supabase
       .from('finance_accounts')

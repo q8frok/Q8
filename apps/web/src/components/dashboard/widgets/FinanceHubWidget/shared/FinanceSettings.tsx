@@ -11,6 +11,13 @@ import {
   X,
   Save,
   Banknote,
+  Building2,
+  AlertCircle,
+  Link2Off,
+  Link2,
+  ChevronDown,
+  ChevronRight,
+  Trash2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { logger } from '@/lib/logger';
@@ -30,6 +37,8 @@ interface FinanceSettingsProps {
   onClose: () => void;
   userId?: string;
   onSyncAll?: () => Promise<void>;
+  onSyncAccount?: (accountId: string) => Promise<void>;
+  onReconnectAccount?: (accountId: string) => void;
   lastSyncTime?: Date | null;
   isSyncing?: boolean;
 }
@@ -48,13 +57,15 @@ export function FinanceSettings({
   onClose,
   userId,
   onSyncAll,
+  onSyncAccount,
+  onReconnectAccount,
   lastSyncTime,
   isSyncing = false,
 }: FinanceSettingsProps) {
   const accounts = useFinanceAccounts();
   const dailyBudget = useDailyBudget();
   const privacyMode = usePrivacyMode();
-  const { setDailyBudget, setAccounts, updateAccount } = useFinanceHubStore();
+  const { setDailyBudget, setAccounts, updateAccount, removeAccount } = useFinanceHubStore();
 
   // Find existing cash account
   const cashAccount = accounts.find(
@@ -70,6 +81,59 @@ export function FinanceSettings({
   );
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [showAccountManagement, setShowAccountManagement] = useState(false);
+  const [syncingAccountId, setSyncingAccountId] = useState<string | null>(null);
+  const [confirmDisconnect, setConfirmDisconnect] = useState<string | null>(null);
+
+  // Group accounts by institution
+  const linkedAccounts = accounts.filter((a) => !a.isManual && a.plaidItemId);
+  const accountsByInstitution = linkedAccounts.reduce(
+    (acc, account) => {
+      const institution = account.institutionName || 'Unknown';
+      if (!acc[institution]) {
+        acc[institution] = [];
+      }
+      acc[institution].push(account);
+      return acc;
+    },
+    {} as Record<string, FinanceAccount[]>
+  );
+
+  // Handle per-account sync
+  const handleSyncAccount = useCallback(async (accountId: string) => {
+    if (!onSyncAccount) return;
+    setSyncingAccountId(accountId);
+    try {
+      await onSyncAccount(accountId);
+    } finally {
+      setSyncingAccountId(null);
+    }
+  }, [onSyncAccount]);
+
+  // Handle disconnect account
+  const handleDisconnectAccount = useCallback(async (accountId: string) => {
+    try {
+      const response = await fetch(`/api/finance/accounts/${accountId}/disconnect`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (response.ok) {
+        // Update local state to reflect disconnected account
+        // Note: plaidAccessToken is not stored on client, only server-side
+        updateAccount(accountId, {
+          plaidItemId: undefined,
+          syncError: 'Disconnected',
+        });
+        setConfirmDisconnect(null);
+        setSaveMessage('Account disconnected');
+        setTimeout(() => setSaveMessage(null), 3000);
+      }
+    } catch (error) {
+      logger.error('Failed to disconnect account', { error, accountId });
+      setSaveMessage('Failed to disconnect account');
+    }
+  }, [updateAccount]);
 
   // Update local state when account changes
   useEffect(() => {
@@ -288,6 +352,148 @@ export function FinanceSettings({
                 Accounts auto-sync twice daily at 6 AM and 6 PM local time.
               </p>
             </div>
+
+            {/* Account Management Section */}
+            {linkedAccounts.length > 0 && (
+              <div className="space-y-3">
+                <button
+                  onClick={() => setShowAccountManagement(!showAccountManagement)}
+                  className="flex items-center gap-2 w-full"
+                >
+                  {showAccountManagement ? (
+                    <ChevronDown className="h-4 w-4 text-purple-400" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 text-purple-400" />
+                  )}
+                  <Building2 className="h-4 w-4 text-purple-400" />
+                  <h3 className="text-sm font-medium text-white">Linked Accounts</h3>
+                  <span className="text-xs text-white/40 ml-auto">
+                    {linkedAccounts.length} account{linkedAccounts.length !== 1 ? 's' : ''}
+                  </span>
+                </button>
+
+                <AnimatePresence>
+                  {showAccountManagement && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="space-y-4 overflow-hidden"
+                    >
+                      {Object.entries(accountsByInstitution).map(([institution, institutionAccounts]) => (
+                        <div key={institution} className="space-y-2">
+                          <div className="text-xs text-white/60 font-medium">
+                            {institution}
+                          </div>
+
+                          {institutionAccounts.map((account) => {
+                            const hasError = account.syncError && account.syncError !== 'Disconnected';
+                            const isDisconnected = account.syncError === 'Disconnected';
+                            const isSyncingThis = syncingAccountId === account.id;
+
+                            return (
+                              <div
+                                key={account.id}
+                                className="flex items-center justify-between p-2 bg-white/5 rounded-lg"
+                              >
+                                <div className="flex items-center gap-2 min-w-0">
+                                  {hasError ? (
+                                    <AlertCircle className="h-4 w-4 text-red-400 flex-shrink-0" />
+                                  ) : isDisconnected ? (
+                                    <Link2Off className="h-4 w-4 text-text-muted flex-shrink-0" />
+                                  ) : (
+                                    <div className="h-2 w-2 rounded-full bg-green-400 flex-shrink-0" />
+                                  )}
+                                  <div className="min-w-0">
+                                    <div className="text-sm text-white truncate">
+                                      {account.name}
+                                    </div>
+                                    {hasError && (
+                                      <div className="text-xs text-red-400 truncate">
+                                        {account.syncError}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-1 flex-shrink-0">
+                                  {/* Reconnect button for errored accounts */}
+                                  {hasError && onReconnectAccount && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-7 text-xs text-blue-400 hover:text-blue-300"
+                                      onClick={() => onReconnectAccount(account.id)}
+                                    >
+                                      <Link2 className="h-3 w-3 mr-1" />
+                                      Reconnect
+                                    </Button>
+                                  )}
+
+                                  {/* Sync button for connected accounts */}
+                                  {!isDisconnected && !hasError && onSyncAccount && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7"
+                                      onClick={() => handleSyncAccount(account.id)}
+                                      disabled={isSyncingThis || isSyncing}
+                                    >
+                                      <RefreshCw
+                                        className={cn(
+                                          'h-3 w-3',
+                                          isSyncingThis && 'animate-spin'
+                                        )}
+                                      />
+                                    </Button>
+                                  )}
+
+                                  {/* Disconnect button */}
+                                  {confirmDisconnect === account.id ? (
+                                    <div className="flex items-center gap-1">
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-7 text-xs text-red-400"
+                                        onClick={() => handleDisconnectAccount(account.id)}
+                                      >
+                                        Confirm
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-7 text-xs"
+                                        onClick={() => setConfirmDisconnect(null)}
+                                      >
+                                        Cancel
+                                      </Button>
+                                    </div>
+                                  ) : (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7 text-text-muted hover:text-red-400"
+                                      onClick={() => setConfirmDisconnect(account.id)}
+                                      title="Disconnect account"
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ))}
+
+                      <p className="text-xs text-white/40">
+                        Disconnecting an account removes the connection but preserves transaction history.
+                      </p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
 
             {/* Save Message */}
             {saveMessage && (

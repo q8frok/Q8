@@ -80,7 +80,6 @@ export function NowPlayingCard({
 }: NowPlayingCardProps) {
   const { volume, setVolume } = useContentHubStore();
   const { gradientStyle } = useColorTheme(item?.thumbnailUrl ?? null);
-  const [isDraggingVolume, setIsDraggingVolume] = useState(false);
   const [showVideoPlayer, setShowVideoPlayer] = useState(false);
 
   // Extract YouTube video ID from item

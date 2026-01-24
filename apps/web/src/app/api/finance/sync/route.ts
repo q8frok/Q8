@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Configuration, PlaidApi, PlaidEnvironments } from 'plaid';
+import { Configuration, PlaidApi, PlaidEnvironments, Transaction } from 'plaid';
 import { decrypt } from '@/lib/utils/encryption';
 import {
   getAuthenticatedUser,
@@ -22,6 +22,33 @@ const plaidConfiguration = new Configuration({
 const plaidClient = new PlaidApi(plaidConfiguration);
 
 /**
+ * Normalize merchant name for better deduplication
+ * Strips common suffixes like LLC, Inc, Corp, and standardizes common variations
+ */
+function normalizeMerchantName(name: string | null | undefined): string {
+  if (!name) return 'unknown';
+
+  return name
+    .toLowerCase()
+    // Remove common business suffixes
+    .replace(/\b(llc|inc|corp|ltd|co|company|corporation|limited)\b\.?/gi, '')
+    // Remove location suffixes (e.g., "STORE #123", "LOCATION 456")
+    .replace(/\b(store|location|branch|unit)\s*#?\d+/gi, '')
+    // Remove trailing numbers often used for store IDs
+    .replace(/\s+#?\d{3,}$/g, '')
+    // Standardize Amazon variations
+    .replace(/amazon\s*(marketplace|\.com|mktplace|prime|fresh|digital)?/gi, 'amazon')
+    // Standardize common merchants
+    .replace(/uber\s*(eats|trip|ride)?/gi, 'uber')
+    .replace(/doordash\s*\*?/gi, 'doordash')
+    .replace(/grubhub\s*\*?/gi, 'grubhub')
+    // Remove special characters but keep letters
+    .replace(/[^a-z]/g, '')
+    // Take first 16 chars for matching (increased from 12)
+    .substring(0, 16);
+}
+
+/**
  * Create a content-based key to detect duplicate transactions
  * Plaid can send same transaction with different transaction_ids (pending vs posted)
  */
@@ -32,8 +59,7 @@ function createContentKey(tx: {
   merchant_name: string | null | undefined;
   name: string;
 }): string {
-  const merchantText = (tx.merchant_name || tx.name || 'unknown').toLowerCase();
-  const merchantKey = merchantText.replace(/[^a-z]/g, '').substring(0, 12);
+  const merchantKey = normalizeMerchantName(tx.merchant_name || tx.name);
   const amountKey = Math.abs(tx.amount).toFixed(2);
   return `${tx.account_id}:${tx.date}:${amountKey}:${merchantKey}`;
 }
@@ -120,17 +146,35 @@ export async function POST(request: NextRequest) {
           if (!updateError) results.accountsUpdated++;
         }
 
-        // Sync transactions
+        // Sync transactions - increased defaults: 30 days regular, 365 days full sync
         const startDate = new Date();
-        startDate.setDate(startDate.getDate() - (fullSync ? 90 : 7));
+        startDate.setDate(startDate.getDate() - (fullSync ? 365 : 30));
         const endDate = new Date();
 
-        const txResponse = await plaidClient.transactionsGet({
-          access_token: accessToken,
-          start_date: startDate.toISOString().slice(0, 10),
-          end_date: endDate.toISOString().slice(0, 10),
-          options: { count: 500, offset: 0 },
-        });
+        // Paginate through all transactions
+        const allTransactions: Transaction[] = [];
+        let offset = 0;
+        const batchSize = 500;
+        let hasMore = true;
+
+        while (hasMore) {
+          const batchResponse = await plaidClient.transactionsGet({
+            access_token: accessToken,
+            start_date: startDate.toISOString().slice(0, 10),
+            end_date: endDate.toISOString().slice(0, 10),
+            options: { count: batchSize, offset },
+          });
+
+          allTransactions.push(...batchResponse.data.transactions);
+
+          // Check if there are more transactions to fetch
+          const totalTransactions = batchResponse.data.total_transactions;
+          offset += batchResponse.data.transactions.length;
+          hasMore = offset < totalTransactions && batchResponse.data.transactions.length === batchSize;
+        }
+
+        // Use allTransactions for processing
+        const txResponse = { data: { transactions: allTransactions } };
 
         // Get account ID mapping
         const { data: dbAccounts } = await supabase

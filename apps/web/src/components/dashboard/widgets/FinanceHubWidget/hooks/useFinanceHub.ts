@@ -158,7 +158,33 @@ export function useFinanceHub() {
       if (snapshotsRes.ok) {
         const snapshotsData = await safeJsonParse<FinanceSnapshot[]>(snapshotsRes);
         if (snapshotsData) {
-          setSnapshots(Array.isArray(snapshotsData) ? snapshotsData : []);
+          const snapshotList = Array.isArray(snapshotsData) ? snapshotsData : [];
+          setSnapshots(snapshotList);
+
+          // Check if we have a snapshot for today, if not create one
+          const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD format
+          const hasTodaySnapshot = snapshotList.some((s) => s.date === today);
+
+          if (!hasTodaySnapshot && snapshotList.length > 0) {
+            // Trigger snapshot creation by calling the snapshot endpoint
+            try {
+              await fetch('/api/finance/snapshots', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId }),
+              });
+              // Re-fetch snapshots to include the new one
+              const refreshRes = await fetch(`/api/finance/snapshots?userId=${userId}&days=30`);
+              if (refreshRes.ok) {
+                const refreshData = await safeJsonParse<FinanceSnapshot[]>(refreshRes);
+                if (refreshData) {
+                  setSnapshots(Array.isArray(refreshData) ? refreshData : []);
+                }
+              }
+            } catch {
+              // Silently ignore - not critical
+            }
+          }
         }
       }
 

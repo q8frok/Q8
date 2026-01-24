@@ -107,6 +107,20 @@ export function useTimerSession(options: UseTimerSessionOptions = {}): UseTimerS
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number | null>(null);
 
+  // Store callbacks in refs to avoid effect re-runs when callbacks change
+  const onSessionCompleteRef = useRef(onSessionComplete);
+  const onBreakStartRef = useRef(onBreakStart);
+  const onBreakEndRef = useRef(onBreakEnd);
+  const autoStartBreaksRef = useRef(autoStartBreaks);
+
+  // Keep refs up to date
+  useEffect(() => {
+    onSessionCompleteRef.current = onSessionComplete;
+    onBreakStartRef.current = onBreakStart;
+    onBreakEndRef.current = onBreakEnd;
+    autoStartBreaksRef.current = autoStartBreaks;
+  });
+
   // Load stats from localStorage on mount
   useEffect(() => {
     const loaded = loadStatsFromStorage();
@@ -129,10 +143,8 @@ export function useTimerSession(options: UseTimerSessionOptions = {}): UseTimerS
 
   // Track session status for effect dependency
   const sessionStatus = session?.status;
-  const sessionRef = useRef(session);
-  sessionRef.current = session;
 
-  // Timer tick logic
+  // Timer tick logic - uses refs for callbacks to prevent effect re-runs
   useEffect(() => {
     // Clear any existing interval first
     if (intervalRef.current) {
@@ -155,7 +167,7 @@ export function useTimerSession(options: UseTimerSessionOptions = {}): UseTimerS
           // Phase completed
           if (prev.isBreak) {
             // Break finished
-            onBreakEnd?.();
+            onBreakEndRef.current?.();
             const presetConfig = FOCUS_PRESETS.find((p) => p.id === prev.preset);
             if (!presetConfig) return null;
 
@@ -165,7 +177,7 @@ export function useTimerSession(options: UseTimerSessionOptions = {}): UseTimerS
               isBreak: false,
               duration: presetConfig.workMinutes * 60,
               remaining: presetConfig.workMinutes * 60,
-              status: autoStartBreaks ? 'running' : 'idle',
+              status: autoStartBreaksRef.current ? 'running' : 'idle',
             };
           } else {
             // Work session finished
@@ -177,7 +189,7 @@ export function useTimerSession(options: UseTimerSessionOptions = {}): UseTimerS
               completedAt: new Date().toISOString(),
             };
 
-            onSessionComplete?.(completedSession);
+            onSessionCompleteRef.current?.(completedSession);
 
             // Save to session history
             saveSessionToHistory(completedSession);
@@ -208,7 +220,7 @@ export function useTimerSession(options: UseTimerSessionOptions = {}): UseTimerS
               ? presetConfig.longBreakMinutes
               : presetConfig.breakMinutes;
 
-            onBreakStart?.();
+            onBreakStartRef.current?.();
 
             // Start break
             return {
@@ -216,7 +228,7 @@ export function useTimerSession(options: UseTimerSessionOptions = {}): UseTimerS
               isBreak: true,
               duration: breakDuration * 60,
               remaining: breakDuration * 60,
-              status: autoStartBreaks ? 'running' : 'break',
+              status: autoStartBreaksRef.current ? 'running' : 'break',
             };
           }
         }
@@ -231,7 +243,7 @@ export function useTimerSession(options: UseTimerSessionOptions = {}): UseTimerS
         intervalRef.current = null;
       }
     };
-  }, [sessionStatus, autoStartBreaks, onSessionComplete, onBreakStart, onBreakEnd]);
+  }, [sessionStatus]); // Only depends on sessionStatus - callbacks accessed via refs
 
   // Start a new session
   const startSession = useCallback((preset: FocusPreset, customMinutes?: number) => {
@@ -298,7 +310,7 @@ export function useTimerSession(options: UseTimerSessionOptions = {}): UseTimerS
 
       if (prev.isBreak) {
         // Skip break, start work
-        onBreakEnd?.();
+        onBreakEndRef.current?.();
         return {
           ...prev,
           isBreak: false,
@@ -314,7 +326,7 @@ export function useTimerSession(options: UseTimerSessionOptions = {}): UseTimerS
           ? presetConfig.longBreakMinutes
           : presetConfig.breakMinutes;
 
-        onBreakStart?.();
+        onBreakStartRef.current?.();
 
         return {
           ...prev,
@@ -326,7 +338,7 @@ export function useTimerSession(options: UseTimerSessionOptions = {}): UseTimerS
         };
       }
     });
-  }, [onBreakStart, onBreakEnd]);
+  }, []); // No dependencies - uses refs
 
   // Link task to session
   const linkTask = useCallback((taskId: string, taskTitle?: string) => {

@@ -1,9 +1,16 @@
 'use client';
 
+import { useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Flame, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Flame, CheckCircle, AlertTriangle, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { usePrivacyMode, useDailyBudget, useDailySpent } from '@/lib/stores/financehub';
+import {
+  usePrivacyMode,
+  useDailyBudget,
+  useDailySpent,
+  useLastDailySpentUpdate,
+  useFinanceHubStore
+} from '@/lib/stores/financehub';
 import { formatCurrency } from '@/types/finance';
 
 interface DailyBurnMeterProps {
@@ -23,6 +30,25 @@ export function DailyBurnMeter({ className }: DailyBurnMeterProps) {
   const privacyMode = usePrivacyMode();
   const dailyBudget = useDailyBudget();
   const dailySpent = useDailySpent();
+  const lastUpdate = useLastDailySpentUpdate();
+  const calculateDailySpent = useFinanceHubStore((s) => s.calculateDailySpent);
+
+  const handleRefresh = useCallback(() => {
+    calculateDailySpent();
+  }, [calculateDailySpent]);
+
+  // Format last update time
+  const formatLastUpdate = () => {
+    if (!lastUpdate) return null;
+    const date = new Date(lastUpdate);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  };
 
   const percentUsed = dailyBudget > 0 ? (dailySpent / dailyBudget) * 100 : 0;
   const remaining = Math.max(dailyBudget - dailySpent, 0);
@@ -126,6 +152,20 @@ export function DailyBurnMeter({ className }: DailyBurnMeterProps) {
               • {formatCurrency(remaining)} left
             </span>
           )}
+        </div>
+
+        {/* Last updated with refresh button */}
+        <div className="flex items-center gap-2 mt-2">
+          <span className="text-[10px] text-text-muted/60">
+            {formatLastUpdate() && `Updated ${formatLastUpdate()}`}
+          </span>
+          <button
+            onClick={handleRefresh}
+            className="text-text-muted/60 hover:text-text-muted transition-colors"
+            title="Refresh daily spending"
+          >
+            <RefreshCw className="h-3 w-3" />
+          </button>
         </div>
       </div>
     </div>

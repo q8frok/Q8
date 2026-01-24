@@ -9,3 +9,5 @@ export { DataTable } from './DataTable';
 export { OptimisticAction } from './OptimisticAction';
 export { OfflineIndicator } from './OfflineIndicator';
 export { AIButton } from './AIButton';
+export { GoogleAccountsManager } from './GoogleAccountsManager';
+export type { LinkedGoogleAccount, GoogleAccountsManagerProps } from './GoogleAccountsManager';
