@@ -201,7 +201,7 @@ function transformToCamelCase(
         dueDate: doc.due_date,
         tags: doc.tags || [],
         projectId: doc.project_id,
-        parentTaskId: doc.parent_task_id,
+        parentTaskId: doc.parent_task_id || undefined,
         sortOrder: doc.sort_order || 0,
         estimatedMinutes: doc.estimated_minutes,
         completedAt: doc.completed_at,

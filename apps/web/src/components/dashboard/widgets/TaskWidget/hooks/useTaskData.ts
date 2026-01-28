@@ -1,7 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
-import { useRxQuery } from '@/hooks/useRxDB';
+import { useMemo, useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import type { Task, TaskFilters, TaskStatus } from '../types';
 
@@ -16,6 +15,7 @@ interface UseTaskDataReturn {
   tasksByStatus: Record<TaskStatus, Task[]>;
   isLoading: boolean;
   error: Error | null;
+  refetch: () => Promise<void>;
   taskCounts: {
     all: number;
     today: number;
@@ -26,44 +26,81 @@ interface UseTaskDataReturn {
 }
 
 export function useTaskData(options: UseTaskDataOptions = {}): UseTaskDataReturn {
-  const { filters, limit, parentTaskId } = options;
-  const { userId } = useAuth();
+  const { filters, limit = 50, parentTaskId } = options;
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
 
-  const { data: rawTasks, isLoading } = useRxQuery<Task>(
-    'tasks',
-    (collection) => {
-      let query = collection.find().where('userId').eq(userId || '');
+  const [rawTasks, setRawTasks] = useState<Task[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
-      if (parentTaskId === null) {
-        query = query.where('parentTaskId').eq(undefined);
-      } else if (parentTaskId) {
-        query = query.where('parentTaskId').eq(parentTaskId);
-      }
+  // Build query params
+  const queryParams = useMemo(() => {
+    const params = new URLSearchParams();
 
-      if (filters?.status && filters.status.length > 0) {
-        query = query.where('status').in(filters.status);
-      }
-
-      if (filters?.priority && filters.priority.length > 0) {
-        query = query.where('priority').in(filters.priority);
-      }
-
-      if (filters?.projectId) {
-        query = query.where('projectId').eq(filters.projectId);
-      }
-
-      if (limit) {
-        query = query.limit(limit);
-      }
-
-      return query.sort({ sortOrder: 'asc' });
+    if (filters?.status && filters.status.length > 0) {
+      params.set('status', filters.status.join(','));
     }
-  );
 
+    if (limit) {
+      params.set('limit', limit.toString());
+    }
+
+    if (parentTaskId === null) {
+      params.set('parentTaskId', 'null');
+    } else if (parentTaskId) {
+      params.set('parentTaskId', parentTaskId);
+    }
+
+    return params.toString();
+  }, [filters?.status, limit, parentTaskId]);
+
+  // Fetch tasks from API
+  const fetchTasks = useCallback(async () => {
+    if (authLoading) return;
+
+    if (!isAuthenticated) {
+      setRawTasks([]);
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const url = queryParams ? `/api/tasks?${queryParams}` : '/api/tasks';
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch tasks: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      setRawTasks(data.tasks || []);
+    } catch (err) {
+      console.error('Error fetching tasks:', err);
+      setError(err instanceof Error ? err : new Error('Failed to fetch tasks'));
+      setRawTasks([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isAuthenticated, authLoading, queryParams]);
+
+  // Initial fetch and refetch on dependency changes
+  useEffect(() => {
+    fetchTasks();
+  }, [fetchTasks]);
+
+  // Apply client-side filters that aren't supported by API
   const tasks = useMemo(() => {
     if (!rawTasks) return [];
 
     let filtered = [...rawTasks];
+
+    // Filter for top-level tasks (no parent) - handles both null and undefined
+    if (parentTaskId === null) {
+      filtered = filtered.filter((task) => !task.parentTaskId);
+    }
 
     if (filters?.search) {
       const searchLower = filters.search.toLowerCase();
@@ -71,6 +108,12 @@ export function useTaskData(options: UseTaskDataOptions = {}): UseTaskDataReturn
         (task) =>
           task.title.toLowerCase().includes(searchLower) ||
           task.description?.toLowerCase().includes(searchLower)
+      );
+    }
+
+    if (filters?.priority && filters.priority.length > 0) {
+      filtered = filtered.filter((task) =>
+        filters.priority!.includes(task.priority)
       );
     }
 
@@ -91,8 +134,11 @@ export function useTaskData(options: UseTaskDataOptions = {}): UseTaskDataReturn
       });
     }
 
+    // Sort by sortOrder
+    filtered.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+
     return filtered;
-  }, [rawTasks, filters]);
+  }, [rawTasks, filters, parentTaskId]);
 
   const tasksByStatus = useMemo(() => {
     const grouped: Record<TaskStatus, Task[]> = {
@@ -110,7 +156,7 @@ export function useTaskData(options: UseTaskDataOptions = {}): UseTaskDataReturn
     });
 
     Object.keys(grouped).forEach((status) => {
-      grouped[status as TaskStatus].sort((a, b) => a.sortOrder - b.sortOrder);
+      grouped[status as TaskStatus].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
     });
 
     return grouped;
@@ -156,7 +202,8 @@ export function useTaskData(options: UseTaskDataOptions = {}): UseTaskDataReturn
     tasks,
     tasksByStatus,
     isLoading,
-    error: null,
+    error,
+    refetch: fetchTasks,
     taskCounts,
   };
 }

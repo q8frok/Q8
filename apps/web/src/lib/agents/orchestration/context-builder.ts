@@ -3,11 +3,14 @@ import { type ExtendedAgentType } from './types';
 import { buildEnrichedContext, buildContextSummary, getGreeting } from '../context-provider';
 import { buildDeviceSummary } from '../home-context';
 import { getFinancialContext } from '../sub-agents/finance-advisor';
+import { getHomeBioRhythmContext } from '../sub-agents/home';
 import { AGENT_PROMPTS } from './constants';
 import type { EnrichedContext } from '../types';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { logger } from '@/lib/logger';
 import { getConversationContext } from '@/lib/documents/processor';
+import { getUserContext, buildUserContextPrompt } from './user-context';
+import { analyzeVibe, buildVibeContextPrompt } from './vibe-check';
 
 /**
  * Fetch relevant memories for context
@@ -53,10 +56,40 @@ ${greeting}!
 
 ${contextBlock}`;
 
+  // Add user context from The Memex (preferences, habits, bio-rhythm, etc.)
+  try {
+    const userContext = await getUserContext(context.userId);
+    const userContextPrompt = buildUserContextPrompt(userContext);
+    if (userContextPrompt) {
+      prompt += `\n\n${userContextPrompt}`;
+    }
+  } catch (error) {
+    logger.warn('Failed to fetch user context for prompt', { userId: context.userId, error });
+  }
+
+  // Add vibe check for personality-aware agents
+  if (agent === 'personality' || agent === 'orchestrator') {
+    try {
+      const vibeState = await analyzeVibe(context.userId);
+      const vibePrompt = buildVibeContextPrompt(vibeState);
+      if (vibePrompt) {
+        prompt += `\n\n${vibePrompt}`;
+      }
+    } catch (error) {
+      logger.warn('Failed to analyze vibe for prompt', { userId: context.userId, error });
+    }
+  }
+
   // Add agent-specific context
   if (agent === 'home') {
-    const deviceSummary = await buildDeviceSummary();
+    const [deviceSummary, bioRhythmContext] = await Promise.all([
+      buildDeviceSummary(),
+      getHomeBioRhythmContext(context.userId),
+    ]);
     prompt += `\n\n${deviceSummary}`;
+    if (bioRhythmContext) {
+      prompt += `\n\n${bioRhythmContext}`;
+    }
   }
 
   if (agent === 'finance') {

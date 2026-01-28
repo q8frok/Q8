@@ -684,10 +684,71 @@ export class SyncEngine {
 
     const adjusted = this.applySnakeCaseFieldMappings(collectionName, rest);
 
+    // Apply collection-specific defaults for required RxDB fields
+    const withDefaults = this.applyCollectionDefaults(collectionName, adjusted);
+
     return {
       ...metadata,
-      ...adjusted,
+      ...withDefaults,
     };
+  }
+
+  /**
+   * Apply collection-specific defaults for required fields
+   */
+  private applyCollectionDefaults(
+    collectionName: string,
+    data: Record<string, unknown>
+  ): Record<string, unknown> {
+    switch (collectionName) {
+      case 'tasks':
+        return {
+          ...data,
+          // Use title or fall back to text field (legacy)
+          title: data.title || data.text || 'Untitled Task',
+          status: data.status || 'todo',
+          priority: data.priority || 'medium',
+          sortOrder: typeof data.sortOrder === 'number' ? data.sortOrder : 0,
+          tags: Array.isArray(data.tags) ? data.tags : [],
+        };
+
+      case 'notes':
+        return {
+          ...data,
+          content: data.content || '',
+          isPinned: data.isPinned ?? false,
+          isArchived: data.isArchived ?? false,
+          isLocked: data.isLocked ?? false,
+          isDaily: data.isDaily ?? false,
+          tags: Array.isArray(data.tags) ? data.tags : [],
+          wordCount: typeof data.wordCount === 'number' ? data.wordCount : 0,
+          lastEditedAt: data.lastEditedAt || data.updatedAt || new Date().toISOString(),
+        };
+
+      case 'threads':
+        return {
+          ...data,
+          isArchived: data.isArchived ?? false,
+          metadata: data.metadata || {},
+          lastMessageAt: data.lastMessageAt || data.updatedAt || new Date().toISOString(),
+        };
+
+      case 'agent_memories':
+        return {
+          ...data,
+          memoryType: data.memoryType || 'fact',
+          importance: data.importance || 'medium',
+          tags: Array.isArray(data.tags) ? data.tags : [],
+          keywords: Array.isArray(data.keywords) ? data.keywords : [],
+          accessCount: typeof data.accessCount === 'number' ? data.accessCount : 0,
+          decayFactor: typeof data.decayFactor === 'number' ? data.decayFactor : 1.0,
+          verificationStatus: data.verificationStatus || 'unverified',
+          provenance: data.provenance || {},
+        };
+
+      default:
+        return data;
+    }
   }
 
   /**

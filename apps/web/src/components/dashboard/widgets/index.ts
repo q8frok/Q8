@@ -15,7 +15,7 @@ export { GitHubPRWidget } from './GitHubPRWidget';
 export { CalendarWidget } from './CalendarWidget/index';
 export { WeatherWidget } from './WeatherWidget/index';
 export { TaskWidget } from './TaskWidget/index';
-export { SuggestionsWidget } from './SuggestionsWidget';
+// SuggestionsWidget has been consolidated into DailyBriefWidget
 
 // Phase 6 - ContentHub (replaces SpotifyWidget)
 export { ContentHubWidget } from './ContentHubWidget';

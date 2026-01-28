@@ -1,6 +1,6 @@
 /**
  * Memory Extract API Route
- * POST - Extract memories from conversation
+ * POST - Extract memories from conversation and update user context
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -9,6 +9,7 @@ import OpenAI from 'openai';
 import type { MemoryType, MemoryImportance, AgentMemoryInsert } from '@/lib/supabase/types';
 import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
 import { logger } from '@/lib/logger';
+import { extractUserContext } from '@/lib/agents/orchestration/user-context';
 
 export const runtime = 'edge';
 
@@ -177,6 +178,24 @@ Return ONLY valid JSON, no explanation.`;
         { error: 'Failed to save memories' },
         { status: 500 }
       );
+    }
+
+    // Also extract and save to user context (The Memex)
+    try {
+      await extractUserContext(
+        userId,
+        threadId,
+        newMemories.map((m) => ({
+          content: m.content,
+          memory_type: m.memory_type,
+          tags: m.tags,
+        })),
+        'memory_extractor'
+      );
+      logger.debug('[Memory Extract] User context updated', { userId, count: newMemories.length });
+    } catch (contextError) {
+      // Don't fail the whole request if context extraction fails
+      logger.warn('[Memory Extract] Failed to update user context', { userId, error: contextError });
     }
 
     return NextResponse.json({

@@ -6,6 +6,7 @@ import { secretaryAgentConfig, executeGoogleTool } from '../sub-agents/secretary
 import { researcherAgentConfig } from '../sub-agents/researcher';
 import { executeDefaultTool, defaultTools } from '../tools/default-tools';
 import { imageTools, executeImageTool } from '../tools';
+import { knowledgeTools, executeKnowledgeTool } from '../tools/knowledge';
 import { logger } from '@/lib/logger';
 import type { ToolResult } from '../types';
 import { TOOL_TIMEOUTS, DEFAULT_TOOL_TIMEOUT, CONFIRMATION_REQUIRED_TOOLS } from './constants';
@@ -28,7 +29,8 @@ export function getAgentTools(agent: ExtendedAgentType): Array<{
     case 'secretary':
       return secretaryAgentConfig.openaiTools;
     case 'researcher':
-      return researcherAgentConfig.openaiTools;
+      // Add knowledge tools to researcher for explicit RAG queries
+      return [...researcherAgentConfig.openaiTools, ...knowledgeTools];
     case 'imagegen':
       return imageTools;
     case 'personality':
@@ -141,6 +143,11 @@ export async function executeAgentTool(
         case 'imagegen':
           return executeImageTool(toolName, args);
         case 'researcher':
+          // Handle knowledge tools for researcher
+          if (['search_knowledge', 'list_documents'].includes(toolName)) {
+            return executeKnowledgeTool(toolName, args, userId);
+          }
+          return executeDefaultTool(toolName, args);
         case 'personality':
         default:
           return executeDefaultTool(toolName, args);

@@ -884,6 +884,130 @@ export const agentMemoriesSchema: RxJsonSchema<{
 };
 
 /**
+ * User Context Schema (The Memex)
+ * Global user context that all agents read before acting
+ * Matches Supabase user_context table for real-time sync
+ */
+export const userContextSchema: RxJsonSchema<{
+  id: string;
+  userId: string;
+  contextType: 'preference' | 'habit' | 'schedule' | 'bio_rhythm' | 'relationship' | 'goal' | 'fact';
+  key: string;
+  value: Record<string, unknown>;
+  confidence: number;
+  sourceAgent?: string;
+  sourceThreadId?: string;
+  expiresAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}> = {
+  version: 0,
+  primaryKey: 'id',
+  type: 'object',
+  properties: {
+    id: {
+      type: 'string',
+      maxLength: 100,
+    },
+    userId: {
+      type: 'string',
+      maxLength: 100,
+    },
+    contextType: {
+      type: 'string',
+      enum: ['preference', 'habit', 'schedule', 'bio_rhythm', 'relationship', 'goal', 'fact'],
+      maxLength: 20,
+    },
+    key: {
+      type: 'string',
+      maxLength: 200,
+    },
+    value: {
+      type: 'object',
+    },
+    confidence: {
+      type: 'number',
+      default: 1.0,
+      minimum: 0,
+      maximum: 1,
+    },
+    sourceAgent: {
+      type: 'string',
+      maxLength: 50,
+    },
+    sourceThreadId: {
+      type: 'string',
+      maxLength: 100,
+    },
+    expiresAt: {
+      type: 'string',
+      format: 'date-time',
+      maxLength: 50,
+    },
+    createdAt: {
+      type: 'string',
+      format: 'date-time',
+      maxLength: 50,
+    },
+    updatedAt: {
+      type: 'string',
+      format: 'date-time',
+      maxLength: 50,
+    },
+  },
+  required: ['id', 'userId', 'contextType', 'key', 'value', 'confidence', 'createdAt', 'updatedAt'],
+  indexes: ['userId', 'contextType', ['userId', 'contextType'], ['userId', 'key']],
+};
+
+/**
+ * Proactive Briefs Schema
+ * Daily briefings, alerts, and proactive notifications
+ * Matches Supabase proactive_briefs table for real-time sync
+ */
+export const proactiveBriefsSchema: RxJsonSchema<{
+  id: string;
+  userId: string;
+  briefType: 'morning_brief' | 'evening_summary' | 'alert' | 'reminder';
+  content: Record<string, unknown>;
+  readAt?: string;
+  createdAt: string;
+}> = {
+  version: 0,
+  primaryKey: 'id',
+  type: 'object',
+  properties: {
+    id: {
+      type: 'string',
+      maxLength: 100,
+    },
+    userId: {
+      type: 'string',
+      maxLength: 100,
+    },
+    briefType: {
+      type: 'string',
+      enum: ['morning_brief', 'evening_summary', 'alert', 'reminder'],
+      maxLength: 20,
+    },
+    content: {
+      type: 'object',
+    },
+    readAt: {
+      type: 'string',
+      format: 'date-time',
+      maxLength: 50,
+    },
+    createdAt: {
+      type: 'string',
+      format: 'date-time',
+      maxLength: 50,
+    },
+  },
+  required: ['id', 'userId', 'briefType', 'content', 'createdAt'],
+  indexes: ['userId', 'briefType', ['userId', 'briefType'], 'createdAt'],
+};
+
+/**
  * Sync Checkpoints Schema - Track sync state per collection
  * Local-only, used to track last sync timestamps
  */

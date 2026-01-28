@@ -83,7 +83,15 @@
       "Bash(cmd /c \"rd /s /q C:\\\\Users\\\\Minki\\\\Q8\\\\apps\\\\web\\\\.next\")",
       "mcp__supabase__apply_migration",
       "mcp__supabase__get_logs",
-      "mcp__supabase__execute_sql"
+      "mcp__supabase__execute_sql",
+      "mcp__supabase__list_migrations",
+      "Bash(openssl rand:*)",
+      "Bash(curl:*)",
+      "Bash(pnpm build:*)",
+      "Bash(Remove-Item -Recurse -Force \"C:\\\\Users\\\\Minki\\\\Q8\\\\apps\\\\web\\\\.next\" -ErrorAction SilentlyContinue)",
+      "Bash(pnpm run dev)",
+      "Bash(timeout:*)",
+      "Bash(pnpm dev:*)"
     ],
     "deny": [],
     "ask": []

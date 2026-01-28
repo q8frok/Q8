@@ -12,12 +12,12 @@ import {
   GitHubPRWidget,
   TaskWidget,
   CalendarWidget,
-  SuggestionsWidget,
   ClockWidget,
   QuickNotesWidget,
   SmartHomeWidget,
   FinanceHubWidget,
 } from '@/components/dashboard/widgets';
+import { DailyBriefWidget } from '@/components/dashboard/DailyBriefWidget';
 import { UnifiedChatWithThreads, UnifiedChatWithThreadsRef } from '@/components/chat/UnifiedChatWithThreads';
 import { UserProfile } from '@/components/auth/UserProfile';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
@@ -131,6 +131,11 @@ function DashboardContent() {
           {/* Left Column - Dashboard Widgets */}
           <div className="lg:col-span-2 space-y-6">
             <BentoGrid>
+              {/* Daily Brief - Summary with calendar, weather, tasks, quick actions, insights */}
+              <BentoItem colSpan={2} rowSpan={2}>
+                <DailyBriefWidget userId={userId} />
+              </BentoItem>
+
               {/* Time Hub - World Clocks, Timer, Stopwatch, Alarms */}
               <BentoItem colSpan={2} rowSpan={2}>
                 <ClockWidget colSpan={2} rowSpan={2} />
@@ -168,17 +173,6 @@ function DashboardContent() {
               {/* GitHub PR Widget */}
               <BentoItem colSpan={2} rowSpan={2}>
                 <GitHubPRWidget maxItems={5} />
-              </BentoItem>
-
-              {/* Suggestions Widget */}
-              <BentoItem colSpan={2} rowSpan={1}>
-                <SuggestionsWidget
-                  userId={userId}
-                  sessionId="suggestions-session"
-                  onSuggestionClick={(action) => {
-                    logger.debug('Suggestion clicked', { action });
-                  }}
-                />
               </BentoItem>
 
               {/* Smart Home Widget */}
