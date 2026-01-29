@@ -14,6 +14,8 @@ export type FileType =
   | 'xlsx'
   | 'xls'
   | 'code'
+  | 'pptx'
+  | 'ppt'
   | 'image'
   | 'other';
 
@@ -45,6 +47,7 @@ export interface Document {
   processingError?: string;
   scope: DocumentScope;
   threadId?: string;
+  folderId?: string | null;
   metadata: Record<string, unknown>;
   chunkCount: number;
   tokenCount: number;
@@ -142,4 +145,61 @@ export interface ParsedChunk {
   sourceLineStart?: number;
   sourceLineEnd?: number;
   metadata?: Record<string, unknown>;
+}
+
+/**
+ * Document folder
+ */
+export interface DocumentFolder {
+  id: string;
+  userId: string;
+  name: string;
+  parentId: string | null;
+  color: string | null;
+  documentCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Folder tree node with children
+ */
+export interface FolderTreeNode extends DocumentFolder {
+  children: FolderTreeNode[];
+  depth: number;
+  path: string[];
+}
+
+/**
+ * Folder contents response
+ */
+export interface FolderContents {
+  folder: DocumentFolder | null;
+  breadcrumb: Array<{ id: string; name: string; parentId: string | null }>;
+  subfolders: DocumentFolder[];
+  documents: Document[];
+  totalDocuments: number;
+}
+
+/**
+ * Create folder request
+ */
+export interface CreateFolderRequest {
+  name: string;
+  parentId?: string | null;
+  color?: string | null;
+}
+
+/**
+ * Rename folder request
+ */
+export interface RenameFolderRequest {
+  name: string;
+}
+
+/**
+ * Move document request
+ */
+export interface MoveDocumentRequest {
+  folderId: string | null;
 }

@@ -32,6 +32,8 @@ export function detectFileType(mimeType: string, fileName: string): FileType {
   if (mimeType === 'application/json') return 'json';
   if (mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') return 'xlsx';
   if (mimeType === 'application/vnd.ms-excel') return 'xls';
+  if (mimeType === 'application/vnd.openxmlformats-officedocument.presentationml.presentation') return 'pptx';
+  if (mimeType === 'application/vnd.ms-powerpoint') return 'ppt';
   if (mimeType.startsWith('image/')) return 'image';
 
   // Check by extension for code files
@@ -54,6 +56,8 @@ export function detectFileType(mimeType: string, fileName: string): FileType {
     json: 'json',
     xlsx: 'xlsx',
     xls: 'xls',
+    pptx: 'pptx',
+    ppt: 'ppt',
   };
 
   return extMap[ext] || 'other';
@@ -71,7 +75,10 @@ export async function parseDocument(
     case 'pdf':
       return parsePDF(content as ArrayBuffer);
     case 'docx':
+    case 'doc':
       return parseDOCX(content as ArrayBuffer);
+    case 'image':
+      return parseImage(content as ArrayBuffer);
     case 'txt':
     case 'md':
       return parseText(content as string, fileType);
@@ -84,6 +91,9 @@ export async function parseDocument(
     case 'xlsx':
     case 'xls':
       return parseExcel(content as ArrayBuffer);
+    case 'pptx':
+    case 'ppt':
+      return parsePPTX(content as ArrayBuffer);
     default:
       // Try to parse as text
       if (typeof content === 'string') {
@@ -365,6 +375,134 @@ function parseCode(content: string, fileName: string): ParsedDocument {
     },
     chunks,
   };
+}
+
+/**
+ * Parse PPTX presentation by extracting text from slide XML
+ */
+async function parsePPTX(content: ArrayBuffer): Promise<ParsedDocument> {
+  try {
+    const JSZip = (await import('jszip')).default;
+    const zip = await JSZip.loadAsync(content);
+
+    const chunks: ParsedChunk[] = [];
+    const allText: string[] = [];
+
+    // Find all slide XML files (slide1.xml, slide2.xml, etc.)
+    const slideFiles = Object.keys(zip.files)
+      .filter((name) => /^ppt\/slides\/slide\d+\.xml$/.test(name))
+      .sort((a, b) => {
+        const numA = parseInt(a.match(/slide(\d+)/)?.[1] || '0');
+        const numB = parseInt(b.match(/slide(\d+)/)?.[1] || '0');
+        return numA - numB;
+      });
+
+    for (let i = 0; i < slideFiles.length; i++) {
+      const slideFile = slideFiles[i]!;
+      const slideXml = await zip.file(slideFile)?.async('string');
+      if (!slideXml) continue;
+
+      // Extract text from <a:t> elements
+      const textMatches = slideXml.match(/<a:t>([^<]*)<\/a:t>/g) || [];
+      const slideTexts = textMatches
+        .map((match) => match.replace(/<\/?a:t>/g, '').trim())
+        .filter(Boolean);
+
+      const slideContent = slideTexts.join(' ');
+      if (slideContent.trim()) {
+        allText.push(`Slide ${i + 1}: ${slideContent}`);
+        chunks.push({
+          content: `Slide ${i + 1}:\n${slideTexts.join('\n')}`,
+          chunkType: 'text',
+          sourcePage: i + 1,
+        });
+      }
+    }
+
+    const fullText = allText.join('\n\n');
+
+    return {
+      content: fullText,
+      metadata: {
+        slideCount: slideFiles.length,
+      },
+      chunks: chunks.length > 0 ? chunks : chunkText(fullText, 'text'),
+    };
+  } catch (error) {
+    logger.error('PPTX parsing failed', { error });
+    throw new Error('Failed to parse PPTX presentation');
+  }
+}
+
+/**
+ * Parse image file using OpenAI Vision API for OCR
+ */
+async function parseImage(content: ArrayBuffer): Promise<ParsedDocument> {
+  try {
+    const buffer = Buffer.from(content);
+    const base64 = buffer.toString('base64');
+
+    // Detect MIME type from magic bytes
+    let mimeType = 'image/png';
+    if (buffer[0] === 0xFF && buffer[1] === 0xD8) mimeType = 'image/jpeg';
+    else if (buffer[0] === 0x47 && buffer[1] === 0x49) mimeType = 'image/gif';
+    else if (buffer[0] === 0x52 && buffer[1] === 0x49) mimeType = 'image/webp';
+
+    const dataUrl = `data:${mimeType};base64,${base64}`;
+
+    if (!process.env.OPENAI_API_KEY) {
+      logger.warn('No OpenAI API key for image OCR, storing with empty chunks');
+      return {
+        content: '[Image - no OCR available]',
+        metadata: { mimeType, ocrAvailable: false },
+        chunks: [],
+      };
+    }
+
+    const { OpenAI } = await import('openai');
+    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+    const response = await client.chat.completions.create({
+      model: 'gpt-4.1-mini',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: 'Extract ALL text content from this image using OCR. Also describe the image contents. Format your response as:\n\n## OCR Text\n[extracted text]\n\n## Description\n[image description]',
+            },
+            {
+              type: 'image_url',
+              image_url: { url: dataUrl, detail: 'high' },
+            },
+          ],
+        },
+      ],
+      max_tokens: 4096,
+    });
+
+    const extractedText = response.choices[0]?.message?.content || '';
+    const chunks = chunkText(extractedText, 'text');
+
+    return {
+      content: extractedText,
+      metadata: {
+        mimeType,
+        ocrModel: 'gpt-4.1-mini',
+        ocrAvailable: true,
+      },
+      chunks,
+    };
+  } catch (error) {
+    logger.error('Image parsing failed', { error });
+    // Fallback: store with empty chunks rather than failing entirely
+    return {
+      content: '[Image - OCR failed]',
+      metadata: { ocrAvailable: false, error: error instanceof Error ? error.message : 'Unknown error' },
+      chunks: [],
+    };
+  }
 }
 
 /**

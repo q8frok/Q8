@@ -9,6 +9,9 @@ import { parseDocument, detectFileType, estimateTokens } from './parser';
 import type {
   Document,
   DocumentChunk,
+  DocumentFolder,
+  FolderTreeNode,
+  FolderContents,
   FileType,
   DocumentScope,
   ParsedChunk,
@@ -27,13 +30,14 @@ export async function uploadDocument(
     scope: DocumentScope;
     threadId?: string;
     name?: string;
+    folderId?: string | null;
   }
 ): Promise<Document> {
-  const { scope, threadId, name } = options;
+  const { scope, threadId, name, folderId } = options;
 
   // Detect file type
   const fileType = detectFileType(file.type, file.name);
-  if (fileType === 'other' || fileType === 'image') {
+  if (fileType === 'other') {
     throw new Error(`Unsupported file type: ${file.type}`);
   }
 
@@ -43,15 +47,34 @@ export async function uploadDocument(
   const storagePath = `${userId}/${timestamp}_${safeName}`;
 
   // Upload to Supabase Storage
-  const { error: uploadError } = await supabaseAdmin.storage
+  // Use file's actual MIME type, but fall back to octet-stream if storage
+  // bucket hasn't been configured with the newer MIME types (pptx, images)
+  const contentType = file.type || 'application/octet-stream';
+
+  let uploadError;
+  ({ error: uploadError } = await supabaseAdmin.storage
     .from(STORAGE_BUCKET)
     .upload(storagePath, file, {
-      contentType: file.type,
+      contentType,
       upsert: false,
+    }));
+
+  // If upload fails due to MIME restriction, retry with octet-stream
+  if (uploadError && uploadError.message?.includes('mime')) {
+    logger.warn('Storage upload rejected MIME type, retrying with octet-stream', {
+      originalMime: contentType,
+      fileName: file.name,
     });
+    ({ error: uploadError } = await supabaseAdmin.storage
+      .from(STORAGE_BUCKET)
+      .upload(storagePath, file, {
+        contentType: 'application/octet-stream',
+        upsert: false,
+      }));
+  }
 
   if (uploadError) {
-    logger.error('Storage upload failed', { error: uploadError });
+    logger.error('Storage upload failed', { error: uploadError, contentType });
     throw new Error(`Failed to upload file: ${uploadError.message}`);
   }
 
@@ -70,6 +93,7 @@ export async function uploadDocument(
       status: 'pending',
       scope,
       thread_id: threadId,
+      folder_id: folderId || null,
     })
     .select()
     .single();
@@ -121,7 +145,7 @@ export async function processDocument(documentId: string): Promise<void> {
 
     // Parse the document
     let content: ArrayBuffer | string;
-    if (['pdf', 'docx', 'doc', 'xlsx', 'xls'].includes(doc.file_type)) {
+    if (['pdf', 'docx', 'doc', 'xlsx', 'xls', 'pptx', 'ppt', 'image'].includes(doc.file_type)) {
       content = await fileData.arrayBuffer();
     } else {
       content = await fileData.text();
@@ -218,6 +242,7 @@ export async function searchDocuments(
     scope?: DocumentScope;
     threadId?: string;
     fileTypes?: FileType[];
+    folderId?: string | null;
   } = {}
 ): Promise<DocumentChunk[]> {
   const {
@@ -226,6 +251,7 @@ export async function searchDocuments(
     scope,
     threadId,
     fileTypes,
+    folderId,
   } = options;
 
   // Generate embedding for query
@@ -246,6 +272,7 @@ export async function searchDocuments(
     p_scope: scope || null,
     p_thread_id: threadId || null,
     p_file_types: fileTypes || null,
+    p_folder_id: folderId || null,
   });
 
   if (error) {
@@ -356,9 +383,10 @@ export async function getUserDocuments(
     status?: Document['status'];
     limit?: number;
     offset?: number;
+    folderId?: string | null;
   } = {}
 ): Promise<{ documents: Document[]; total: number }> {
-  const { scope, threadId, status, limit = 50, offset = 0 } = options;
+  const { scope, threadId, status, limit = 50, offset = 0, folderId } = options;
 
   let query = supabaseAdmin
     .from('documents')
@@ -375,6 +403,12 @@ export async function getUserDocuments(
   }
   if (status) {
     query = query.eq('status', status);
+  }
+  // folderId: null = root only, string = specific folder, undefined = all
+  if (folderId === null) {
+    query = query.is('folder_id', null);
+  } else if (folderId !== undefined) {
+    query = query.eq('folder_id', folderId);
   }
 
   query = query.range(offset, offset + limit - 1);
@@ -443,6 +477,7 @@ function transformDocument(row: Record<string, unknown>): Document {
     processingError: row.processing_error as string | undefined,
     scope: row.scope as DocumentScope,
     threadId: row.thread_id as string | undefined,
+    folderId: (row.folder_id as string | null) || null,
     metadata: (row.metadata as Record<string, unknown>) || {},
     chunkCount: row.chunk_count as number,
     tokenCount: row.token_count as number,
@@ -469,4 +504,300 @@ function transformChunk(row: Record<string, unknown>): DocumentChunk {
     metadata: (row.metadata as Record<string, unknown>) || {},
     createdAt: row.created_at as string,
   };
+}
+
+/**
+ * Transform database row to DocumentFolder type
+ */
+function transformFolder(row: Record<string, unknown>): DocumentFolder {
+  return {
+    id: row.id as string,
+    userId: row.user_id as string,
+    name: row.name as string,
+    parentId: (row.parent_id as string | null) || null,
+    color: (row.color as string | null) || null,
+    documentCount: (row.document_count as number) || 0,
+    createdAt: row.created_at as string,
+    updatedAt: row.updated_at as string,
+  };
+}
+
+// ============================================================================
+// Folder CRUD Operations
+// ============================================================================
+
+/**
+ * Create a new folder
+ */
+export async function createFolder(
+  userId: string,
+  name: string,
+  parentId?: string | null,
+  color?: string | null
+): Promise<DocumentFolder> {
+  const { data, error } = await supabaseAdmin
+    .from('document_folders')
+    .insert({
+      user_id: userId,
+      name,
+      parent_id: parentId || null,
+      color: color || null,
+    })
+    .select()
+    .single();
+
+  if (error || !data) {
+    throw new Error(`Failed to create folder: ${error?.message}`);
+  }
+
+  return transformFolder({ ...data, document_count: 0 });
+}
+
+/**
+ * Rename a folder
+ */
+export async function renameFolder(
+  folderId: string,
+  userId: string,
+  name: string
+): Promise<DocumentFolder> {
+  const { data, error } = await supabaseAdmin
+    .from('document_folders')
+    .update({ name })
+    .eq('id', folderId)
+    .eq('user_id', userId)
+    .select()
+    .single();
+
+  if (error || !data) {
+    throw new Error(`Failed to rename folder: ${error?.message}`);
+  }
+
+  return transformFolder({ ...data, document_count: 0 });
+}
+
+/**
+ * Delete a folder (cascade deletes subfolders, orphans documents to root)
+ */
+export async function deleteFolder(folderId: string, userId: string): Promise<void> {
+  const { error } = await supabaseAdmin
+    .from('document_folders')
+    .delete()
+    .eq('id', folderId)
+    .eq('user_id', userId);
+
+  if (error) {
+    throw new Error(`Failed to delete folder: ${error.message}`);
+  }
+}
+
+/**
+ * Move a folder to a new parent (with circular reference check)
+ */
+export async function moveFolder(
+  folderId: string,
+  userId: string,
+  newParentId: string | null
+): Promise<DocumentFolder> {
+  // Prevent moving a folder into itself
+  if (folderId === newParentId) {
+    throw new Error('Cannot move a folder into itself');
+  }
+
+  // Check for circular reference if moving to a subfolder
+  if (newParentId) {
+    const { data: ancestors } = await supabaseAdmin.rpc('get_folder_breadcrumb', {
+      p_folder_id: newParentId,
+    });
+
+    if (ancestors?.some((a: Record<string, unknown>) => a.id === folderId)) {
+      throw new Error('Cannot move a folder into one of its descendants');
+    }
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('document_folders')
+    .update({ parent_id: newParentId })
+    .eq('id', folderId)
+    .eq('user_id', userId)
+    .select()
+    .single();
+
+  if (error || !data) {
+    throw new Error(`Failed to move folder: ${error?.message}`);
+  }
+
+  return transformFolder({ ...data, document_count: 0 });
+}
+
+/**
+ * Get folder tree for a user
+ */
+export async function getFolderTree(userId: string): Promise<FolderTreeNode[]> {
+  const { data, error } = await supabaseAdmin.rpc('get_folder_tree', {
+    p_user_id: userId,
+  });
+
+  if (error) {
+    logger.error('Failed to get folder tree', { error });
+    return [];
+  }
+
+  // Build tree from flat results
+  const flatFolders = (data || []).map((row: Record<string, unknown>) => ({
+    ...transformFolder(row),
+    depth: row.depth as number,
+  }));
+
+  return buildFolderTree(flatFolders);
+}
+
+/**
+ * Build tree structure from flat folder list
+ */
+function buildFolderTree(
+  flatFolders: Array<DocumentFolder & { depth: number }>
+): FolderTreeNode[] {
+  const nodeMap = new Map<string, FolderTreeNode>();
+  const roots: FolderTreeNode[] = [];
+
+  for (const folder of flatFolders) {
+    const node: FolderTreeNode = {
+      ...folder,
+      children: [],
+      depth: folder.depth,
+      path: [folder.name],
+    };
+    nodeMap.set(folder.id, node);
+  }
+
+  for (const folder of flatFolders) {
+    const node = nodeMap.get(folder.id)!;
+    if (folder.parentId) {
+      const parent = nodeMap.get(folder.parentId);
+      if (parent) {
+        parent.children.push(node);
+        node.path = [...parent.path, folder.name];
+      } else {
+        roots.push(node);
+      }
+    } else {
+      roots.push(node);
+    }
+  }
+
+  return roots;
+}
+
+/**
+ * Get folder contents (subfolder list + documents + breadcrumb)
+ */
+export async function getFolderContents(
+  userId: string,
+  folderId: string | null,
+  options: { limit?: number; offset?: number } = {}
+): Promise<FolderContents> {
+  const { limit = 50, offset = 0 } = options;
+
+  // Get folder info + breadcrumb if not root
+  let folder: DocumentFolder | null = null;
+  let breadcrumb: Array<{ id: string; name: string; parentId: string | null }> = [];
+
+  if (folderId) {
+    const { data: folderData, error: folderError } = await supabaseAdmin
+      .from('document_folders')
+      .select('*')
+      .eq('id', folderId)
+      .eq('user_id', userId)
+      .single();
+
+    if (folderError || !folderData) {
+      throw new Error('Folder not found');
+    }
+    folder = transformFolder({ ...folderData, document_count: 0 });
+
+    // Get breadcrumb
+    const { data: crumbData } = await supabaseAdmin.rpc('get_folder_breadcrumb', {
+      p_folder_id: folderId,
+    });
+    breadcrumb = (crumbData || []).map((row: Record<string, unknown>) => ({
+      id: row.id as string,
+      name: row.name as string,
+      parentId: (row.parent_id as string | null) || null,
+    }));
+  }
+
+  // Get subfolders
+  let subfolderQuery = supabaseAdmin
+    .from('document_folders')
+    .select('*')
+    .eq('user_id', userId)
+    .order('name');
+
+  if (folderId) {
+    subfolderQuery = subfolderQuery.eq('parent_id', folderId);
+  } else {
+    subfolderQuery = subfolderQuery.is('parent_id', null);
+  }
+
+  const { data: subfoldersData } = await subfolderQuery;
+  const subfolders = (subfoldersData || []).map((row: Record<string, unknown>) =>
+    transformFolder({ ...row, document_count: 0 })
+  );
+
+  // Get documents in this folder
+  const { documents, total: totalDocuments } = await getUserDocuments(userId, {
+    folderId: folderId ?? null,
+    limit,
+    offset,
+  });
+
+  return {
+    folder,
+    breadcrumb,
+    subfolders,
+    documents,
+    totalDocuments,
+  };
+}
+
+/**
+ * Get folder breadcrumb
+ */
+export async function getFolderBreadcrumb(
+  folderId: string
+): Promise<Array<{ id: string; name: string; parentId: string | null }>> {
+  const { data, error } = await supabaseAdmin.rpc('get_folder_breadcrumb', {
+    p_folder_id: folderId,
+  });
+
+  if (error) {
+    logger.error('Failed to get breadcrumb', { error });
+    return [];
+  }
+
+  return (data || []).map((row: Record<string, unknown>) => ({
+    id: row.id as string,
+    name: row.name as string,
+    parentId: (row.parent_id as string | null) || null,
+  }));
+}
+
+/**
+ * Move a document to a folder
+ */
+export async function moveDocument(
+  documentId: string,
+  userId: string,
+  folderId: string | null
+): Promise<void> {
+  const { error } = await supabaseAdmin
+    .from('documents')
+    .update({ folder_id: folderId })
+    .eq('id', documentId)
+    .eq('user_id', userId);
+
+  if (error) {
+    throw new Error(`Failed to move document: ${error.message}`);
+  }
 }

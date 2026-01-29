@@ -17,6 +17,12 @@ export type {
   UploadDocumentRequest,
   ParsedDocument,
   ParsedChunk,
+  DocumentFolder,
+  FolderTreeNode,
+  FolderContents,
+  CreateFolderRequest,
+  RenameFolderRequest,
+  MoveDocumentRequest,
 } from './types';
 
 // Parser
@@ -35,4 +41,12 @@ export {
   deleteDocument,
   getUserDocuments,
   getDocumentWithChunks,
+  createFolder,
+  renameFolder,
+  deleteFolder,
+  moveFolder,
+  getFolderTree,
+  getFolderContents,
+  getFolderBreadcrumb,
+  moveDocument,
 } from './processor';

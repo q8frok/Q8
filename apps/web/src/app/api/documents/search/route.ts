@@ -22,6 +22,7 @@ const searchSchema = z.object({
   fileTypes: z.array(z.enum([
     'pdf', 'docx', 'doc', 'txt', 'md', 'csv', 'json', 'xlsx', 'xls', 'code', 'image', 'other'
   ])).optional(),
+  folderId: z.string().uuid().nullable().optional(),
 });
 
 /**
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { query, limit, minSimilarity, scope, threadId, fileTypes } = parseResult.data;
+    const { query, limit, minSimilarity, scope, threadId, fileTypes, folderId } = parseResult.data;
 
     const results = await searchDocuments(user.id, query, {
       limit,
@@ -53,6 +54,7 @@ export async function POST(request: NextRequest) {
       scope: scope as DocumentScope | undefined,
       threadId,
       fileTypes: fileTypes as FileType[] | undefined,
+      folderId,
     });
 
     return NextResponse.json({

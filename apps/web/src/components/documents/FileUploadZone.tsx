@@ -14,6 +14,8 @@ interface FileUploadZoneProps {
   scope: DocumentScope;
   /** Thread ID for conversation-scoped uploads */
   threadId?: string;
+  /** Folder ID to upload into */
+  folderId?: string | null;
   /** Called when upload completes */
   onUploadComplete?: (document: Document) => void;
   /** Called when upload fails */
@@ -49,6 +51,13 @@ const DEFAULT_ACCEPT = [
   'application/json',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'application/vnd.ms-powerpoint',
+  'image/png',
+  'image/jpeg',
+  'image/gif',
+  'image/webp',
+  'image/svg+xml',
 ].join(',');
 
 const DEFAULT_MAX_SIZE = 50 * 1024 * 1024; // 50MB
@@ -56,6 +65,7 @@ const DEFAULT_MAX_SIZE = 50 * 1024 * 1024; // 50MB
 export function FileUploadZone({
   scope,
   threadId,
+  folderId,
   onUploadComplete,
   onUploadError,
   compact = false,
@@ -114,6 +124,9 @@ export function FileUploadZone({
       if (threadId) {
         formData.append('threadId', threadId);
       }
+      if (folderId) {
+        formData.append('folderId', folderId);
+      }
 
       const response = await fetch('/api/documents', {
         method: 'POST',
@@ -156,6 +169,20 @@ export function FileUploadZone({
     }
   };
 
+  const uploadFilesParallel = useCallback(
+    async (files: File[]) => {
+      const MAX_CONCURRENT = 5;
+      const batches: File[][] = [];
+      for (let i = 0; i < files.length; i += MAX_CONCURRENT) {
+        batches.push(files.slice(i, i + MAX_CONCURRENT));
+      }
+      for (const batch of batches) {
+        await Promise.allSettled(batch.map((file) => uploadFile(file)));
+      }
+    },
+    [scope, threadId, folderId, maxSize]
+  );
+
   const handleDrop = useCallback(
     async (e: React.DragEvent) => {
       e.preventDefault();
@@ -165,25 +192,21 @@ export function FileUploadZone({
       if (disabled) return;
 
       const files = Array.from(e.dataTransfer.files);
-      for (const file of files) {
-        await uploadFile(file);
-      }
+      await uploadFilesParallel(files);
     },
-    [disabled, scope, threadId, maxSize]
+    [disabled, uploadFilesParallel]
   );
 
   const handleFileSelect = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = Array.from(e.target.files || []);
-      for (const file of files) {
-        await uploadFile(file);
-      }
+      await uploadFilesParallel(files);
       // Reset input
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
     },
-    [scope, threadId, maxSize]
+    [uploadFilesParallel]
   );
 
   const removeFile = useCallback((uploadId: string) => {
@@ -285,7 +308,7 @@ export function FileUploadZone({
           or click to browse
         </p>
         <p className="text-white/30 text-xs mt-3">
-          PDF, DOCX, TXT, CSV, JSON, Code files • Max {Math.round(maxSize / 1024 / 1024)}MB
+          PDF, DOCX, TXT, CSV, JSON, PPTX, Images, Code files • Max {Math.round(maxSize / 1024 / 1024)}MB
         </p>
       </div>
 

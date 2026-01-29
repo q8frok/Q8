@@ -55,10 +55,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const folderId = formData.get('folderId') as string | null;
+
     const document = await uploadDocument(file, user.id, {
       scope,
       threadId: threadId || undefined,
       name: name || undefined,
+      folderId: folderId || undefined,
     });
 
     logger.info('[Documents] Uploaded', {
@@ -101,12 +104,17 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50', 10);
     const offset = parseInt(searchParams.get('offset') || '0', 10);
 
+    const folderIdParam = searchParams.get('folderId');
+    // "root" means explicitly filter root (folder_id IS NULL), null param means all
+    const folderId = folderIdParam === 'root' ? null : folderIdParam || undefined;
+
     const { documents, total } = await getUserDocuments(user.id, {
       scope: scope || undefined,
       threadId: threadId || undefined,
       status: status || undefined,
       limit: Math.min(limit, 100),
       offset,
+      folderId,
     });
 
     return NextResponse.json({
