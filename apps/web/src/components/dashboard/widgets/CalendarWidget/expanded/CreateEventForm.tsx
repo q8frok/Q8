@@ -6,7 +6,7 @@ import { X, Calendar, Clock, MapPin, Plus, Bell, Repeat } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { CalendarBadge } from '../components/CalendarBadge';
-import { QUICK_DURATIONS, DEFAULT_REMINDERS, REMINDER_PRESETS } from '../constants';
+import { QUICK_DURATIONS, DEFAULT_REMINDERS, REMINDER_PRESETS, toLocalDateStr } from '../constants';
 import type { CreateEventFormProps, CalendarEventInput, GoogleCalendar } from '../types';
 
 /**
@@ -52,10 +52,10 @@ export const CreateEventForm = memo(function CreateEventForm({
 
       setTitle('');
       setDescription('');
-      setStartDate(start.toISOString().slice(0, 10));
-      setStartTime(start.toISOString().slice(11, 16));
-      setEndDate(end.toISOString().slice(0, 10));
-      setEndTime(end.toISOString().slice(11, 16));
+      setStartDate(toLocalDateStr(start));
+      setStartTime(`${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`);
+      setEndDate(toLocalDateStr(end));
+      setEndTime(`${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`);
       setAllDay(false);
       setLocation('');
       setReminderMinutes(10);
@@ -127,8 +127,8 @@ export const CreateEventForm = memo(function CreateEventForm({
     const start = new Date(`${startDate}T${startTime}`);
     const end = new Date(start);
     end.setMinutes(end.getMinutes() + minutes);
-    setEndDate(end.toISOString().slice(0, 10));
-    setEndTime(end.toISOString().slice(11, 16));
+    setEndDate(toLocalDateStr(end));
+    setEndTime(`${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`);
   };
 
   const selectedCalendar = calendars.find((c) => c.id === calendarId);

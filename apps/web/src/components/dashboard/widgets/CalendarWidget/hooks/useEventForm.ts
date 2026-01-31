@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo } from 'react';
 import type { CalendarEvent, CalendarEventInput, UseEventFormReturn } from '../types';
-import { DEFAULT_REMINDERS } from '../constants';
+import { DEFAULT_REMINDERS, toLocalDateStr } from '../constants';
 
 /**
  * Default form values for a new event
@@ -139,11 +139,11 @@ export function useEventForm(options: UseEventFormOptions = {}): UseEventFormRet
           // For all-day events, set times to start/end of day
           const start = new Date(updated.start_time);
           start.setHours(0, 0, 0, 0);
-          updated.start_time = start.toISOString().slice(0, 10);
+          updated.start_time = toLocalDateStr(start);
 
           const end = new Date(updated.end_time);
           end.setHours(23, 59, 59, 999);
-          updated.end_time = end.toISOString().slice(0, 10);
+          updated.end_time = toLocalDateStr(end);
         }
 
         return updated;

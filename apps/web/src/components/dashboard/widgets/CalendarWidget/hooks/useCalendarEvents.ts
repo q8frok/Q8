@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import { useCalendarStore, useVisibleEvents, useFetchingEvents } from '@/lib/stores/calendar';
+import { toLocalDateStr, isoToLocalDateStr } from '../constants';
 import type { CalendarEvent, CalendarEventDisplay, UseCalendarEventsReturn } from '../types';
 
 /**
@@ -179,9 +180,9 @@ export function useEventsForDate(date: Date): CalendarEventDisplay[] {
   const { events } = useCalendarEvents();
 
   return useMemo(() => {
-    const dateStr = date.toISOString().slice(0, 10);
+    const dateStr = toLocalDateStr(date);
     return events.filter((e) => {
-      const eventDate = e.start_time.slice(0, 10);
+      const eventDate = isoToLocalDateStr(e.start_time);
       return eventDate === dateStr;
     });
   }, [events, date]);

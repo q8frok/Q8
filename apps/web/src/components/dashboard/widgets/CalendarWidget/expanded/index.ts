@@ -22,3 +22,7 @@ export {
   CreateEventForm,
   default as CreateEventFormDefault,
 } from './CreateEventForm';
+export {
+  EventsListView,
+  default as EventsListViewDefault,
+} from './EventsListView';

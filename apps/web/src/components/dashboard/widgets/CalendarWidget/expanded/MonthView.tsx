@@ -1,9 +1,95 @@
 'use client';
 
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useState, useRef, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { DAY_NAMES_SHORT } from '../constants';
+import { DAY_NAMES_SHORT, toLocalDateStr, isoToLocalDateStr } from '../constants';
 import type { MonthViewProps, CalendarEventDisplay } from '../types';
+
+/**
+ * DayEventsPopover - Shows all events for a day when "+n more" is clicked
+ */
+function DayEventsPopover({
+  date,
+  events,
+  onEventClick,
+  onClose,
+}: {
+  date: Date;
+  events: CalendarEventDisplay[];
+  onEventClick: (event: CalendarEventDisplay) => void;
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        onClose();
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [onClose]);
+
+  return (
+    <motion.div
+      ref={ref}
+      initial={{ opacity: 0, scale: 0.95, y: -4 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.95, y: -4 }}
+      className={cn(
+        'absolute z-30 left-0 right-0 mt-1',
+        'bg-surface-2 border border-border-subtle rounded-lg shadow-xl',
+        'p-2 min-w-[200px] max-h-[300px] overflow-y-auto'
+      )}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="flex items-center justify-between mb-2 px-1">
+        <span className="text-xs font-semibold text-text-primary">
+          {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+        </span>
+        <button
+          onClick={onClose}
+          className="text-text-muted hover:text-text-primary transition-colors"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      </div>
+      <div className="space-y-0.5">
+        {events.map((event) => (
+          <button
+            key={event.id}
+            onClick={(e) => {
+              e.stopPropagation();
+              onEventClick(event);
+              onClose();
+            }}
+            className={cn(
+              'w-full text-left px-2 py-1.5 rounded text-xs truncate',
+              'hover:opacity-80 transition-opacity'
+            )}
+            style={{
+              backgroundColor: event.calendarColor + '30',
+              color: event.calendarColor,
+            }}
+          >
+            {!event.all_day && (
+              <span className="font-medium mr-1">
+                {event.startDate.toLocaleTimeString('en-US', {
+                  hour: 'numeric',
+                  minute: '2-digit',
+                })}
+              </span>
+            )}
+            {event.title}
+          </button>
+        ))}
+      </div>
+    </motion.div>
+  );
+}
 
 /**
  * MonthView - Full month calendar grid
@@ -18,6 +104,8 @@ export const MonthView = memo(function MonthView({
   onEventClick,
   onCreateEvent,
 }: MonthViewProps) {
+  const [expandedDayKey, setExpandedDayKey] = useState<string | null>(null);
+
   // Generate calendar grid
   const calendarWeeks = useMemo(() => {
     const year = currentDate.getFullYear();
@@ -37,17 +125,15 @@ export const MonthView = memo(function MonthView({
     > = [];
 
     let currentWeek: typeof weeks[0] = [];
-    let dayCount = 0;
 
     // Previous month padding
     for (let i = startPadding - 1; i >= 0; i--) {
       const date = new Date(year, month, -i);
-      const dateStr = date.toISOString().slice(0, 10);
+      const dateStr = toLocalDateStr(date);
       const dayEvents = events.filter(
-        (e) => e.start_time.slice(0, 10) === dateStr
+        (e) => isoToLocalDateStr(e.start_time) === dateStr
       );
       currentWeek.push({ date, isCurrentMonth: false, events: dayEvents });
-      dayCount++;
     }
 
     // Current month days
@@ -58,12 +144,11 @@ export const MonthView = memo(function MonthView({
       }
 
       const date = new Date(year, month, day);
-      const dateStr = date.toISOString().slice(0, 10);
+      const dateStr = toLocalDateStr(date);
       const dayEvents = events.filter(
-        (e) => e.start_time.slice(0, 10) === dateStr
+        (e) => isoToLocalDateStr(e.start_time) === dateStr
       );
       currentWeek.push({ date, isCurrentMonth: true, events: dayEvents });
-      dayCount++;
     }
 
     // Next month padding
@@ -75,9 +160,9 @@ export const MonthView = memo(function MonthView({
       }
 
       const date = new Date(year, month + 1, nextMonthDay++);
-      const dateStr = date.toISOString().slice(0, 10);
+      const dateStr = toLocalDateStr(date);
       const dayEvents = events.filter(
-        (e) => e.start_time.slice(0, 10) === dateStr
+        (e) => isoToLocalDateStr(e.start_time) === dateStr
       );
       currentWeek.push({ date, isCurrentMonth: false, events: dayEvents });
     }
@@ -89,8 +174,8 @@ export const MonthView = memo(function MonthView({
     return weeks;
   }, [currentDate, events]);
 
-  const today = new Date().toISOString().slice(0, 10);
-  const selectedStr = selectedDate?.toISOString().slice(0, 10);
+  const today = toLocalDateStr(new Date());
+  const selectedStr = selectedDate ? toLocalDateStr(selectedDate) : undefined;
 
   return (
     <div className="h-full flex flex-col">
@@ -111,15 +196,16 @@ export const MonthView = memo(function MonthView({
         {calendarWeeks.slice(0, 5).map((week, weekIndex) => (
           <div key={weekIndex} className="grid grid-cols-7 border-b border-border-subtle last:border-b-0">
             {week.map((day, dayIndex) => {
-              const dateStr = day.date.toISOString().slice(0, 10);
+              const dateStr = toLocalDateStr(day.date);
               const isToday = dateStr === today;
               const isSelected = dateStr === selectedStr;
+              const isExpanded = expandedDayKey === dateStr;
 
               return (
                 <div
                   key={dayIndex}
                   className={cn(
-                    'min-h-[100px] p-1 border-r border-border-subtle last:border-r-0',
+                    'min-h-[100px] p-1 border-r border-border-subtle last:border-r-0 relative',
                     'hover:bg-surface-4/50 cursor-pointer transition-colors',
                     !day.isCurrentMonth && 'bg-surface-2/30'
                   )}
@@ -171,11 +257,29 @@ export const MonthView = memo(function MonthView({
                       </button>
                     ))}
                     {day.events.length > 3 && (
-                      <div className="text-xs text-text-muted px-1.5">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setExpandedDayKey(isExpanded ? null : dateStr);
+                        }}
+                        className="text-xs text-neon-primary hover:text-neon-accent px-1.5 cursor-pointer transition-colors font-medium"
+                      >
                         +{day.events.length - 3} more
-                      </div>
+                      </button>
                     )}
                   </div>
+
+                  {/* Day Events Popover */}
+                  <AnimatePresence>
+                    {isExpanded && day.events.length > 3 && (
+                      <DayEventsPopover
+                        date={day.date}
+                        events={day.events}
+                        onEventClick={onEventClick}
+                        onClose={() => setExpandedDayKey(null)}
+                      />
+                    )}
+                  </AnimatePresence>
                 </div>
               );
             })}

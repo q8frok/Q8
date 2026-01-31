@@ -10,6 +10,17 @@ const config: Config = {
   theme: {
     extend: {
       /* ============================================
+         Breakpoints (Mobile-First)
+         ============================================ */
+      screens: {
+        'xs': '375px',   // iPhone SE
+        'sm': '430px',   // iPhone 17 Pro Max
+        'md': '768px',   // iPad
+        'lg': '1024px',  // Desktop
+        'xl': '1280px',  // Large Desktop
+      },
+
+      /* ============================================
          Typography Scale
          ============================================ */
       fontSize: {
@@ -34,6 +45,10 @@ const config: Config = {
         '8': '2rem',      // 32px
         '10': '2.5rem',   // 40px
         '12': '3rem',     // 48px
+        'safe-top': 'env(safe-area-inset-top)',
+        'safe-bottom': 'env(safe-area-inset-bottom)',
+        'safe-left': 'env(safe-area-inset-left)',
+        'safe-right': 'env(safe-area-inset-right)',
       },
 
       /* ============================================

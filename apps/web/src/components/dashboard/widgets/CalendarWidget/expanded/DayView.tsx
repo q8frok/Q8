@@ -2,13 +2,81 @@
 
 import { memo, useMemo } from 'react';
 import { cn } from '@/lib/utils';
-import { HOUR_SLOTS, VIEW_CONFIG } from '../constants';
+import { HOUR_SLOTS, VIEW_CONFIG, toLocalDateStr, isoToLocalDateStr } from '../constants';
 import type { DayViewProps, CalendarEventDisplay } from '../types';
+
+interface LayoutEvent extends CalendarEventDisplay {
+  column: number;
+  totalColumns: number;
+}
+
+/**
+ * Calculate column layout for overlapping events.
+ * Groups events that share overlapping time, assigns each a column index
+ * and total column count so they can be rendered side-by-side.
+ */
+function layoutOverlappingEvents(events: CalendarEventDisplay[]): LayoutEvent[] {
+  if (events.length === 0) return [];
+
+  const sorted = [...events].sort(
+    (a, b) => a.startDate.getTime() - b.startDate.getTime()
+  );
+
+  const firstEvent = sorted[0]!;
+  const groups: CalendarEventDisplay[][] = [];
+  let currentGroup: CalendarEventDisplay[] = [firstEvent];
+  let groupEnd = firstEvent.endDate.getTime();
+
+  for (let i = 1; i < sorted.length; i++) {
+    const event = sorted[i]!;
+    if (event.startDate.getTime() < groupEnd) {
+      currentGroup.push(event);
+      groupEnd = Math.max(groupEnd, event.endDate.getTime());
+    } else {
+      groups.push(currentGroup);
+      currentGroup = [event];
+      groupEnd = event.endDate.getTime();
+    }
+  }
+  groups.push(currentGroup);
+
+  const result: LayoutEvent[] = [];
+
+  for (const group of groups) {
+    const columns: CalendarEventDisplay[][] = [];
+
+    for (const event of group) {
+      let placed = false;
+      for (let col = 0; col < columns.length; col++) {
+        const colArr = columns[col]!;
+        const lastInCol = colArr[colArr.length - 1];
+        if (lastInCol && lastInCol.endDate.getTime() <= event.startDate.getTime()) {
+          colArr.push(event);
+          placed = true;
+          break;
+        }
+      }
+      if (!placed) {
+        columns.push([event]);
+      }
+    }
+
+    const totalColumns = columns.length;
+    for (let col = 0; col < columns.length; col++) {
+      for (const event of columns[col]!) {
+        result.push({ ...event, column: col, totalColumns });
+      }
+    }
+  }
+
+  return result;
+}
 
 /**
  * DayView - Single day timeline view
  *
  * Shows events positioned by time on an hourly timeline.
+ * Overlapping events are displayed side-by-side in columns.
  */
 export const DayView = memo(function DayView({
   currentDate,
@@ -16,35 +84,42 @@ export const DayView = memo(function DayView({
   onEventClick,
   onCreateEvent,
 }: DayViewProps) {
-  const dateStr = currentDate.toISOString().slice(0, 10);
+  const dateStr = toLocalDateStr(currentDate);
 
   // Filter events for current day
-  const { timedEvents, allDayEvents } = useMemo(() => {
+  const { layoutEvents, allDayEvents } = useMemo(() => {
     const dayEvents = events.filter(
-      (e) => e.start_time.slice(0, 10) === dateStr
+      (e) => isoToLocalDateStr(e.start_time) === dateStr
     );
 
+    const timed = dayEvents.filter((e) => !e.all_day);
+    const allDay = dayEvents.filter((e) => e.all_day);
+
     return {
-      timedEvents: dayEvents.filter((e) => !e.all_day),
-      allDayEvents: dayEvents.filter((e) => e.all_day),
+      layoutEvents: layoutOverlappingEvents(timed),
+      allDayEvents: allDay,
     };
   }, [events, dateStr]);
 
-  // Calculate event position and height
-  const getEventStyle = (event: CalendarEventDisplay) => {
+  // Calculate event position and height with column layout
+  const getEventStyle = (event: LayoutEvent) => {
     const startHour =
       event.startDate.getHours() + event.startDate.getMinutes() / 60;
     const durationHours = event.durationMinutes / 60;
+    const widthPercent = 100 / event.totalColumns;
+    const leftPercent = event.column * widthPercent;
 
     return {
       top: `${startHour * VIEW_CONFIG.HOUR_HEIGHT}px`,
       height: `${Math.max(durationHours * VIEW_CONFIG.HOUR_HEIGHT, VIEW_CONFIG.MIN_EVENT_HEIGHT)}px`,
+      left: `calc(${leftPercent}% + 2px)`,
+      width: `calc(${widthPercent}% - 4px)`,
     };
   };
 
   // Current time indicator position
   const now = new Date();
-  const isToday = now.toISOString().slice(0, 10) === dateStr;
+  const isToday = toLocalDateStr(now) === dateStr;
   const currentTimePosition = isToday
     ? (now.getHours() + now.getMinutes() / 60) * VIEW_CONFIG.HOUR_HEIGHT
     : null;
@@ -132,15 +207,15 @@ export const DayView = memo(function DayView({
               </div>
             )}
 
-            {/* Events */}
-            {timedEvents.map((event) => (
+            {/* Events with column layout */}
+            {layoutEvents.map((event) => (
               <button
                 key={event.id}
                 onClick={() => onEventClick(event)}
                 className={cn(
-                  'absolute left-2 right-2 rounded-lg px-3 py-2',
+                  'absolute rounded-lg px-2 py-1.5',
                   'text-left overflow-hidden shadow-sm',
-                  'hover:opacity-90 transition-opacity'
+                  'hover:opacity-90 transition-opacity z-[1]'
                 )}
                 style={{
                   ...getEventStyle(event),
@@ -159,7 +234,7 @@ export const DayView = memo(function DayView({
                 </div>
                 {event.location && (
                   <div className="text-xs text-text-muted truncate mt-0.5">
-                    📍 {event.location}
+                    {event.location}
                   </div>
                 )}
               </button>
