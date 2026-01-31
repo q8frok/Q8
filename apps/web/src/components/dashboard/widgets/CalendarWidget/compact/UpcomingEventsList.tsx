@@ -31,9 +31,9 @@ export const UpcomingEventsList = memo(function UpcomingEventsList({
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0">
       {/* Event List */}
-      <div className="flex-1 overflow-y-auto space-y-2 scrollbar-thin">
+      <div className="flex-1 min-h-0 overflow-y-auto space-y-2 scrollbar-thin">
         <AnimatePresence mode="popLayout">
           {displayEvents.map((event, index) => (
             <motion.div
@@ -55,20 +55,18 @@ export const UpcomingEventsList = memo(function UpcomingEventsList({
         </AnimatePresence>
       </div>
 
-      {/* View All Button */}
-      {hasMore && (
-        <div className="pt-2 border-t border-border-subtle mt-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onViewAll}
-            className="w-full justify-between text-text-muted hover:text-text-primary"
-          >
-            <span>View all {events.length} events</span>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      )}
+      {/* View All Button - always visible for expanded view access */}
+      <div className="pt-2 border-t border-border-subtle mt-2 flex-shrink-0">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onViewAll}
+          className="w-full justify-between text-text-muted hover:text-text-primary"
+        >
+          <span>{hasMore ? `View all ${events.length} events` : 'Open calendar'}</span>
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
     </div>
   );
 });

@@ -11,8 +11,10 @@ import {
   CurrentWeather,
   WeatherMetric,
   ForecastStrip,
+  WeatherBackground,
 } from './components';
 import { WeatherCommandCenter } from './expanded';
+import { isDay } from '@/lib/utils/weather';
 import { CONDITION_GRADIENTS } from './constants';
 import type { WeatherWidgetProps, TemperatureUnit } from './types';
 
@@ -50,9 +52,12 @@ export function WeatherWidget({
     setUnit(newUnit);
   }, []);
 
-  const gradient = data
-    ? CONDITION_GRADIENTS[data.current.condition] ?? CONDITION_GRADIENTS.Clouds
-    : '';
+  const isDaytime = data?.current?.sunrise && data?.current?.sunset
+    ? isDay(
+        typeof data.current.sunrise === 'number' ? data.current.sunrise : parseInt(data.current.sunrise),
+        typeof data.current.sunset === 'number' ? data.current.sunset : parseInt(data.current.sunset)
+      )
+    : true;
 
   const colSpanClasses: Record<number, string> = {
     1: 'col-span-1',
@@ -81,25 +86,16 @@ export function WeatherWidget({
           className
         )}
       >
-        {/* Subtle Background Gradient */}
-        <div
-          className={cn(
-            'absolute inset-0 bg-gradient-to-br pointer-events-none',
-            gradient
-          )}
-        />
+        {/* Loading State */}
+        {isLoading && (
+          <div className="relative h-full flex items-center justify-center p-4">
+            <RefreshCw className="h-8 w-8 animate-spin text-text-muted" />
+          </div>
+        )}
 
-        {/* Content */}
-        <div className="relative h-full flex flex-col p-4">
-          {/* Loading State */}
-          {isLoading && (
-            <div className="flex-1 flex items-center justify-center">
-              <RefreshCw className="h-8 w-8 animate-spin text-text-muted" />
-            </div>
-          )}
-
-          {/* Error State */}
-          {error && !isLoading && (
+        {/* Error State */}
+        {error && !isLoading && (
+          <div className="relative h-full flex items-center justify-center p-4">
             <div className="empty-state">
               <AlertTriangle className="empty-state-icon text-warning" />
               <p className="empty-state-title">Unable to load weather</p>
@@ -108,11 +104,17 @@ export function WeatherWidget({
                 Try again
               </button>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Weather Data */}
-          {data && !isLoading && !error && (
-            <>
+        {/* Weather Data with Dynamic Background */}
+        {data && !isLoading && !error && (
+          <WeatherBackground
+            condition={data.current.condition}
+            isDay={isDaytime}
+            className="h-full"
+          >
+            <div className="flex flex-col p-4">
               {/* Header with Location & Refresh */}
               <WidgetHeader
                 cityName={data.current.cityName}
@@ -175,9 +177,9 @@ export function WeatherWidget({
                 <span>H: {convertTemp(data.current.tempMax)}°</span>
                 <span>L: {convertTemp(data.current.tempMin)}°</span>
               </div>
-            </>
-          )}
-        </div>
+            </div>
+          </WeatherBackground>
+        )}
       </motion.div>
 
       {/* Expanded WeatherCommandCenter - Portal to body */}

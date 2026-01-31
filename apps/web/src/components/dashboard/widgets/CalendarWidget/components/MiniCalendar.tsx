@@ -4,7 +4,7 @@ import { memo, useMemo, useCallback } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { DAY_NAMES_MIN, MONTH_NAMES_SHORT } from '../constants';
+import { DAY_NAMES_MIN, MONTH_NAMES_SHORT, toLocalDateStr, isoToLocalDateStr } from '../constants';
 import type { MiniCalendarProps } from '../types';
 
 /**
@@ -50,8 +50,8 @@ export const MiniCalendar = memo(function MiniCalendar({
     // Current month days
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(year, month, day);
-      const dateStr = date.toISOString().slice(0, 10);
-      const hasEvents = events.some((e) => e.start_time.slice(0, 10) === dateStr);
+      const dateStr = toLocalDateStr(date);
+      const hasEvents = events.some((e) => isoToLocalDateStr(e.start_time) === dateStr);
       days.push({ date, isCurrentMonth: true, hasEvents });
     }
 
@@ -78,8 +78,8 @@ export const MiniCalendar = memo(function MiniCalendar({
   }, [selectedDate, onDateSelect]);
 
   const today = new Date();
-  const todayStr = today.toISOString().slice(0, 10);
-  const selectedStr = selectedDate.toISOString().slice(0, 10);
+  const todayStr = toLocalDateStr(today);
+  const selectedStr = toLocalDateStr(selectedDate);
 
   return (
     <div className={cn('w-full', className)}>
@@ -123,7 +123,7 @@ export const MiniCalendar = memo(function MiniCalendar({
       {/* Calendar grid */}
       <div className="grid grid-cols-7 gap-0.5">
         {calendarDays.map(({ date, isCurrentMonth, hasEvents }, i) => {
-          const dateStr = date.toISOString().slice(0, 10);
+          const dateStr = toLocalDateStr(date);
           const isToday = highlightToday && dateStr === todayStr;
           const isSelected = dateStr === selectedStr;
 

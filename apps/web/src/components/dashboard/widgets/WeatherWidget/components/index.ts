@@ -5,3 +5,4 @@ export { ForecastCard } from './ForecastCard';
 export { ForecastStrip } from './ForecastStrip';
 export { SunriseSunset } from './SunriseSunset';
 export { WidgetHeader } from './WidgetHeader';
+export { WeatherBackground } from './WeatherBackground';

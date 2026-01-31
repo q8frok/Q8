@@ -16,6 +16,7 @@ import { FileUploadZone } from '../documents/FileUploadZone';
 import type { Document } from '@/lib/documents/types';
 import { SelectedFilesList } from './SelectedFilesList';
 import { AgentMentionsDropdown, type Agent } from './AgentMentionsDropdown';
+import { VoiceInputButton } from './VoiceInputButton';
 
 export interface ChatInputRef {
   insertMention: (mention: string) => void;
@@ -324,6 +325,14 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(function ChatI
 
         {/* Voice Button */}
         {showVoice && (
+          <VoiceInputButton
+            onTranscript={(text) => setMessage((prev) => prev + (prev ? ' ' : '') + text)}
+            className="flex-shrink-0"
+          />
+        )}
+
+        {/* Legacy Voice Toggle (kept for compatibility) */}
+        {showVoice && onVoiceToggle && false && (
           <Button
             variant={isRecording ? 'neon' : 'ghost'}
             size="icon"

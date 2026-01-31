@@ -16,6 +16,7 @@ import {
   Copy,
   Check,
 } from 'lucide-react';
+import DOMPurify from 'dompurify';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { CalendarBadge } from '../components/CalendarBadge';
@@ -226,9 +227,15 @@ export const EventDetailModal = memo(function EventDetailModal({
               {/* Description */}
               {event.description && (
                 <div className="pt-2 border-t border-border-subtle">
-                  <p className="text-sm text-text-secondary whitespace-pre-wrap">
-                    {event.description}
-                  </p>
+                  <div
+                    className="text-sm text-text-secondary prose prose-sm prose-invert max-w-none [&_a]:text-neon-primary [&_a]:underline [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_li]:my-0.5"
+                    dangerouslySetInnerHTML={{
+                      __html: DOMPurify.sanitize(event.description, {
+                        ALLOWED_TAGS: ['br', 'p', 'b', 'i', 'strong', 'em', 'a', 'ul', 'ol', 'li', 'span', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'],
+                        ALLOWED_ATTR: ['href', 'target', 'rel', 'class'],
+                      }),
+                    }}
+                  />
                 </div>
               )}
 

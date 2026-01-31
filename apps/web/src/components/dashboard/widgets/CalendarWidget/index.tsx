@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useState, useEffect, useCallback } from 'react';
+import { memo, useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -10,13 +10,15 @@ import {
   RefreshCw,
   Plus,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
 // Hooks
 import { useCalendarSync } from './hooks/useCalendarSync';
-import { useCalendarEvents, useNextEvent, useTodayEvents } from './hooks/useCalendarEvents';
+import { useCalendarEvents, useNextEvent } from './hooks/useCalendarEvents';
 
 // Store
 import { useCalendarStore } from '@/lib/stores/calendar';
@@ -73,15 +75,80 @@ export const CalendarWidget = memo(function CalendarWidget({
     linkCalendar,
   } = useCalendarSync();
 
+  // Local state
+  const [compactView, setCompactView] = useState<CompactView>(defaultView);
+  const [compactDate, setCompactDate] = useState<Date>(new Date());
+
+  // Compact date navigation
+  const compactDateLabel = useMemo(() => {
+    const today = new Date();
+    const isToday =
+      compactDate.getFullYear() === today.getFullYear() &&
+      compactDate.getMonth() === today.getMonth() &&
+      compactDate.getDate() === today.getDate();
+    if (isToday) return 'Today';
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const isTomorrow =
+      compactDate.getFullYear() === tomorrow.getFullYear() &&
+      compactDate.getMonth() === tomorrow.getMonth() &&
+      compactDate.getDate() === tomorrow.getDate();
+    if (isTomorrow) return 'Tomorrow';
+    return compactDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }, [compactDate]);
+
+  const handleCompactPrev = useCallback(() => {
+    setCompactDate((prev) => {
+      const d = new Date(prev);
+      d.setDate(d.getDate() - 1);
+      return d;
+    });
+  }, []);
+
+  const handleCompactNext = useCallback(() => {
+    setCompactDate((prev) => {
+      const d = new Date(prev);
+      d.setDate(d.getDate() + 1);
+      return d;
+    });
+  }, []);
+
+  const handleCompactToday = useCallback(() => {
+    setCompactDate(new Date());
+  }, []);
+
+  // Date range for compact view filtering
+  const compactStartDate = useMemo(() => {
+    const d = new Date(compactDate);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, [compactDate]);
+
+  const compactEndDate = useMemo(() => {
+    const d = new Date(compactDate);
+    d.setDate(d.getDate() + 7);
+    d.setHours(23, 59, 59, 999);
+    return d;
+  }, [compactDate]);
+
   const { events, isLoading } = useCalendarEvents({
-    limit: maxItems,
+    filter: 'upcoming',
+    startDate: compactStartDate,
+    endDate: compactEndDate,
   });
 
   const { event: nextEvent } = useNextEvent();
-  const { events: todayEvents } = useTodayEvents();
 
-  // Local state
-  const [compactView, setCompactView] = useState<CompactView>(defaultView);
+  // Today events for the selected compact date
+  const todayEventsRaw = useCalendarEvents({
+    startDate: compactStartDate,
+    endDate: useMemo(() => {
+      const d = new Date(compactDate);
+      d.setHours(23, 59, 59, 999);
+      return d;
+    }, [compactDate]),
+  });
+  const todayEvents = todayEventsRaw.events;
   const [showSettings, setShowSettings] = useState(false);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [selectedEventForModal, setSelectedEventForModal] = useState<CalendarEventDisplay | null>(null);
@@ -157,14 +224,70 @@ export const CalendarWidget = memo(function CalendarWidget({
         )}
       >
         {/* Header */}
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-neon-primary" />
-            <h3 className="text-heading text-sm">Calendar</h3>
+        <div className="flex-shrink-0 mb-3 space-y-1.5">
+          {/* Row 1: Title + Action Buttons */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-neon-primary flex-shrink-0" />
+              <h3 className="text-heading text-sm whitespace-nowrap">Calendar</h3>
+            </div>
 
-            {/* View Selector */}
-            {isAuthenticated && (
-              <div className="relative ml-2">
+            {/* Actions - always visible */}
+            <div className="flex items-center gap-0.5 flex-shrink-0">
+              {isAuthenticated && (
+                <>
+                  <SyncStatus compact />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => syncEvents()}
+                    disabled={isSyncing}
+                    className="h-7 w-7"
+                    title="Sync calendar"
+                  >
+                    <RefreshCw
+                      className={cn(
+                        'h-3.5 w-3.5',
+                        isSyncing && 'animate-spin'
+                      )}
+                    />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setShowQuickAdd(true)}
+                    className="h-7 w-7"
+                    title="Add event"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={toggleExpanded}
+                    className="h-7 w-7"
+                    title="Expand calendar"
+                  >
+                    <Maximize2 className="h-3.5 w-3.5" />
+                  </Button>
+                </>
+              )}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowSettings(true)}
+                className="h-7 w-7"
+                title="Calendar settings"
+              >
+                <Settings className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Row 2: View Selector + Date Navigation */}
+          {isAuthenticated && (
+            <div className="flex items-center gap-2">
+              <div className="relative">
                 <select
                   value={compactView}
                   onChange={(e) => setCompactView(e.target.value as CompactView)}
@@ -184,72 +307,42 @@ export const CalendarWidget = memo(function CalendarWidget({
                 </select>
                 <ChevronDown className="absolute right-0 top-1/2 -translate-y-1/2 h-3 w-3 text-text-muted pointer-events-none" />
               </div>
-            )}
-          </div>
 
-          {/* Actions */}
-          <div className="flex items-center gap-1">
-            {isAuthenticated && (
-              <>
-                {/* Sync Status */}
-                <SyncStatus compact />
-
-                {/* Sync Button */}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => syncEvents()}
-                  disabled={isSyncing}
-                  className="h-7 w-7"
-                  title="Sync calendar"
-                >
-                  <RefreshCw
-                    className={cn(
-                      'h-3.5 w-3.5',
-                      isSyncing && 'animate-spin'
-                    )}
-                  />
-                </Button>
-
-                {/* Quick Add */}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setShowQuickAdd(true)}
-                  className="h-7 w-7"
-                  title="Add event"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                </Button>
-
-                {/* Expand */}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={toggleExpanded}
-                  className="h-7 w-7"
-                  title="Expand calendar"
-                >
-                  <Maximize2 className="h-3.5 w-3.5" />
-                </Button>
-              </>
-            )}
-
-            {/* Settings */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setShowSettings(true)}
-              className="h-7 w-7"
-              title="Calendar settings"
-            >
-              <Settings className="h-3.5 w-3.5" />
-            </Button>
-          </div>
+              {(compactView === 'upcoming' || compactView === 'today') && (
+                <div className="flex items-center gap-0.5">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleCompactPrev}
+                    className="h-6 w-6"
+                    title="Previous day"
+                  >
+                    <ChevronLeft className="h-3 w-3" />
+                  </Button>
+                  <button
+                    onClick={handleCompactToday}
+                    className="text-[10px] text-text-muted hover:text-text-secondary transition-colors px-1 min-w-[52px] text-center"
+                    title="Go to today"
+                  >
+                    {compactDateLabel}
+                  </button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleCompactNext}
+                    className="h-6 w-6"
+                    title="Next day"
+                  >
+                    <ChevronRight className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-hidden">
           {/* Checking auth */}
           {isCheckingAuth && (
             <div className="flex-1 flex items-center justify-center h-full">
@@ -302,7 +395,7 @@ export const CalendarWidget = memo(function CalendarWidget({
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 10 }}
-                  className="h-full"
+                  className="h-full min-h-0"
                 >
                   <UpcomingEventsList
                     events={displayEvents}

@@ -10,6 +10,7 @@ import {
   Plus,
   Menu,
   X,
+  List,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -22,6 +23,7 @@ import { MonthView } from './MonthView';
 import { WeekView } from './WeekView';
 import { DayView } from './DayView';
 import { AgendaView } from './AgendaView';
+import { EventsListView } from './EventsListView';
 import { EventDetailPanel } from './EventDetailPanel';
 import { CreateEventForm } from './CreateEventForm';
 import { SyncStatus } from '../shared/SyncStatus';
@@ -73,6 +75,7 @@ export const CalendarCommandCenter = memo(function CalendarCommandCenter({
   const [createEventDate, setCreateEventDate] = useState<Date | undefined>();
   const [createEventHour, setCreateEventHour] = useState<number | undefined>();
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+  const [showEventsList, setShowEventsList] = useState(false);
 
   // Initialize on mount
   useEffect(() => {
@@ -363,6 +366,21 @@ export const CalendarCommandCenter = memo(function CalendarCommandCenter({
                 </Button>
               </div>
               <Button
+                variant={showEventsList ? 'default' : 'ghost'}
+                size="icon"
+                onClick={() => setShowEventsList(!showEventsList)}
+                className={cn(
+                  'ml-1 h-7 w-7 md:h-auto md:w-auto md:px-3 md:py-1.5',
+                  showEventsList
+                    ? 'bg-neon-primary/20 text-neon-primary'
+                    : 'text-white/70 hover:text-white'
+                )}
+                title="All events list"
+              >
+                <List className="h-4 w-4 md:mr-1" />
+                <span className="hidden md:inline text-sm">All Events</span>
+              </Button>
+              <Button
                 variant="default"
                 size="icon"
                 onClick={() => handleCreateEvent(new Date())}
@@ -380,6 +398,13 @@ export const CalendarCommandCenter = memo(function CalendarCommandCenter({
               'flex-1 overflow-auto',
               selectedEvent && 'hidden md:block md:mr-80'
             )}>
+              {/* Full Events List View */}
+              {showEventsList ? (
+                <EventsListView
+                  events={events}
+                  onEventClick={handleEventClick}
+                />
+              ) : (
               <AnimatePresence mode="wait">
                 {currentView === 'month' && (
                   <motion.div
@@ -448,6 +473,7 @@ export const CalendarCommandCenter = memo(function CalendarCommandCenter({
                   </motion.div>
                 )}
               </AnimatePresence>
+              )}
             </div>
 
             {/* Event Detail Panel */}

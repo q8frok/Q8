@@ -181,6 +181,30 @@ export const ROW_SPAN_CLASSES: Record<number, string> = {
 };
 
 // ============================================================================
+// Date Utilities
+// ============================================================================
+
+/**
+ * Get a YYYY-MM-DD string in local timezone.
+ * IMPORTANT: Do NOT use `date.toISOString().slice(0, 10)` — that returns UTC
+ * which can be off by a day depending on timezone offset.
+ */
+export function toLocalDateStr(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/**
+ * Convert an ISO datetime string (e.g. from event.start_time) to a local YYYY-MM-DD string.
+ * Use this instead of `isoString.slice(0, 10)` which returns the UTC date.
+ */
+export function isoToLocalDateStr(isoString: string): string {
+  return toLocalDateStr(new Date(isoString));
+}
+
+// ============================================================================
 // Sync Configuration
 // ============================================================================
 

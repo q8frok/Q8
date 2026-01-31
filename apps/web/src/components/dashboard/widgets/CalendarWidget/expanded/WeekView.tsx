@@ -2,13 +2,79 @@
 
 import { memo, useMemo } from 'react';
 import { cn } from '@/lib/utils';
-import { DAY_NAMES_SHORT, HOUR_SLOTS, VIEW_CONFIG } from '../constants';
+import { DAY_NAMES_SHORT, HOUR_SLOTS, VIEW_CONFIG, toLocalDateStr, isoToLocalDateStr } from '../constants';
 import type { WeekViewProps, CalendarEventDisplay } from '../types';
+
+interface LayoutEvent extends CalendarEventDisplay {
+  column: number;
+  totalColumns: number;
+}
+
+/**
+ * Calculate column layout for overlapping events within a single day column.
+ */
+function layoutOverlappingEvents(events: CalendarEventDisplay[]): LayoutEvent[] {
+  if (events.length === 0) return [];
+
+  const sorted = [...events].sort(
+    (a, b) => a.startDate.getTime() - b.startDate.getTime()
+  );
+
+  const firstEvent = sorted[0]!;
+  const groups: CalendarEventDisplay[][] = [];
+  let currentGroup: CalendarEventDisplay[] = [firstEvent];
+  let groupEnd = firstEvent.endDate.getTime();
+
+  for (let i = 1; i < sorted.length; i++) {
+    const event = sorted[i]!;
+    if (event.startDate.getTime() < groupEnd) {
+      currentGroup.push(event);
+      groupEnd = Math.max(groupEnd, event.endDate.getTime());
+    } else {
+      groups.push(currentGroup);
+      currentGroup = [event];
+      groupEnd = event.endDate.getTime();
+    }
+  }
+  groups.push(currentGroup);
+
+  const result: LayoutEvent[] = [];
+
+  for (const group of groups) {
+    const columns: CalendarEventDisplay[][] = [];
+
+    for (const event of group) {
+      let placed = false;
+      for (let col = 0; col < columns.length; col++) {
+        const colArr = columns[col]!;
+        const lastInCol = colArr[colArr.length - 1];
+        if (lastInCol && lastInCol.endDate.getTime() <= event.startDate.getTime()) {
+          colArr.push(event);
+          placed = true;
+          break;
+        }
+      }
+      if (!placed) {
+        columns.push([event]);
+      }
+    }
+
+    const totalColumns = columns.length;
+    for (let col = 0; col < columns.length; col++) {
+      for (const event of columns[col]!) {
+        result.push({ ...event, column: col, totalColumns });
+      }
+    }
+  }
+
+  return result;
+}
 
 /**
  * WeekView - 7-day week calendar with hourly timeline
  *
  * Shows events positioned by time on a weekly grid.
+ * Overlapping events are displayed side-by-side in columns.
  */
 export const WeekView = memo(function WeekView({
   currentDate,
@@ -18,7 +84,7 @@ export const WeekView = memo(function WeekView({
   onEventClick,
   onCreateEvent,
 }: WeekViewProps) {
-  // Get week days
+  // Get week days with layout-computed events
   const weekDays = useMemo(() => {
     const startOfWeek = new Date(currentDate);
     startOfWeek.setDate(currentDate.getDate() - currentDate.getDay());
@@ -27,39 +93,48 @@ export const WeekView = memo(function WeekView({
     const days: Array<{
       date: Date;
       dateStr: string;
-      events: CalendarEventDisplay[];
+      layoutEvents: LayoutEvent[];
       allDayEvents: CalendarEventDisplay[];
     }> = [];
 
     for (let i = 0; i < 7; i++) {
       const date = new Date(startOfWeek);
       date.setDate(startOfWeek.getDate() + i);
-      const dateStr = date.toISOString().slice(0, 10);
+      const dateStr = toLocalDateStr(date);
 
-      const dayEvents = events.filter(
-        (e) => e.start_time.slice(0, 10) === dateStr && !e.all_day
+      const dayTimedEvents = events.filter(
+        (e) => isoToLocalDateStr(e.start_time) === dateStr && !e.all_day
       );
       const allDayEvents = events.filter(
-        (e) => e.start_time.slice(0, 10) === dateStr && e.all_day
+        (e) => isoToLocalDateStr(e.start_time) === dateStr && e.all_day
       );
 
-      days.push({ date, dateStr, events: dayEvents, allDayEvents });
+      days.push({
+        date,
+        dateStr,
+        layoutEvents: layoutOverlappingEvents(dayTimedEvents),
+        allDayEvents,
+      });
     }
 
     return days;
   }, [currentDate, events]);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = toLocalDateStr(new Date());
 
-  // Calculate event position and height
-  const getEventStyle = (event: CalendarEventDisplay) => {
+  // Calculate event position and height with column layout
+  const getEventStyle = (event: LayoutEvent) => {
     const startHour =
       event.startDate.getHours() + event.startDate.getMinutes() / 60;
     const durationHours = event.durationMinutes / 60;
+    const widthPercent = 100 / event.totalColumns;
+    const leftPercent = event.column * widthPercent;
 
     return {
       top: `${startHour * VIEW_CONFIG.HOUR_HEIGHT}px`,
       height: `${Math.max(durationHours * VIEW_CONFIG.HOUR_HEIGHT, VIEW_CONFIG.MIN_EVENT_HEIGHT)}px`,
+      left: `calc(${leftPercent}% + 1px)`,
+      width: `calc(${widthPercent}% - 2px)`,
     };
   };
 
@@ -146,7 +221,7 @@ export const WeekView = memo(function WeekView({
           </div>
 
           {/* Day columns */}
-          {weekDays.map(({ date, dateStr, events: dayEvents }) => {
+          {weekDays.map(({ date, dateStr, layoutEvents }) => {
             const isToday = dateStr === today;
 
             return (
@@ -167,15 +242,15 @@ export const WeekView = memo(function WeekView({
                   />
                 ))}
 
-                {/* Events */}
-                {dayEvents.map((event) => (
+                {/* Events with column layout */}
+                {layoutEvents.map((event) => (
                   <button
                     key={event.id}
                     onClick={() => onEventClick(event)}
                     className={cn(
-                      'absolute left-1 right-1 rounded px-1.5 py-0.5',
+                      'absolute rounded px-1 py-0.5',
                       'text-xs text-left overflow-hidden',
-                      'hover:opacity-80 transition-opacity'
+                      'hover:opacity-80 transition-opacity z-[1]'
                     )}
                     style={{
                       ...getEventStyle(event),
