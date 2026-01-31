@@ -20,11 +20,11 @@ export function BentoGrid({ children, className }: BentoGridProps) {
   return (
     <div
       className={cn(
-        'grid grid-cols-1 md:grid-cols-4 auto-rows-[minmax(160px,auto)]',
+        'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 auto-rows-[minmax(140px,auto)] sm:auto-rows-[minmax(160px,auto)]',
         // Responsive gap per design spec
         'gap-2 sm:gap-3 md:gap-4',
-        // Responsive padding
-        'p-2 sm:p-3 md:p-4',
+        // Responsive padding with bottom safe area
+        'p-2 sm:p-3 md:p-4 safe-area-bottom',
         className
       )}
     >
@@ -52,12 +52,15 @@ export function BentoItem({
   rowSpan = 1,
   className,
 }: BentoItemProps) {
-  // Map colSpan to Tailwind classes - full width on mobile, specified span on md+
+  // Map colSpan to Tailwind classes
+  // Mobile (<440px): single column, all full width
+  // Phablet (sm 440px+): 2-col grid, colSpan 1=1col, colSpan 2+=full width
+  // Tablet (md 768px+): 4-col grid, colSpan as specified
   const colSpanClasses: Record<number, string> = {
     1: 'col-span-1',
-    2: 'col-span-1 md:col-span-2',
-    3: 'col-span-1 md:col-span-3',
-    4: 'col-span-1 md:col-span-4',
+    2: 'col-span-1 sm:col-span-2 md:col-span-2',
+    3: 'col-span-1 sm:col-span-2 md:col-span-3',
+    4: 'col-span-1 sm:col-span-2 md:col-span-4',
   };
 
   // Map rowSpan to Tailwind classes

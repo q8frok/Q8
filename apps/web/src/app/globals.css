@@ -93,6 +93,14 @@
     color: var(--text-primary);
     font-size: var(--text-base);
     line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* Slightly larger base font on phablet+ (iPhone 17 Pro Max) */
+  @media (min-width: 440px) {
+    body {
+      font-size: 0.9375rem; /* 15px */
+    }
   }
 
   /* Improved selection highlighting */
@@ -899,8 +907,76 @@
 }
 
 /* ============================================
-   Mobile FAB Safe Area Support
+   Safe Area Support
    ============================================ */
+
+/* CSS custom properties for safe area (readable via JS) */
+:root {
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-right: env(safe-area-inset-right, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-left: env(safe-area-inset-left, 0px);
+}
+
 .fab-container {
   padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Main content safe area wrapper */
+.safe-area-container {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Bottom safe area for scrollable content */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ============================================
+   Mobile Touch Target Overrides
+   ============================================ */
+@media (pointer: coarse) {
+  .btn-icon-sm {
+    width: 2.25rem;  /* 36px - better for touch */
+    height: 2.25rem;
+    border-radius: var(--radius-md);
+  }
+}
+
+/* ============================================
+   Reduced Motion Support
+   ============================================ */
+@media (prefers-reduced-motion: reduce) {
+  .animate-orb-1,
+  .animate-orb-2,
+  .animate-orb-3,
+  .animate-orb-4 {
+    animation: none !important;
+  }
+
+  .skeleton {
+    animation: none !important;
+  }
+}
+
+/* ============================================
+   Mobile GPU Optimization
+   ============================================ */
+@media (max-width: 768px) {
+  .glass-panel {
+    backdrop-filter: blur(12px);
+  }
+
+  .animate-orb-3,
+  .animate-orb-4 {
+    display: none;
+  }
+
+  .animate-orb-1,
+  .animate-orb-2 {
+    will-change: transform;
+  }
 }

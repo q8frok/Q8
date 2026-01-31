@@ -161,12 +161,15 @@ export function WidgetWrapper({
     return date.toLocaleDateString();
   };
 
-  // Map colSpan to Tailwind classes - full width on mobile, specified span on md+
+  // Map colSpan to Tailwind classes
+  // Mobile (<440px): single column, all full width
+  // Phablet (sm 440px+): 2-col grid, colSpan 1=1col, colSpan 2+=full width
+  // Tablet (md 768px+): 4-col grid, colSpan as specified
   const colSpanClasses: Record<number, string> = {
     1: 'col-span-1',
-    2: 'col-span-1 md:col-span-2',
-    3: 'col-span-1 md:col-span-3',
-    4: 'col-span-1 md:col-span-4',
+    2: 'col-span-1 sm:col-span-2 md:col-span-2',
+    3: 'col-span-1 sm:col-span-2 md:col-span-3',
+    4: 'col-span-1 sm:col-span-2 md:col-span-4',
   };
 
   // Map rowSpan to Tailwind classes
@@ -190,7 +193,7 @@ export function WidgetWrapper({
         surfaceClass,
         'flex flex-col overflow-hidden relative w-full',
         isExpanded
-          ? 'col-span-1 md:col-span-4 row-span-4 z-50'
+          ? 'col-span-1 sm:col-span-2 md:col-span-4 row-span-4 z-50'
           : cn(colSpanClasses[colSpan], rowSpanClasses[rowSpan]),
         className
       )}

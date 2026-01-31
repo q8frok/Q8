@@ -23,6 +23,18 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="Q8" />
         <link rel="manifest" href="/manifest.json" />
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+        {/* iPhone 17 Pro Max splash screen (1320x2868 @3x) */}
+        <link
+          rel="apple-touch-startup-image"
+          media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3)"
+          href="/splash/iphone-17-promax.png"
+        />
+        {/* iPhone 16 Pro Max splash screen (1290x2796 @3x) */}
+        <link
+          rel="apple-touch-startup-image"
+          media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3)"
+          href="/splash/iphone-16-promax.png"
+        />
       </head>
       <body className="antialiased">
         <PWAInitializer />

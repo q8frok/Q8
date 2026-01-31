@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Settings, Mic, Command, BookOpen } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -29,6 +29,7 @@ import { AnimatedBackground } from '@/components/shared/AnimatedBackground';
 import { VoiceFAB } from '@/components/shared/VoiceFAB';
 import { ChatProvider } from '@/contexts/ChatContext';
 import { logger } from '@/lib/logger';
+import { useViewportHeight } from '@/hooks/useViewportHeight';
 
 function DashboardContent() {
   // SECURITY: Get userId from authenticated session, not hardcoded
@@ -38,6 +39,9 @@ function DashboardContent() {
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const chatRef = useRef<UnifiedChatWithThreadsRef>(null);
+
+  // Keyboard-aware viewport height (updates when iOS keyboard opens/closes)
+  useViewportHeight();
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -75,7 +79,7 @@ function DashboardContent() {
       {/* Animated Background */}
       <AnimatedBackground />
 
-      <div className="container mx-auto py-6 px-4 relative z-10">
+      <div className="container mx-auto py-6 px-4 relative z-10 safe-area-container">
         {/* Header */}
         <header className="mb-6 flex justify-between items-center">
           <div>
@@ -189,7 +193,7 @@ function DashboardContent() {
 
           {/* Right Column - Chat Interface */}
           <div className="lg:col-span-1">
-            <div className="lg:sticky lg:top-6 surface-matte rounded-2xl h-[calc(100vh-12rem)] overflow-hidden">
+            <div className="lg:sticky lg:top-6 surface-matte rounded-2xl h-[calc(var(--vh,1vh)*100-12rem)] overflow-hidden">
               <UnifiedChatWithThreads
                 ref={chatRef}
                 userId={userId}

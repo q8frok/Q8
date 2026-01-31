@@ -43,12 +43,15 @@ export function getSafeAreaInsets() {
     return { top: 0, right: 0, bottom: 0, left: 0 };
   }
 
+  // env() values can't be read directly via getComputedStyle.
+  // We read them from CSS custom properties set in globals.css:
+  //   --safe-area-top: env(safe-area-inset-top, 0px);
   const style = getComputedStyle(document.documentElement);
   return {
-    top: parseInt(style.getPropertyValue('env(safe-area-inset-top)') || '0'),
-    right: parseInt(style.getPropertyValue('env(safe-area-inset-right)') || '0'),
-    bottom: parseInt(style.getPropertyValue('env(safe-area-inset-bottom)') || '0'),
-    left: parseInt(style.getPropertyValue('env(safe-area-inset-left)') || '0'),
+    top: parseFloat(style.getPropertyValue('--safe-area-top')) || 0,
+    right: parseFloat(style.getPropertyValue('--safe-area-right')) || 0,
+    bottom: parseFloat(style.getPropertyValue('--safe-area-bottom')) || 0,
+    left: parseFloat(style.getPropertyValue('--safe-area-left')) || 0,
   };
 }
 

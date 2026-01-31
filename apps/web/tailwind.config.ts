@@ -14,7 +14,7 @@ const config: Config = {
          ============================================ */
       screens: {
         'xs': '375px',   // iPhone SE
-        'sm': '430px',   // iPhone 17 Pro Max
+        'sm': '440px',   // iPhone 17 Pro Max (440pt viewport)
         'md': '768px',   // iPad
         'lg': '1024px',  // Desktop
         'xl': '1280px',  // Large Desktop
