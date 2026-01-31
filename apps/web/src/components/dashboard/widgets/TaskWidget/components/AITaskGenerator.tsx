@@ -112,9 +112,9 @@ export function AITaskGenerator({ onGenerate, parentTaskId, onClose }: AITaskGen
       <div className="text-xs text-white/40 space-y-1">
         <p>Examples:</p>
         <ul className="list-disc list-inside space-y-0.5 ml-2">
-          <li>"Plan a birthday party for 20 people"</li>
-          <li>"Launch a new product feature"</li>
-          <li>"Organize a team offsite"</li>
+          <li>&ldquo;Plan a birthday party for 20 people&rdquo;</li>
+          <li>&ldquo;Launch a new product feature&rdquo;</li>
+          <li>&ldquo;Organize a team offsite&rdquo;</li>
         </ul>
       </div>
     </motion.div>
