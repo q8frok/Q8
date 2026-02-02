@@ -1,10 +1,13 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Settings, Mic, Command, BookOpen, MessageCircle } from 'lucide-react';
+import { Settings, Mic, Command, BookOpen, MessageCircle, LayoutGrid } from 'lucide-react';
+import { AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { BentoGrid, BentoItem } from '@/components/dashboard/BentoGrid';
+import { ModeSelector } from '@/components/dashboard/ModeSelector';
+import { useVisibleWidgets } from '@/lib/stores/dashboard';
 import {
   StatusWidget,
   WeatherWidget,
@@ -39,6 +42,7 @@ function DashboardContent() {
   const { userId, fullName, isLoading } = useAuth();
   const router = useRouter();
 
+  const visibleWidgets = useVisibleWidgets();
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [chatSheetSnap, setChatSheetSnap] = useState<SnapPoint>('closed');
@@ -89,10 +93,11 @@ function DashboardContent() {
       <div className="container mx-auto py-4 md:py-6 px-3 md:px-4 relative z-10 safe-area-container">
         {/* Header - optimized for 440pt */}
         <header className="mb-4 md:mb-6 flex justify-between items-center">
-          <div>
+          <div className="flex items-center gap-3">
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white tracking-tight">
               Q8
             </h1>
+            <ModeSelector />
           </div>
           <div className="flex items-center gap-2 md:gap-3">
             {/* Command Palette Button - Hidden on mobile */}
@@ -142,59 +147,81 @@ function DashboardContent() {
           {/* Left Column - Dashboard Widgets */}
           <div className="lg:col-span-2 space-y-4 md:space-y-6">
             <BentoGrid>
-              {/* Daily Brief - Summary with calendar, weather, tasks, quick actions, insights */}
-              <BentoItem colSpan={2} rowSpan={2}>
-                <DailyBriefWidget userId={userId} />
-              </BentoItem>
+              <AnimatePresence mode="popLayout">
+                {visibleWidgets.includes('daily-brief') && (
+                  <BentoItem key="daily-brief" colSpan={2} rowSpan={2}>
+                    <DailyBriefWidget userId={userId} />
+                  </BentoItem>
+                )}
 
-              {/* Time Hub - World Clocks, Timer, Stopwatch, Alarms */}
-              <BentoItem colSpan={2} rowSpan={2}>
-                <ClockWidget colSpan={2} rowSpan={2} />
-              </BentoItem>
+                {visibleWidgets.includes('clock') && (
+                  <BentoItem key="clock" colSpan={2} rowSpan={2}>
+                    <ClockWidget colSpan={2} rowSpan={2} />
+                  </BentoItem>
+                )}
 
-              {/* Weather Widget - Enhanced with forecast */}
-              <BentoItem colSpan={2} rowSpan={2}>
-                <WeatherWidget
-                  location="New York"
-                  unit="fahrenheit"
-                  showForecast={true}
-                />
-              </BentoItem>
+                {visibleWidgets.includes('weather') && (
+                  <BentoItem key="weather" colSpan={2} rowSpan={2}>
+                    <WeatherWidget
+                      location="New York"
+                      unit="fahrenheit"
+                      showForecast={true}
+                    />
+                  </BentoItem>
+                )}
 
-              {/* Task Widget */}
-              <BentoItem colSpan={2} rowSpan={2}>
-                <TaskWidget />
-              </BentoItem>
+                {visibleWidgets.includes('tasks') && (
+                  <BentoItem key="tasks" colSpan={2} rowSpan={2}>
+                    <TaskWidget />
+                  </BentoItem>
+                )}
 
-              {/* Calendar Widget */}
-              <BentoItem colSpan={2} rowSpan={1}>
-                <CalendarWidget maxItems={3} />
-              </BentoItem>
+                {visibleWidgets.includes('calendar') && (
+                  <BentoItem key="calendar" colSpan={2} rowSpan={1}>
+                    <CalendarWidget maxItems={3} />
+                  </BentoItem>
+                )}
 
-              {/* Quick Notes */}
-              <BentoItem colSpan={2} rowSpan={2}>
-                <QuickNotesWidget userId={userId} />
-              </BentoItem>
+                {visibleWidgets.includes('quick-notes') && (
+                  <BentoItem key="quick-notes" colSpan={2} rowSpan={2}>
+                    <QuickNotesWidget userId={userId} />
+                  </BentoItem>
+                )}
 
-              {/* ContentHub Widget - Unified Media Hub */}
-              <BentoItem colSpan={2} rowSpan={2}>
-                <ContentHubWidget />
-              </BentoItem>
+                {visibleWidgets.includes('content-hub') && (
+                  <BentoItem key="content-hub" colSpan={2} rowSpan={2}>
+                    <ContentHubWidget />
+                  </BentoItem>
+                )}
 
-              {/* GitHub PR Widget */}
-              <BentoItem colSpan={2} rowSpan={2}>
-                <GitHubPRWidget maxItems={5} />
-              </BentoItem>
+                {visibleWidgets.includes('github') && (
+                  <BentoItem key="github" colSpan={2} rowSpan={2}>
+                    <GitHubPRWidget maxItems={5} />
+                  </BentoItem>
+                )}
 
-              {/* Smart Home Widget */}
-              <BentoItem colSpan={2} rowSpan={3}>
-                <SmartHomeWidget />
-              </BentoItem>
+                {visibleWidgets.includes('home') && (
+                  <BentoItem key="home" colSpan={2} rowSpan={3}>
+                    <SmartHomeWidget />
+                  </BentoItem>
+                )}
 
-              {/* Finance Hub Widget */}
-              <BentoItem colSpan={2} rowSpan={2}>
-                <FinanceHubWidget />
-              </BentoItem>
+                {visibleWidgets.includes('finance') && (
+                  <BentoItem key="finance" colSpan={2} rowSpan={2}>
+                    <FinanceHubWidget />
+                  </BentoItem>
+                )}
+              </AnimatePresence>
+
+              {visibleWidgets.length === 0 && (
+                <div className="col-span-full flex flex-col items-center justify-center py-20 text-center">
+                  <LayoutGrid className="h-12 w-12 text-text-muted/50 mb-4" />
+                  <p className="text-text-muted text-sm mb-1">No widgets visible</p>
+                  <p className="text-text-muted/60 text-xs">
+                    Switch to a mode or toggle widgets in Settings
+                  </p>
+                </div>
+              )}
             </BentoGrid>
           </div>
 

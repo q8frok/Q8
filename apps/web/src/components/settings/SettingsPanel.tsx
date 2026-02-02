@@ -22,6 +22,18 @@ import {
   MessageSquare,
   Quote,
   Route,
+  Coffee,
+  Zap,
+  LayoutGrid,
+  Clock,
+  CloudSun,
+  CheckSquare,
+  CalendarDays,
+  StickyNote,
+  Play,
+  Github,
+  Home,
+  TrendingUp,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -29,6 +41,16 @@ import { Toggle } from '@/components/ui/toggle';
 import { MemoriesSettings } from './MemoriesSettings';
 import { logger } from '@/lib/logger';
 import type { UserPreferences } from '@/lib/memory/types';
+import {
+  useDashboardStore,
+  useCurrentMode,
+  useVisibleWidgets,
+  useDashboardActions,
+  ALL_WIDGET_IDS,
+  WIDGET_META,
+  type DashboardWidgetId,
+  type DashboardMode,
+} from '@/lib/stores/dashboard';
 
 interface SettingsPanelProps {
   isOpen: boolean;
@@ -645,6 +667,104 @@ function DisplaySettings({ preferences, updatePreference }: SettingsSectionProps
         <p className="text-sm text-text-muted">
           Press <kbd className="px-1.5 py-0.5 text-xs rounded bg-surface-3 border border-border-subtle font-mono">T</kbd> during a response to toggle tool visibility on/off.
         </p>
+      </div>
+
+      <DashboardModeSettings />
+      <DashboardWidgetSettings />
+    </div>
+  );
+}
+
+// ============================================================
+// Dashboard Settings (used in Display tab)
+// ============================================================
+
+const WIDGET_ICONS: Record<DashboardWidgetId, typeof Clock> = {
+  'daily-brief': Sparkles,
+  'clock': Clock,
+  'weather': CloudSun,
+  'tasks': CheckSquare,
+  'calendar': CalendarDays,
+  'quick-notes': StickyNote,
+  'content-hub': Play,
+  'github': Github,
+  'home': Home,
+  'finance': TrendingUp,
+};
+
+const modeOptions = [
+  { id: 'relax' as const, label: 'Relax', icon: Coffee },
+  { id: 'productivity' as const, label: 'Focus', icon: Zap },
+  { id: 'all' as const, label: 'All', icon: LayoutGrid },
+];
+
+function DashboardModeSettings() {
+  const currentMode = useCurrentMode();
+  const { setMode } = useDashboardActions();
+
+  return (
+    <div className="setting-section">
+      <h3 className="setting-section-header">Dashboard Mode</h3>
+      <p className="text-sm text-text-muted mb-3">
+        Choose a preset layout or customize individual widgets below.
+      </p>
+      <div className="grid grid-cols-3 gap-2">
+        {modeOptions.map((mode) => {
+          const Icon = mode.icon;
+          const isActive = currentMode === mode.id;
+          return (
+            <button
+              key={mode.id}
+              onClick={() => setMode(mode.id)}
+              className={cn(
+                'flex flex-col items-center gap-2 p-3 rounded-lg border text-sm transition-colors',
+                isActive
+                  ? 'border-neon-primary bg-neon-primary/10 text-text-primary'
+                  : 'border-border-subtle hover:bg-surface-4 text-text-muted'
+              )}
+            >
+              <Icon className={cn('h-5 w-5', isActive && 'text-neon-primary')} />
+              <span className="font-medium">{mode.label}</span>
+            </button>
+          );
+        })}
+      </div>
+      {currentMode === 'custom' && (
+        <p className="mt-2 text-xs text-text-muted">
+          Custom layout active. Select a mode above to reset.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function DashboardWidgetSettings() {
+  const visibleWidgets = useVisibleWidgets();
+  const { toggleWidget } = useDashboardActions();
+
+  return (
+    <div className="setting-section">
+      <h3 className="setting-section-header">Widget Visibility</h3>
+      <p className="text-sm text-text-muted mb-3">
+        Toggle individual widgets on or off.
+      </p>
+      <div className="space-y-2">
+        {ALL_WIDGET_IDS.map((id) => {
+          const Icon = WIDGET_ICONS[id];
+          const meta = WIDGET_META[id];
+          return (
+            <SettingRow key={id} label={meta.label}>
+              <div className="flex items-center gap-3">
+                <Icon className="h-4 w-4 text-text-muted" />
+                <Toggle
+                  checked={visibleWidgets.includes(id)}
+                  onChange={() => toggleWidget(id)}
+                  aria-label={`Toggle ${meta.label}`}
+                />
+              </div>
+            </SettingRow>
+          );
+        })}
       </div>
     </div>
   );
