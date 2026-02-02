@@ -50,7 +50,8 @@ export function MiniPlayer({
       animate={{ y: 0, opacity: 1 }}
       exit={{ y: 100, opacity: 0 }}
       className={cn(
-        'fixed bottom-4 left-1/2 -translate-x-1/2 z-40',
+        'fixed left-1/2 -translate-x-1/2 z-40',
+        'bottom-[max(1rem,env(safe-area-inset-bottom,0px))]',
         'w-[90%] max-w-md',
         className
       )}

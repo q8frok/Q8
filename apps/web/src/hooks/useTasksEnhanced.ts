@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRxCollection } from 'rxdb-hooks';
+import { logger } from '@/lib/logger';
 import type { TaskEnhanced, TaskTag } from '@/lib/db/schemas/tasks-enhanced';
 
 export function useTasksEnhanced(userId: string, parentTaskId?: string | null) {
@@ -9,44 +10,10 @@ export function useTasksEnhanced(userId: string, parentTaskId?: string | null) {
   const [tasks, setTasks] = useState<TaskEnhanced[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchTasks = useCallback(async () => {
-    if (!collection) return;
-
-    try {
-      const selector: any = {
-        user_id: userId,
-        deleted_at: { $exists: false },
-      };
-
-      if (parentTaskId === null) {
-        selector.parent_task_id = { $exists: false };
-      } else if (parentTaskId) {
-        selector.parent_task_id = parentTaskId;
-      }
-
-      const docs = await collection
-        .find({
-          selector,
-          sort: [{ priority: 'desc' }, { created_at: 'desc' }],
-        })
-        .exec();
-
-      setTasks(docs.map((doc) => doc.toJSON() as TaskEnhanced));
-    } catch (error) {
-      console.error('Failed to fetch tasks:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [collection, userId, parentTaskId]);
-
-  useEffect(() => {
-    fetchTasks();
-  }, [fetchTasks]);
-
   useEffect(() => {
     if (!collection) return;
 
-    const selector: any = {
+    const selector: Record<string, any> = {
       user_id: userId,
       deleted_at: { $exists: false },
     };
@@ -61,6 +28,7 @@ export function useTasksEnhanced(userId: string, parentTaskId?: string | null) {
       .find({ selector })
       .$.subscribe((docs) => {
         setTasks(docs.map((doc) => doc.toJSON() as TaskEnhanced));
+        setIsLoading(false);
       });
 
     return () => subscription.unsubscribe();
@@ -84,7 +52,7 @@ export function useTasksEnhanced(userId: string, parentTaskId?: string | null) {
 
         return doc.toJSON() as TaskEnhanced;
       } catch (error) {
-        console.error('Failed to create task:', error);
+        logger.error('Failed to create task', { error });
         return null;
       }
     },
@@ -108,7 +76,7 @@ export function useTasksEnhanced(userId: string, parentTaskId?: string | null) {
 
         return true;
       } catch (error) {
-        console.error('Failed to update task:', error);
+        logger.error('Failed to update task', { error });
         return false;
       }
     },
@@ -132,7 +100,7 @@ export function useTasksEnhanced(userId: string, parentTaskId?: string | null) {
 
         return true;
       } catch (error) {
-        console.error('Failed to delete task:', error);
+        logger.error('Failed to delete task', { error });
         return false;
       }
     },
@@ -169,7 +137,7 @@ export function useTasksEnhanced(userId: string, parentTaskId?: string | null) {
 
         return true;
       } catch (error) {
-        console.error('Failed to add tag:', error);
+        logger.error('Failed to add tag', { error });
         return false;
       }
     },
@@ -194,7 +162,7 @@ export function useTasksEnhanced(userId: string, parentTaskId?: string | null) {
 
         return true;
       } catch (error) {
-        console.error('Failed to remove tag:', error);
+        logger.error('Failed to remove tag', { error });
         return false;
       }
     },
@@ -232,7 +200,7 @@ export function useTaskTags(userId: string) {
 
         setTags(docs.map((doc) => doc.toJSON() as TaskTag));
       } catch (error) {
-        console.error('Failed to fetch tags:', error);
+        logger.error('Failed to fetch tags', { error });
       } finally {
         setIsLoading(false);
       }
@@ -266,7 +234,7 @@ export function useTaskTags(userId: string) {
 
         return doc.toJSON() as TaskTag;
       } catch (error) {
-        console.error('Failed to create tag:', error);
+        logger.error('Failed to create tag', { error });
         return null;
       }
     },

@@ -14,6 +14,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { processBatch, getQueueStats, cleanupStaleJobs } from '@/lib/agents/deep-thinker';
+import { processDocumentJob } from '@/lib/documents/worker';
+import { supabaseAdmin } from '@/lib/supabase/server';
 import { logger } from '@/lib/logger';
 import type { ExtendedAgentType } from '@/lib/agents/orchestration/types';
 
@@ -85,6 +87,9 @@ export async function POST(request: NextRequest) {
       config,
     });
 
+    // Process document_processor jobs separately
+    const docResult = await processDocumentBatch(workerId);
+
     const result = await processBatch({
       workerId,
       ...config,
@@ -93,15 +98,18 @@ export async function POST(request: NextRequest) {
     logger.info('[Worker API] Batch processing complete', {
       workerId,
       result: {
-        processed: result.processed,
-        succeeded: result.succeeded,
-        failed: result.failed,
+        processed: result.processed + docResult.processed,
+        succeeded: result.succeeded + docResult.succeeded,
+        failed: result.failed + docResult.failed,
       },
     });
 
     return NextResponse.json({
       success: true,
-      ...result,
+      processed: result.processed + docResult.processed,
+      succeeded: result.succeeded + docResult.succeeded,
+      failed: result.failed + docResult.failed,
+      jobs: [...result.jobs, ...docResult.jobs],
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -115,6 +123,79 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+/**
+ * Process document_processor jobs from the queue
+ */
+async function processDocumentBatch(
+  workerId: string,
+  batchSize = 5
+): Promise<{ processed: number; succeeded: number; failed: number; jobs: Array<{ jobId: string; status: string; durationMs: number; error?: string }> }> {
+  const result = { processed: 0, succeeded: 0, failed: 0, jobs: [] as Array<{ jobId: string; status: string; durationMs: number; error?: string }> };
+
+  for (let i = 0; i < batchSize; i++) {
+    // Claim a document_processor job
+    const { data: jobs, error: claimError } = await supabaseAdmin
+      .from('agent_jobs')
+      .select('*')
+      .eq('agent_type', 'document_processor')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: true })
+      .limit(1);
+
+    if (claimError || !jobs || jobs.length === 0) break;
+
+    const job = jobs[0]!;
+
+    // Mark as processing
+    const { error: updateError } = await supabaseAdmin
+      .from('agent_jobs')
+      .update({ status: 'processing', started_at: new Date().toISOString() })
+      .eq('id', job.id)
+      .eq('status', 'pending'); // Atomic claim
+
+    if (updateError) continue; // Another worker claimed it
+
+    const startTime = Date.now();
+    result.processed++;
+
+    try {
+      const jobResult = await processDocumentJob(job);
+      const durationMs = Date.now() - startTime;
+
+      if (jobResult.success) {
+        await supabaseAdmin.rpc('complete_job', {
+          p_job_id: job.id,
+          p_output_content: jobResult.content || '',
+          p_output_metadata: { durationMs, workerId },
+          p_tool_executions: null,
+        });
+        result.succeeded++;
+        result.jobs.push({ jobId: job.id, status: 'completed', durationMs });
+      } else {
+        await supabaseAdmin.rpc('fail_job', {
+          p_job_id: job.id,
+          p_error_message: jobResult.error || 'Unknown error',
+          p_error_code: 'DOC_PROCESSING_ERROR',
+        });
+        result.failed++;
+        result.jobs.push({ jobId: job.id, status: 'failed', durationMs, error: jobResult.error });
+      }
+    } catch (error) {
+      const durationMs = Date.now() - startTime;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      await supabaseAdmin.rpc('fail_job', {
+        p_job_id: job.id,
+        p_error_message: errorMessage,
+        p_error_code: 'DOC_WORKER_ERROR',
+      });
+      result.failed++;
+      result.jobs.push({ jobId: job.id, status: 'failed', durationMs, error: errorMessage });
+    }
+  }
+
+  return result;
 }
 
 /**

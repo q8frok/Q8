@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Download, Share2, X, ZoomIn, Wand2, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { logger } from '@/lib/logger';
 
 export interface GeneratedImageData {
   id: string;
@@ -73,7 +74,7 @@ function SingleImage({ image, onZoom }: SingleImageProps) {
         setTimeout(() => setShareStatus('idle'), 2000);
       }
     } catch (error) {
-      console.error('Share failed:', error);
+      logger.error('Share failed', { error });
     }
   };
 

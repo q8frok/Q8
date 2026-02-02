@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { logger } from '@/lib/logger';
 import type { PresetSuggestion } from '@/lib/presets/preset-config';
 import { PRESET_SUGGESTIONS } from '@/lib/presets/preset-config';
 import {
@@ -63,7 +64,7 @@ export function usePresetSuggestions(
           setServices(data);
         }
       } catch (error) {
-        console.warn('Failed to fetch service status:', error);
+        logger.warn('Failed to fetch service status', { error });
       } finally {
         setIsLoading(false);
       }

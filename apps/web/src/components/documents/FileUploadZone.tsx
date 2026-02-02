@@ -117,56 +117,93 @@ export function FileUploadZone({
       { id: uploadId, file, status: 'uploading', progress: 0 },
     ]);
 
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('scope', scope);
-      if (threadId) {
-        formData.append('threadId', threadId);
-      }
-      if (folderId) {
-        formData.append('folderId', folderId);
-      }
-
-      const response = await fetch('/api/documents', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Upload failed');
-      }
-
-      // Update status to success
-      setUploadingFiles((prev) =>
-        prev.map((f) =>
-          f.id === uploadId
-            ? { ...f, status: 'success', progress: 100, document: data.document }
-            : f
-        )
-      );
-
-      onUploadComplete?.(data.document);
-
-      // Remove from list after delay
-      setTimeout(() => {
-        setUploadingFiles((prev) => prev.filter((f) => f.id !== uploadId));
-      }, 3000);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Upload failed';
-
-      setUploadingFiles((prev) =>
-        prev.map((f) =>
-          f.id === uploadId
-            ? { ...f, status: 'error', error: errorMessage }
-            : f
-        )
-      );
-
-      onUploadError?.(errorMessage);
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('scope', scope);
+    if (threadId) {
+      formData.append('threadId', threadId);
     }
+    if (folderId) {
+      formData.append('folderId', folderId);
+    }
+
+    // Use XMLHttpRequest for upload progress tracking
+    return new Promise<void>((resolve) => {
+      const xhr = new XMLHttpRequest();
+
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const progress = Math.round((event.loaded / event.total) * 100);
+          setUploadingFiles((prev) =>
+            prev.map((f) =>
+              f.id === uploadId ? { ...f, progress } : f
+            )
+          );
+        }
+      };
+
+      xhr.onload = () => {
+        try {
+          const data = JSON.parse(xhr.responseText);
+
+          // Handle duplicate detection (409)
+          if (xhr.status === 409 && data.duplicate) {
+            const dupMsg = `File already exists: "${data.existingDocument?.name || 'unknown'}"`;
+            setUploadingFiles((prev) =>
+              prev.map((f) =>
+                f.id === uploadId ? { ...f, status: 'error', error: dupMsg } : f
+              )
+            );
+            onUploadError?.(dupMsg);
+            resolve();
+            return;
+          }
+
+          if (xhr.status >= 200 && xhr.status < 300 && data.document) {
+            setUploadingFiles((prev) =>
+              prev.map((f) =>
+                f.id === uploadId
+                  ? { ...f, status: 'success', progress: 100, document: data.document }
+                  : f
+              )
+            );
+            onUploadComplete?.(data.document);
+            setTimeout(() => {
+              setUploadingFiles((prev) => prev.filter((f) => f.id !== uploadId));
+            }, 3000);
+          } else {
+            const errorMessage = data.error || 'Upload failed';
+            setUploadingFiles((prev) =>
+              prev.map((f) =>
+                f.id === uploadId ? { ...f, status: 'error', error: errorMessage } : f
+              )
+            );
+            onUploadError?.(errorMessage);
+          }
+        } catch {
+          setUploadingFiles((prev) =>
+            prev.map((f) =>
+              f.id === uploadId ? { ...f, status: 'error', error: 'Upload failed' } : f
+            )
+          );
+          onUploadError?.('Upload failed');
+        }
+        resolve();
+      };
+
+      xhr.onerror = () => {
+        setUploadingFiles((prev) =>
+          prev.map((f) =>
+            f.id === uploadId ? { ...f, status: 'error', error: 'Network error' } : f
+          )
+        );
+        onUploadError?.('Network error');
+        resolve();
+      };
+
+      xhr.open('POST', '/api/documents');
+      xhr.send(formData);
+    });
   };
 
   const uploadFilesParallel = useCallback(
@@ -255,7 +292,7 @@ export function FileUploadZone({
                   {upload.file.name}
                 </span>
                 {upload.status === 'uploading' && (
-                  <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />
+                  <span className="text-xs text-blue-400 tabular-nums">{upload.progress}%</span>
                 )}
                 {upload.status === 'success' && (
                   <CheckCircle className="w-4 h-4 text-green-400" />
@@ -326,7 +363,18 @@ export function FileUploadZone({
                   {upload.file.name}
                 </p>
                 {upload.status === 'uploading' && (
-                  <p className="text-xs text-white/50">Uploading...</p>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-white/50">Uploading...</p>
+                      <span className="text-xs text-white/50">{upload.progress}%</span>
+                    </div>
+                    <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-blue-400 rounded-full transition-all duration-300"
+                        style={{ width: `${upload.progress}%` }}
+                      />
+                    </div>
+                  </div>
                 )}
                 {upload.status === 'success' && (
                   <p className="text-xs text-green-400">Uploaded successfully</p>

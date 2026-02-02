@@ -138,7 +138,8 @@ export function SyncProgressDrawer({
         initial={{ opacity: 0, y: 100 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 100 }}
-        className="fixed bottom-4 left-4 right-4 z-50 max-w-md mx-auto"
+        className="fixed left-4 right-4 z-50 max-w-md mx-auto"
+        style={{ bottom: 'max(1rem, env(safe-area-inset-bottom, 0px))' }}
       >
         <div className="bg-surface-3/95 backdrop-blur-xl border border-border-subtle rounded-2xl shadow-2xl overflow-hidden">
           {/* Header */}

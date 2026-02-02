@@ -19,11 +19,19 @@ const openai = new OpenAI({
 // TYPES
 // =============================================================================
 
+export type QuickActionType = 'chat' | 'navigate' | 'widget-action';
+
 export interface QuickAction {
   id: string;
   label: string;
-  action: string; // message to send to chat
   icon: 'calendar' | 'task' | 'weather' | 'chat' | 'home' | 'search';
+  type: QuickActionType;
+  /** For 'chat' type — message sent to chat */
+  chatMessage?: string;
+  /** For 'navigate' type — widget to open */
+  navigateTo?: { widget: string; view?: string };
+  /** Legacy field — kept for backward compatibility */
+  action?: string;
 }
 
 export interface Insight {
@@ -59,10 +67,7 @@ export interface DailyBriefContent {
     low: number;
     description: string;
   };
-  tasks?: {
-    urgent: string[];
-    today: string[];
-  };
+  tasks?: BriefTasksData;
   quote?: {
     text: string;
     author: string;
@@ -102,44 +107,50 @@ function generateQuickActions(
   if (timeOfDay === 'morning') {
     actions.push({
       id: nextId(),
-      label: 'Check Calendar',
-      action: "What's on my calendar today?",
+      label: 'View Calendar',
       icon: 'calendar',
+      type: 'navigate',
+      navigateTo: { widget: 'calendar' },
     });
     if (dayOfWeek !== 'Saturday' && dayOfWeek !== 'Sunday') {
       actions.push({
         id: nextId(),
-        label: 'Check Emails',
-        action: 'Any important emails I should know about?',
+        label: 'Ask About Emails',
         icon: 'chat',
+        type: 'chat',
+        chatMessage: 'Any important emails I should know about?',
       });
     }
   } else if (timeOfDay === 'afternoon') {
     actions.push({
       id: nextId(),
-      label: 'Remaining Tasks',
-      action: 'What tasks do I have left today?',
+      label: 'View Tasks',
       icon: 'task',
+      type: 'navigate',
+      navigateTo: { widget: 'tasks' },
     });
   } else if (timeOfDay === 'evening') {
     actions.push({
       id: nextId(),
       label: 'Day Summary',
-      action: 'Give me a summary of today',
       icon: 'chat',
+      type: 'chat',
+      chatMessage: 'Give me a summary of today',
     });
     actions.push({
       id: nextId(),
-      label: 'Tomorrow Preview',
-      action: "What's on my calendar tomorrow?",
+      label: "Tomorrow's Calendar",
       icon: 'calendar',
+      type: 'navigate',
+      navigateTo: { widget: 'calendar' },
     });
   } else if (timeOfDay === 'night') {
     actions.push({
       id: nextId(),
       label: 'Goodnight Routine',
-      action: 'Run my goodnight routine',
       icon: 'home',
+      type: 'chat',
+      chatMessage: 'Run my goodnight routine',
     });
   }
 
@@ -149,9 +160,10 @@ function generateQuickActions(
     if (condition.includes('rain') || condition.includes('snow')) {
       actions.push({
         id: nextId(),
-        label: 'Check Forecast',
-        action: "What's the detailed weather forecast for today?",
+        label: 'Weather Details',
         icon: 'weather',
+        type: 'navigate',
+        navigateTo: { widget: 'weather' },
       });
     }
   }
@@ -161,8 +173,9 @@ function generateQuickActions(
     actions.push({
       id: nextId(),
       label: 'Next Meeting',
-      action: 'When is my next meeting and what should I prepare?',
       icon: 'calendar',
+      type: 'navigate',
+      navigateTo: { widget: 'calendar' },
     });
   }
 
@@ -170,9 +183,10 @@ function generateQuickActions(
   if (hasUrgentTasks) {
     actions.push({
       id: nextId(),
-      label: 'Focus Mode',
-      action: 'Help me focus on my urgent tasks',
+      label: 'Focus on Tasks',
       icon: 'task',
+      type: 'navigate',
+      navigateTo: { widget: 'tasks' },
     });
   }
 
@@ -180,11 +194,12 @@ function generateQuickActions(
   actions.push({
     id: nextId(),
     label: 'Smart Home',
-    action: "What's the status of my smart home devices?",
     icon: 'home',
+    type: 'navigate',
+    navigateTo: { widget: 'home' },
   });
 
-  return actions.slice(0, 6); // Limit to 6 quick actions
+  return actions.slice(0, 6);
 }
 
 // =============================================================================
@@ -626,39 +641,64 @@ async function fetchWeather(
 /**
  * Fetch user's tasks
  */
+interface BriefTask {
+  id: string;
+  title: string;
+  status: string;
+  priority: string;
+  dueDate?: string;
+  isUrgent: boolean;
+}
+
+interface BriefTasksData {
+  urgent: BriefTask[];
+  today: BriefTask[];
+  totalActive: number;
+}
+
 async function fetchTasks(
   userId: string
-): Promise<DailyBriefContent['tasks']> {
+): Promise<BriefTasksData> {
   try {
     const { data: tasks } = await supabaseAdmin
       .from('tasks')
-      .select('title, priority, due_date, status')
+      .select('id, title, priority, due_date, status')
       .eq('user_id', userId)
       .neq('status', 'done')
       .order('priority', { ascending: false })
       .limit(10);
 
     if (!tasks || tasks.length === 0) {
-      return { urgent: [], today: [] };
+      return { urgent: [], today: [], totalActive: 0 };
     }
+
+    const toBriefTask = (t: { id: string; title: string; priority: string; due_date?: string; status: string }, isUrgent: boolean): BriefTask => ({
+      id: t.id,
+      title: t.title,
+      status: t.status,
+      priority: t.priority,
+      dueDate: t.due_date,
+      isUrgent,
+    });
 
     const urgent = tasks
       .filter((t: { priority: string }) => t.priority === 'urgent' || t.priority === 'high')
-      .map((t: { title: string }) => t.title);
+      .map((t: { id: string; title: string; priority: string; due_date?: string; status: string }) => toBriefTask(t, true));
 
     const today = tasks
-      .filter((t: { due_date?: string }) => {
+      .filter((t: { due_date?: string; priority: string }) => {
+        if (t.priority === 'urgent' || t.priority === 'high') return false; // Already in urgent
         if (!t.due_date) return false;
         const due = new Date(t.due_date);
         const now = new Date();
         return due.toDateString() === now.toDateString();
       })
-      .map((t: { title: string }) => t.title);
+      .map((t: { id: string; title: string; priority: string; due_date?: string; status: string }) => toBriefTask(t, false));
 
-    return { urgent, today };
+    return { urgent, today, totalActive: tasks.length };
   } catch (error) {
     logger.warn('Failed to fetch tasks for brief', { userId, error });
-    return { urgent: [], today: [] };
+    return { urgent: [], today: [], totalActive: 0 };
   }
 }
 
@@ -686,8 +726,8 @@ ${data.calendarEvents.map(e => `- ${e.time}: ${e.title}`).join('\n')}
 
 ${data.weather ? `Weather: ${data.weather.temp}°F, ${data.weather.description}` : 'Weather: Not available'}
 
-${data.tasks?.urgent.length ? `Urgent tasks: ${data.tasks.urgent.join(', ')}` : ''}
-${data.tasks?.today.length ? `Due today: ${data.tasks.today.join(', ')}` : ''}
+${data.tasks?.urgent.length ? `Urgent tasks: ${data.tasks.urgent.map((t: { title: string }) => t.title).join(', ')}` : ''}
+${data.tasks?.today.length ? `Due today: ${data.tasks.today.map((t: { title: string }) => t.title).join(', ')}` : ''}
 
 Write 2-3 sentences highlighting the most important things for ${data.timeOfDay === 'morning' ? 'today' : 'the rest of the day'}. Be warm but concise.`;
 

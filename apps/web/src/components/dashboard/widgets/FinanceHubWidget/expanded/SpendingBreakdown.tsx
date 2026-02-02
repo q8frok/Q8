@@ -221,14 +221,17 @@ export function SpendingBreakdown({ className }: SpendingBreakdownProps) {
   }, [merchantData, selectedMerchant]);
 
   // Calculate totals
-  const totalSpending = categoryData.reduce((sum, cat) => sum + cat.value, 0);
-  const previousTotalSpending = categoryData.reduce(
-    (sum, cat) => sum + (cat.previousValue || 0),
-    0
-  );
-  const spendingChange = previousTotalSpending > 0
-    ? ((totalSpending - previousTotalSpending) / previousTotalSpending) * 100
-    : 0;
+  const { totalSpending, previousTotalSpending, spendingChange } = useMemo(() => {
+    const total = categoryData.reduce((sum, cat) => sum + cat.value, 0);
+    const prevTotal = categoryData.reduce(
+      (sum, cat) => sum + (cat.previousValue || 0),
+      0
+    );
+    const change = prevTotal > 0
+      ? ((total - prevTotal) / prevTotal) * 100
+      : 0;
+    return { totalSpending: total, previousTotalSpending: prevTotal, spendingChange: change };
+  }, [categoryData]);
 
   // Navigation handlers
   const handleCategoryClick = (categoryName: string) => {

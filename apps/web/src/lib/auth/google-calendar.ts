@@ -5,6 +5,7 @@
  */
 
 import { supabase } from '@/lib/supabase/client';
+import { logger } from '@/lib/logger';
 import type { UserIdentity } from '@supabase/supabase-js';
 
 export interface GoogleTokenResult {
@@ -82,7 +83,7 @@ export async function refreshCalendarToken(): Promise<GoogleTokenResult | null> 
   const { data: { session }, error } = await supabase.auth.refreshSession();
 
   if (error || !session) {
-    console.error('Failed to refresh session:', error);
+    logger.error('Failed to refresh session', { error });
     return null;
   }
 

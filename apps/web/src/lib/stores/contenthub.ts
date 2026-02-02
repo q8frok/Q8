@@ -46,6 +46,14 @@ interface ContentHubState {
   // Shared queue
   activeSharedQueue: string | null;
 
+  // YouTube player controls reference (non-persisted)
+  youtubeControls: {
+    play: () => void;
+    pause: () => void;
+    seekTo: (seconds: number) => void;
+    setVolume: (volume: number) => void;
+  } | null;
+
   // Loading states
   isLoading: boolean;
   error: string | null;
@@ -82,6 +90,9 @@ interface ContentHubState {
   joinSharedQueue: (queueId: string) => void;
   leaveSharedQueue: () => void;
 
+  // YouTube player registration
+  setYouTubeControls: (controls: ContentHubState['youtubeControls']) => void;
+
   // Error handling
   setError: (error: string | null) => void;
   setLoading: (loading: boolean) => void;
@@ -107,6 +118,7 @@ const initialState = {
   showLyrics: false,
   isPiPActive: false,
   dominantColor: null,
+  youtubeControls: null,
   activeSharedQueue: null,
   isLoading: false,
   error: null,
@@ -240,6 +252,9 @@ export const useContentHubStore = create<ContentHubState>()(
       joinSharedQueue: (queueId) => set({ activeSharedQueue: queueId }),
 
       leaveSharedQueue: () => set({ activeSharedQueue: null }),
+
+      // YouTube player registration
+      setYouTubeControls: (controls) => set({ youtubeControls: controls }),
 
       // Error handling
       setError: (error) => set({ error }),

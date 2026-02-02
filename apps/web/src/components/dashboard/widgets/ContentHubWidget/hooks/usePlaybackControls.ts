@@ -1,6 +1,7 @@
 /**
  * usePlaybackControls Hook
  * Encapsulates playback control logic for ContentHub
+ * Supports Spotify (via API), YouTube (via iframe API), and queue-based sources.
  */
 
 import { useCallback, useState } from 'react';
@@ -28,6 +29,7 @@ export function usePlaybackControls(): UsePlaybackControlsReturn {
     isPlaying,
     shuffleState,
     repeatState,
+    youtubeControls,
     play,
   } = useContentHubStore();
 
@@ -50,28 +52,30 @@ export function usePlaybackControls(): UsePlaybackControlsReturn {
       } finally {
         setControlLoading(false);
       }
+    } else if (nowPlaying?.source === 'youtube' && youtubeControls) {
+      // Control the YouTube iframe player directly
+      if (isPlaying) {
+        youtubeControls.pause();
+      } else {
+        youtubeControls.play();
+      }
+      useContentHubStore.setState({ isPlaying: !isPlaying });
     } else {
       useContentHubStore.setState({ isPlaying: !isPlaying });
     }
-  }, [isPlaying, nowPlaying?.source, spotifyControls]);
+  }, [isPlaying, nowPlaying?.source, spotifyControls, youtubeControls]);
 
   const handlePlay = useCallback(
     (item: ContentItem) => {
       play(item);
-      
+
       if (item.source === 'spotify' && item.sourceMetadata?.uri) {
-        // Play Spotify track via API
         spotifyControls.play(item.sourceMetadata.uri as string);
       } else if (item.source === 'youtube') {
-        // For YouTube, we need to handle differently
-        // The NowPlayingCard will show the embedded player
-        // Set playing state to true
+        // The YouTubePlayer component will auto-play via autoplay prop.
+        // Just set the store state.
         useContentHubStore.setState({ isPlaying: true });
-        
-        // If there's a playback URL, we could also open it
-        // But the embedded player in NowPlayingCard should handle it
       } else {
-        // For other sources, set playing state
         useContentHubStore.setState({ isPlaying: true });
       }
     },
@@ -83,9 +87,12 @@ export function usePlaybackControls(): UsePlaybackControlsReturn {
       useContentHubStore.setState({ progress: position });
       if (nowPlaying?.source === 'spotify') {
         spotifyControls.seek(position);
+      } else if (nowPlaying?.source === 'youtube' && youtubeControls) {
+        // position is in ms, YouTube API expects seconds
+        youtubeControls.seekTo(position / 1000);
       }
     },
-    [nowPlaying?.source, spotifyControls]
+    [nowPlaying?.source, spotifyControls, youtubeControls]
   );
 
   const handleNext = useCallback(async () => {
@@ -124,13 +131,16 @@ export function usePlaybackControls(): UsePlaybackControlsReturn {
         logger.error('Shuffle toggle failed', { error: err });
         useContentHubStore.setState({ shuffleState: shuffleState });
       }
+    } else {
+      // For non-Spotify sources, toggle local shuffle state
+      useContentHubStore.setState({ shuffleState: !shuffleState });
     }
   }, [nowPlaying?.source, shuffleState, spotifyControls]);
 
   const handleRepeat = useCallback(async () => {
+    const nextState = repeatState === 'off' ? 'context' :
+                      repeatState === 'context' ? 'track' : 'off';
     if (nowPlaying?.source === 'spotify') {
-      const nextState = repeatState === 'off' ? 'context' : 
-                        repeatState === 'context' ? 'track' : 'off';
       useContentHubStore.setState({ repeatState: nextState });
       try {
         await spotifyControls.repeat(nextState);
@@ -138,6 +148,9 @@ export function usePlaybackControls(): UsePlaybackControlsReturn {
         logger.error('Repeat toggle failed', { error: err });
         useContentHubStore.setState({ repeatState: repeatState });
       }
+    } else {
+      // For non-Spotify sources, toggle local repeat state
+      useContentHubStore.setState({ repeatState: nextState });
     }
   }, [nowPlaying?.source, repeatState, spotifyControls]);
 
@@ -148,8 +161,12 @@ export function usePlaybackControls(): UsePlaybackControlsReturn {
       } catch (err) {
         logger.error('Volume change failed', { error: err });
       }
+    } else if (nowPlaying?.source === 'youtube' && youtubeControls) {
+      youtubeControls.setVolume(volume);
     }
-  }, [nowPlaying?.source, spotifyControls]);
+    // Always update store volume for UI consistency
+    useContentHubStore.setState({ volume });
+  }, [nowPlaying?.source, spotifyControls, youtubeControls]);
 
   return {
     controlLoading,

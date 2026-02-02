@@ -1,7 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
+import { logger } from '@/lib/logger';
 import OpenAI from 'openai';
+
+interface GeneratedTask {
+  title: string;
+  description?: string;
+  priority?: 'low' | 'medium' | 'high' | 'urgent';
+  estimated_minutes?: number;
+  tags?: string[];
+}
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -64,7 +73,7 @@ Keep tasks specific, actionable, and well-scoped. Estimate time realistically.`,
     const tasks = Array.isArray(parsed.tasks) ? parsed.tasks : parsed;
 
     const now = new Date().toISOString();
-    const tasksToInsert = tasks.map((task: any) => ({
+    const tasksToInsert = tasks.map((task: GeneratedTask) => ({
       id: crypto.randomUUID(),
       user_id: user.id,
       title: task.title,
@@ -90,13 +99,13 @@ Keep tasks specific, actionable, and well-scoped. Estimate time realistically.`,
       .select();
 
     if (error) {
-      console.error('Failed to insert AI-generated tasks:', error);
+      logger.error('Failed to insert AI-generated tasks', { error });
       return NextResponse.json({ error: 'Failed to save tasks' }, { status: 500 });
     }
 
     return NextResponse.json({ tasks: data });
   } catch (error) {
-    console.error('Task generation error:', error);
+    logger.error('Task generation error', { error });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

@@ -6,8 +6,10 @@ import {
   useState,
   useCallback,
   useEffect,
+  useRef,
   type ReactNode,
 } from 'react';
+import { logger } from '@/lib/logger';
 
 /**
  * Widget identifier types
@@ -77,10 +79,8 @@ interface WidgetUpdateProviderProps {
  * Enables agents to trigger widget refreshes, create actions, and more
  */
 export function WidgetUpdateProvider({ children }: WidgetUpdateProviderProps) {
-  // Store subscriptions per widget
-  const [subscriptions, setSubscriptions] = useState<
-    Map<WidgetId, Set<WidgetUpdateCallback>>
-  >(new Map());
+  // Store subscriptions per widget (ref to avoid re-renders)
+  const subscriptionsRef = useRef<Map<WidgetId, Set<WidgetUpdateCallback>>>(new Map());
 
   // Store last update per widget
   const [lastUpdates, setLastUpdates] = useState<Map<WidgetId, WidgetUpdate>>(
@@ -110,7 +110,7 @@ export function WidgetUpdateProvider({ children }: WidgetUpdateProviderProps) {
       });
 
       // Get subscriptions for this widget
-      const widgetSubs = subscriptions.get(update.widgetId);
+      const widgetSubs = subscriptionsRef.current.get(update.widgetId);
 
       if (widgetSubs && widgetSubs.size > 0) {
         // Notify all subscribers
@@ -118,10 +118,7 @@ export function WidgetUpdateProvider({ children }: WidgetUpdateProviderProps) {
           try {
             callback(fullUpdate);
           } catch (error) {
-            console.error(
-              `Error in widget update callback for ${update.widgetId}:`,
-              error
-            );
+            logger.error('Error in widget update callback', { widgetId: update.widgetId, error });
           }
         });
       } else {
@@ -134,7 +131,7 @@ export function WidgetUpdateProvider({ children }: WidgetUpdateProviderProps) {
         });
       }
     },
-    [subscriptions]
+    []
   );
 
   /**
@@ -142,27 +139,20 @@ export function WidgetUpdateProvider({ children }: WidgetUpdateProviderProps) {
    */
   const subscribeWidget = useCallback(
     (widgetId: WidgetId, callback: WidgetUpdateCallback) => {
-      setSubscriptions((prev) => {
-        const next = new Map(prev);
-        const existing = next.get(widgetId) || new Set();
-        existing.add(callback);
-        next.set(widgetId, existing);
-        return next;
-      });
+      const subs = subscriptionsRef.current;
+      const existing = subs.get(widgetId) || new Set();
+      existing.add(callback);
+      subs.set(widgetId, existing);
 
       // Return unsubscribe function
       return () => {
-        setSubscriptions((prev) => {
-          const next = new Map(prev);
-          const existing = next.get(widgetId);
-          if (existing) {
-            existing.delete(callback);
-            if (existing.size === 0) {
-              next.delete(widgetId);
-            }
+        const current = subscriptionsRef.current.get(widgetId);
+        if (current) {
+          current.delete(callback);
+          if (current.size === 0) {
+            subscriptionsRef.current.delete(widgetId);
           }
-          return next;
-        });
+        }
       };
     },
     []
@@ -215,7 +205,7 @@ export function WidgetUpdateProvider({ children }: WidgetUpdateProviderProps) {
 }
 
 /**
- * Hook to use widget update context
+ * Hook to use widget update context (throws if not in provider)
  */
 export function useWidgetUpdates() {
   const context = useContext(WidgetUpdateContext);
@@ -227,12 +217,29 @@ export function useWidgetUpdates() {
   return context;
 }
 
+// No-op fallback for when provider is not mounted
+const noopWidgetUpdates: WidgetUpdateContextValue = {
+  pushUpdate: () => {},
+  subscribeWidget: () => () => {},
+  getLastUpdate: () => null,
+  getPendingUpdates: () => [],
+  clearPendingUpdates: () => {},
+};
+
+/**
+ * Hook to optionally use widget update context (safe outside provider)
+ */
+export function useOptionalWidgetUpdates(): WidgetUpdateContextValue {
+  const context = useContext(WidgetUpdateContext);
+  return context ?? noopWidgetUpdates;
+}
+
 /**
  * Hook for widgets to subscribe to updates and get helpers
  */
 export function useWidgetSubscription(widgetId: WidgetId) {
   const { subscribeWidget, getLastUpdate, getPendingUpdates, clearPendingUpdates } =
-    useWidgetUpdates();
+    useOptionalWidgetUpdates();
   const [updates, setUpdates] = useState<WidgetUpdate[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
 

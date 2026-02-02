@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const state = Math.random().toString(36).substring(7);
+  const state = crypto.randomUUID();
   
   const authUrl = new URL(SPOTIFY_AUTH_URL);
   authUrl.searchParams.set('client_id', CLIENT_ID);

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRxCollection } from 'rxdb-hooks';
 import type { RxDocument } from 'rxdb';
+import { logger } from '@/lib/logger';
 
 export interface ClockAlarm {
   id: string;
@@ -41,7 +42,7 @@ export function useClockAlarms(userId: string) {
 
       setAlarms(docs.map((doc) => doc.toJSON() as ClockAlarm));
     } catch (error) {
-      console.error('Failed to fetch alarms:', error);
+      logger.error('Failed to fetch alarms', { error });
     } finally {
       setIsLoading(false);
     }
@@ -84,7 +85,7 @@ export function useClockAlarms(userId: string) {
 
         return doc.toJSON();
       } catch (error) {
-        console.error('Failed to add alarm:', error);
+        logger.error('Failed to add alarm', { error });
         return null;
       }
     },
@@ -108,7 +109,7 @@ export function useClockAlarms(userId: string) {
 
         return true;
       } catch (error) {
-        console.error('Failed to update alarm:', error);
+        logger.error('Failed to update alarm', { error });
         return false;
       }
     },
@@ -132,7 +133,7 @@ export function useClockAlarms(userId: string) {
 
         return true;
       } catch (error) {
-        console.error('Failed to delete alarm:', error);
+        logger.error('Failed to delete alarm', { error });
         return false;
       }
     },
@@ -157,7 +158,7 @@ export function useClockAlarms(userId: string) {
 
         return true;
       } catch (error) {
-        console.error('Failed to toggle alarm:', error);
+        logger.error('Failed to toggle alarm', { error });
         return false;
       }
     },

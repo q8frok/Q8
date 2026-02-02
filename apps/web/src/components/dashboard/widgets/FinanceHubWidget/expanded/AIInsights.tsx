@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Sparkles,
@@ -87,9 +87,55 @@ const TYPE_ICONS: Record<string, typeof TrendingUp> = {
   anomaly_detected: AlertTriangle,
 };
 
-const SUGGESTED_QUESTIONS = [
+/** Generate personalized suggestions based on actual financial data */
+function getSuggestedQuestions(context: {
+  liquidAssets: number;
+  monthlySpending: number;
+  topCategory: string | null;
+  upcomingBillCount: number;
+  totalLiabilities: number;
+}): string[] {
+  const suggestions: string[] = [];
+
+  // Suggest an affordability check scaled to the user's liquid assets
+  if (context.liquidAssets > 0) {
+    const affordAmount = Math.round(context.liquidAssets * 0.1 / 50) * 50 || 100;
+    suggestions.push(`Can I afford a $${affordAmount.toLocaleString()} purchase?`);
+  } else {
+    suggestions.push('Can I afford a $200 purchase?');
+  }
+
+  // Ask about top spending category if available
+  if (context.topCategory) {
+    suggestions.push(`How much am I spending on ${context.topCategory.toLowerCase()}?`);
+  } else {
+    suggestions.push('What are my biggest spending categories?');
+  }
+
+  // Bills question — contextual count
+  if (context.upcomingBillCount > 0) {
+    suggestions.push(`What are my ${context.upcomingBillCount} upcoming bills?`);
+  } else {
+    suggestions.push('What bills are coming up?');
+  }
+
+  suggestions.push('How can I save more this month?');
+  suggestions.push("What's my cash flow this month?");
+
+  // Debt-specific question if user has liabilities
+  if (context.totalLiabilities > 0) {
+    suggestions.push('What is the best strategy to pay off my debt?');
+  } else {
+    suggestions.push('Show me my recurring expenses');
+  }
+
+  return suggestions;
+}
+
+/** Fallback for when dynamic data isn't available yet */
+const DEFAULT_SUGGESTED_QUESTIONS = [
   'Can I afford a $500 purchase?',
-  'How much am I spending on food?',
+  'What are my biggest spending categories?',
   'What bills are coming up?',
   'How can I save more?',
   "What's my cash flow this month?",
@@ -121,6 +167,49 @@ export function AIInsights({ className }: AIInsightsProps) {
 
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Compute personalized suggested questions from actual data
+  const suggestedQuestions = useMemo(() => {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const recentExpenses = transactions.filter(
+      (tx) => new Date(tx.date) >= thirtyDaysAgo && tx.amount < 0
+    );
+    const monthlySpending = recentExpenses.reduce(
+      (sum, tx) => sum + Math.abs(tx.amount), 0
+    );
+
+    // Determine top spending category
+    const categorySpending: Record<string, number> = {};
+    for (const tx of recentExpenses) {
+      const cat = tx.category[0] || 'Other';
+      categorySpending[cat] = (categorySpending[cat] || 0) + Math.abs(tx.amount);
+    }
+    const sorted = Object.entries(categorySpending).sort((a, b) => b[1] - a[1]);
+    const topCategory = sorted[0]?.[0] ?? null;
+
+    // Count upcoming bills
+    const today = new Date();
+    const upcomingBillCount = recurring.filter((r) => {
+      if (r.isIncome || !r.isActive) return false;
+      const due = new Date(r.nextDueDate);
+      const days = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      return days <= 7 && days >= 0;
+    }).length;
+
+    // If we have meaningful data, generate personalised questions
+    if (transactions.length > 0) {
+      return getSuggestedQuestions({
+        liquidAssets,
+        monthlySpending,
+        topCategory,
+        upcomingBillCount,
+        totalLiabilities,
+      });
+    }
+    return DEFAULT_SUGGESTED_QUESTIONS;
+  }, [transactions, recurring, liquidAssets, totalLiabilities]);
 
   // Scroll to bottom of chat when new messages arrive
   useEffect(() => {
@@ -524,7 +613,7 @@ export function AIInsights({ className }: AIInsightsProps) {
                 <Bot className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p className="mb-4">Ask me anything about your finances!</p>
                 <div className="flex flex-wrap gap-2 justify-center max-w-md mx-auto">
-                  {SUGGESTED_QUESTIONS.map((suggestion) => (
+                  {suggestedQuestions.map((suggestion) => (
                     <button
                       key={suggestion}
                       onClick={() => handleSuggestionClick(suggestion)}
@@ -606,7 +695,7 @@ export function AIInsights({ className }: AIInsightsProps) {
           {/* Suggested follow-ups after conversation starts */}
           {chatMessages.length > 0 && chatMessages.length < 6 && !isSending && (
             <div className="flex flex-wrap gap-2 mb-3">
-              {SUGGESTED_QUESTIONS.slice(0, 3)
+              {suggestedQuestions.slice(0, 3)
                 .filter((q) => !chatMessages.some((m) => m.content.includes(q)))
                 .map((suggestion) => (
                   <button
@@ -652,7 +741,8 @@ export function AIInsights({ className }: AIInsightsProps) {
 }
 
 /**
- * Generate a local fallback response when AI API is unavailable
+ * Generate a local fallback response when AI API is unavailable.
+ * Uses pattern-matching with priority ordering: the first match wins.
  */
 function generateLocalResponse(
   question: string,
@@ -665,55 +755,88 @@ function generateLocalResponse(
 ): string {
   const q = question.toLowerCase();
 
+  // --- Affordability check (with dollar-amount extraction) ---
   if (q.includes('afford') || q.includes('buy') || q.includes('purchase')) {
     const match = question.match(/\$?(\d+(?:,\d{3})*(?:\.\d{2})?)/);
     const amount = match && match[1] ? parseFloat(match[1].replace(',', '')) : 0;
 
-    if (amount > 0) {
+    if (amount > 0 && context.liquidAssets > 0) {
+      const pct = (amount / context.liquidAssets) * 100;
       const safeAmount = context.liquidAssets * 0.3;
       if (amount <= safeAmount) {
-        return `Based on your current finances, you can comfortably afford a ${formatCurrency(amount)} purchase. You have ${formatCurrency(context.liquidAssets)} in liquid assets, and this purchase would use about ${((amount / context.liquidAssets) * 100).toFixed(1)}% of your available funds.`;
+        return `Based on your current finances, you can comfortably afford a ${formatCurrency(amount)} purchase. You have ${formatCurrency(context.liquidAssets)} in liquid assets, and this would use about ${pct.toFixed(1)}% of your available funds.`;
       } else if (amount <= context.liquidAssets) {
-        return `A ${formatCurrency(amount)} purchase is possible but would use ${((amount / context.liquidAssets) * 100).toFixed(1)}% of your liquid assets. Consider whether this is a priority and if you have an emergency fund in place.`;
+        return `A ${formatCurrency(amount)} purchase is possible but would use ${pct.toFixed(1)}% of your liquid assets (${formatCurrency(context.liquidAssets)}). Consider whether this is a priority and if you have an emergency fund in place.`;
       } else {
-        return `A ${formatCurrency(amount)} purchase exceeds your current liquid assets of ${formatCurrency(context.liquidAssets)}. You might want to save up or consider financing options carefully.`;
+        return `A ${formatCurrency(amount)} purchase exceeds your current liquid assets of ${formatCurrency(context.liquidAssets)}. You might want to save up or consider financing options.`;
       }
     }
+    return `To check affordability, I'd need your liquid assets data. Your current balance shows ${formatCurrency(context.liquidAssets)} available.`;
   }
 
-  if (q.includes('spend') || q.includes('spending')) {
-    return `Over the last 30 days, you have spent approximately ${formatCurrency(context.monthlySpending)}. To better understand where your money is going, check the Spending Breakdown tab.`;
+  // --- Spending / category questions ---
+  if (q.includes('spend') || q.includes('spending') || q.includes('how much') || q.includes('category') || q.includes('categories')) {
+    return `Over the last 30 days, you have spent approximately ${formatCurrency(context.monthlySpending)}. Check the Spending Breakdown tab for a detailed category-by-category view of where your money is going.`;
   }
 
-  if (q.includes('bill') || q.includes('due')) {
-    return `To see your upcoming bills, check the Recurring tab in the main view. It shows all your scheduled payments with due dates and amounts.`;
+  // --- Budget questions ---
+  if (q.includes('budget') || q.includes('over budget') || q.includes('under budget')) {
+    return `Your monthly spending is ${formatCurrency(context.monthlySpending)}. To create or review budgets by category, use the Spending Breakdown tab. A common guideline is the 50/30/20 rule: 50% needs, 30% wants, 20% savings.`;
   }
 
-  if (q.includes('save') || q.includes('saving')) {
+  // --- Bills and upcoming payments ---
+  if (q.includes('bill') || q.includes('due') || q.includes('upcoming') || q.includes('payment')) {
+    return `Check the Recurring tab in the main view for all your upcoming bills with due dates and amounts. You can also set up reminders so you never miss a payment.`;
+  }
+
+  // --- Savings advice ---
+  if (q.includes('save') || q.includes('saving') || q.includes('emergency fund')) {
     const suggestedSavings = context.monthlySpending * 0.2;
-    return `To save more, aim to set aside at least 20% of your income each month. Based on your spending of ${formatCurrency(context.monthlySpending)}, try to save around ${formatCurrency(suggestedSavings)} monthly. Consider automating transfers to a savings account right after payday.`;
+    const emergencyTarget = context.monthlySpending * 6;
+    const emergencyStatus = context.liquidAssets >= emergencyTarget
+      ? `You already meet the 6-month emergency fund target of ${formatCurrency(emergencyTarget)}.`
+      : `Your emergency fund target (6 months of expenses) is ${formatCurrency(emergencyTarget)}. You're ${formatCurrency(emergencyTarget - context.liquidAssets)} away.`;
+    return `To save more, aim to set aside at least 20% of your income — roughly ${formatCurrency(suggestedSavings)}/month based on your spending. ${emergencyStatus} Consider automating transfers right after payday.`;
   }
 
-  if (q.includes('net worth') || q.includes('worth')) {
+  // --- Net worth ---
+  if (q.includes('net worth') || q.includes('worth') || q.includes('total')) {
     return `Your current net worth is ${formatCurrency(context.netWorth)}. This includes ${formatCurrency(context.liquidAssets)} in liquid assets minus ${formatCurrency(context.totalLiabilities)} in liabilities. Track this over time to see your financial progress.`;
   }
 
-  if (q.includes('debt') || q.includes('owe')) {
+  // --- Debt and liabilities ---
+  if (q.includes('debt') || q.includes('owe') || q.includes('loan') || q.includes('credit card') || q.includes('liabilit')) {
     if (context.totalLiabilities > 0) {
-      return `You currently have ${formatCurrency(context.totalLiabilities)} in total liabilities. Focus on paying off high-interest debt first (like credit cards) before tackling lower-interest debt. Consider the avalanche or snowball method for debt repayment.`;
+      const debtToIncome = context.monthlySpending > 0
+        ? ((context.totalLiabilities / (context.monthlySpending * 12)) * 100).toFixed(0)
+        : 'N/A';
+      return `You currently have ${formatCurrency(context.totalLiabilities)} in total liabilities (${debtToIncome}% of estimated annual spend). Focus on paying off high-interest debt first (avalanche method) or smallest balances first for motivation (snowball method).`;
     }
-    return `Great news! You currently have no recorded liabilities. Keep it up by avoiding high-interest debt and only borrowing when necessary.`;
+    return `You currently have no recorded liabilities. Maintaining this position by avoiding high-interest debt will keep your finances healthy.`;
   }
 
-  if (q.includes('cash flow') || q.includes('cashflow')) {
-    return `Your cash flow analysis shows ${formatCurrency(context.monthlySpending)} in expenses this month. Check the Cash Flow chart for a detailed breakdown of income vs. expenses over time.`;
+  // --- Cash flow ---
+  if (q.includes('cash flow') || q.includes('cashflow') || q.includes('income') || q.includes('earnings')) {
+    return `Your expenses this month total ${formatCurrency(context.monthlySpending)}. For a detailed income-vs-expenses breakdown over time, check the Cash Flow chart in the main view.`;
   }
 
-  if (q.includes('recurring') || q.includes('subscription')) {
-    return `To see all your recurring expenses and subscriptions, check the Recurring tab. You can manage and track your regular payments there.`;
+  // --- Recurring / subscriptions ---
+  if (q.includes('recurring') || q.includes('subscription') || q.includes('monthly charge')) {
+    return `All your recurring expenses and subscriptions are tracked in the Recurring tab. Review them periodically — many people find subscriptions they forgot about and can cancel to save money.`;
   }
 
-  return `I understand you are asking about "${question}". Your current financial snapshot shows:\n\n• Net Worth: ${formatCurrency(context.netWorth)}\n• Liquid Assets: ${formatCurrency(context.liquidAssets)}\n• Monthly Spending: ${formatCurrency(context.monthlySpending)}\n\nFor more detailed analysis, try asking specific questions like "Can I afford $X?" or "How much am I spending on food?"`;
+  // --- Investment / growth ---
+  if (q.includes('invest') || q.includes('grow') || q.includes('return') || q.includes('stock') || q.includes('portfolio')) {
+    return `Investment advice requires understanding your risk tolerance and timeline. Your current liquid assets of ${formatCurrency(context.liquidAssets)} could serve as a starting point. Consider consulting a financial advisor for personalized investment guidance.`;
+  }
+
+  // --- Tax questions ---
+  if (q.includes('tax') || q.includes('deduct')) {
+    return `For tax-related questions, I'd recommend consulting a tax professional. Your financial data here can help track deductible expenses — check the Spending Breakdown tab and filter by relevant categories.`;
+  }
+
+  // --- Fallback with financial snapshot ---
+  return `Here's your current financial snapshot:\n\n• Net Worth: ${formatCurrency(context.netWorth)}\n• Liquid Assets: ${formatCurrency(context.liquidAssets)}\n• Monthly Spending: ${formatCurrency(context.monthlySpending)}\n• Liabilities: ${formatCurrency(context.totalLiabilities)}\n\nTry asking more specific questions like "Can I afford $X?", "How much am I spending on food?", or "How can I save more?"`;
 }
 
 AIInsights.displayName = 'AIInsights';

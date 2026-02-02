@@ -7,8 +7,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { clientEnv } from '@/lib/env';
+import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
 
 export async function GET(request: NextRequest) {
+  // Block in production
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Not available in production' }, { status: 403 });
+  }
+
+  // Require authentication
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return unauthorizedResponse();
+  }
+
   const cookieStore = await cookies();
 
   // Check for Google tokens in cookies

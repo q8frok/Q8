@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import { motion } from 'framer-motion';
 import { CheckSquare, Square, Trash2, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -14,7 +15,7 @@ interface TaskItemProps {
   onDelete: (taskId: string) => void;
 }
 
-export function TaskItem({ task, index, onToggle, onDelete }: TaskItemProps) {
+export const TaskItem = memo(function TaskItem({ task, index, onToggle, onDelete }: TaskItemProps) {
   const isCompleted = task.status === 'done';
 
   return (
@@ -99,4 +100,6 @@ export function TaskItem({ task, index, onToggle, onDelete }: TaskItemProps) {
       }}
     </OptimisticAction>
   );
-}
+});
+
+TaskItem.displayName = 'TaskItem';

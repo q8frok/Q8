@@ -15,13 +15,13 @@ import {
   type MemoryType,
   type MemoryImportance,
 } from '@/lib/memory';
+import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
 import { logger } from '@/lib/logger';
 
 export const runtime = 'edge';
 
 interface StoreRequest {
   action: 'store';
-  userId: string;
   content: string;
   type: MemoryType;
   importance?: MemoryImportance;
@@ -31,7 +31,6 @@ interface StoreRequest {
 
 interface SearchRequest {
   action: 'search';
-  userId: string;
   query?: string;
   types?: MemoryType[];
   tags?: string[];
@@ -41,24 +40,20 @@ interface SearchRequest {
 
 interface DeleteRequest {
   action: 'delete';
-  userId: string;
   memoryId: string;
 }
 
 interface GetContextRequest {
   action: 'getContext';
-  userId: string;
   sessionId: string;
 }
 
 interface GetPreferencesRequest {
   action: 'getPreferences';
-  userId: string;
 }
 
 interface UpdatePreferencesRequest {
   action: 'updatePreferences';
-  userId: string;
   preferences: Record<string, unknown>;
 }
 
@@ -72,12 +67,17 @@ type MemoryRequest =
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
+      return unauthorizedResponse();
+    }
+
     const body = (await request.json()) as MemoryRequest;
 
     switch (body.action) {
       case 'store': {
         const memory = storeLongTermMemory(
-          body.userId,
+          user.id,
           body.content,
           body.type,
           {
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
 
       case 'search': {
         const results = searchMemories({
-          userId: body.userId,
+          userId: user.id,
           query: body.query,
           types: body.types,
           tags: body.tags,
@@ -102,22 +102,22 @@ export async function POST(request: NextRequest) {
       }
 
       case 'delete': {
-        const deleted = deleteMemory(body.userId, body.memoryId);
+        const deleted = deleteMemory(user.id, body.memoryId);
         return NextResponse.json({ success: deleted });
       }
 
       case 'getContext': {
-        const context = buildMemoryContext(body.userId, body.sessionId);
+        const context = buildMemoryContext(user.id, body.sessionId);
         return NextResponse.json({ success: true, context });
       }
 
       case 'getPreferences': {
-        const preferences = getUserPreferences(body.userId);
+        const preferences = getUserPreferences(user.id);
         return NextResponse.json({ success: true, preferences });
       }
 
       case 'updatePreferences': {
-        const updated = updateUserPreferences(body.userId, body.preferences);
+        const updated = updateUserPreferences(user.id, body.preferences);
         return NextResponse.json({ success: true, preferences: updated });
       }
 

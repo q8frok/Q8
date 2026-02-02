@@ -1,6 +1,6 @@
 'use client';
 
-import { forwardRef } from 'react';
+import { forwardRef, memo } from 'react';
 import { motion } from 'framer-motion';
 import { Calendar, Clock, Tag, MoreHorizontal, GripVertical } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -8,7 +8,7 @@ import { PRIORITY_CONFIG } from '../constants';
 import { formatDate } from '../utils';
 import type { TaskCardProps } from '../types';
 
-export const TaskCard = forwardRef<HTMLDivElement, TaskCardProps>(
+export const TaskCard = memo(forwardRef<HTMLDivElement, TaskCardProps>(
   ({ task, onClick, isDragging, isOverlay }, ref) => {
     const priorityConfig = PRIORITY_CONFIG[task.priority];
     const isOverdue =
@@ -139,6 +139,6 @@ export const TaskCard = forwardRef<HTMLDivElement, TaskCardProps>(
       </motion.div>
     );
   }
-);
+));
 
 TaskCard.displayName = 'TaskCard';

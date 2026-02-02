@@ -340,7 +340,7 @@ export const StreamingMessage = memo(function StreamingMessage({
   // Memoize markdown components
   const markdownComponents = useMemo(() => ({
     // Handle block code (pre > code) - extract code element and render with syntax highlighting
-    pre({ children }: any) {
+    pre({ children }: { children?: React.ReactNode }) {
       // Extract the code element from children
       const codeElement = children as React.ReactElement<{ className?: string; children?: React.ReactNode }>;
       const className = codeElement?.props?.className || '';
@@ -377,7 +377,7 @@ export const StreamingMessage = memo(function StreamingMessage({
       );
     },
     // Ensure paragraphs render correctly
-    p({ children }: any) {
+    p({ children }: { children?: React.ReactNode }) {
       return <p className="mb-2 last:mb-0">{children}</p>;
     },
   }), []);

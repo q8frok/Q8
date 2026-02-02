@@ -51,6 +51,11 @@ export interface Document {
   metadata: Record<string, unknown>;
   chunkCount: number;
   tokenCount: number;
+  contentHash?: string;
+  tags?: DocumentTag[];
+  version: number;
+  parentDocumentId?: string | null;
+  isLatest: boolean;
   createdAt: string;
   updatedAt: string;
   processedAt?: string;
@@ -202,4 +207,40 @@ export interface RenameFolderRequest {
  */
 export interface MoveDocumentRequest {
   folderId: string | null;
+}
+
+/**
+ * Document tag
+ */
+export interface DocumentTag {
+  id: string;
+  userId: string;
+  name: string;
+  color: string | null;
+  createdAt: string;
+}
+
+/**
+ * Document version summary (for version history list)
+ */
+export interface DocumentVersion {
+  id: string;
+  name: string;
+  version: number;
+  isLatest: boolean;
+  sizeBytes: number;
+  status: DocumentStatus;
+  createdAt: string;
+}
+
+/**
+ * Bulk action request
+ */
+export interface BulkActionRequest {
+  action: 'delete' | 'move' | 'tag';
+  documentIds: string[];
+  params?: {
+    folderId?: string | null;
+    tagId?: string;
+  };
 }

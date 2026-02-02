@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Clock, Timer, Gauge, Bell, Maximize2 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { logger } from '@/lib/logger';
 import { useTimeData, useTimerSession, useStopwatch, useAlarms } from './hooks';
 import { ClockTab, TimerTab, StopwatchTab, AlarmsTab } from './tabs';
 import { TimeCommandCenter } from './expanded';
@@ -81,8 +82,7 @@ export function ClockWidget({
     linkTask,
   } = useTimerSession({
     onSessionComplete: (session) => {
-      // Could trigger notification here
-      console.log('Session completed:', session);
+      logger.info('Session completed', { sessionId: session.id });
     },
   });
 
@@ -96,8 +96,7 @@ export function ClockWidget({
     toggleAlarm,
   } = useAlarms({
     onAlarmTrigger: (alarm) => {
-      // Could trigger notification here
-      console.log('Alarm triggered:', alarm);
+      logger.info('Alarm triggered', { alarmId: alarm.id });
     },
   });
 

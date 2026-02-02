@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckSquare, Plus, Maximize2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useWidgetSubscription } from '@/contexts/WidgetUpdateContext';
 import { TaskItem, AddTaskInput, EmptyState } from './components';
 import { useTaskData, useTaskMutations } from './hooks';
 import { TaskCommandCenter } from './expanded';
@@ -27,13 +28,22 @@ export function TaskWidget({
   const [isAddingTask, setIsAddingTask] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const { tasks, isLoading: isFetching, taskCounts } = useTaskData({
+  const { refreshKey } = useWidgetSubscription('tasks');
+
+  const { tasks, isLoading: isFetching, taskCounts, refetch } = useTaskData({
     filters: showCompleted ? undefined : { status: ['backlog', 'todo', 'in_progress', 'review'] },
     limit: maxItems,
     parentTaskId: null,
   });
 
   const { createTask, toggleTaskStatus, deleteTask } = useTaskMutations();
+
+  // Refetch when triggered externally (e.g., task toggled in DailyBriefWidget)
+  useEffect(() => {
+    if (refreshKey > 0) {
+      refetch();
+    }
+  }, [refreshKey, refetch]);
 
   const toggleExpanded = useCallback(() => {
     setIsExpanded((prev) => !prev);

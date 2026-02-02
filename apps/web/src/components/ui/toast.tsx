@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, createContext, useContext } from 'rea
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, CheckCircle, AlertCircle, Info, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { triggerHaptic } from '@/lib/pwa/haptics';
 
 // Types
 type ToastType = 'success' | 'error' | 'warning' | 'info';
@@ -66,6 +67,15 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     const id = `toast_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
     setToasts((prev) => [...prev, { ...toast, id }]);
 
+    // Haptic feedback based on toast type
+    const hapticMap: Record<ToastType, Parameters<typeof triggerHaptic>[0]> = {
+      success: 'success',
+      error: 'error',
+      warning: 'warning',
+      info: 'light',
+    };
+    triggerHaptic(hapticMap[toast.type]);
+
     // Auto-remove after duration
     const duration = toast.duration ?? 5000;
     if (duration > 0) {
@@ -104,7 +114,7 @@ function ToastContainer({
   removeToast: (id: string) => void;
 }) {
   return (
-    <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none">
+    <div className="fixed right-4 z-50 flex flex-col gap-2 pointer-events-none" style={{ bottom: 'max(1rem, env(safe-area-inset-bottom, 0px))' }}>
       <AnimatePresence>
         {toasts.map((toast) => (
           <ToastItem key={toast.id} toast={toast} onClose={() => removeToast(toast.id)} />

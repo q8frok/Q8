@@ -94,6 +94,8 @@
     font-size: var(--text-base);
     line-height: 1.5;
     -webkit-text-size-adjust: 100%;
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
   }
 
   /* Slightly larger base font on phablet+ (iPhone 17 Pro Max) */
@@ -936,6 +938,24 @@
 }
 
 /* ============================================
+   PWA Touch Interaction Fixes
+   ============================================ */
+button,
+a,
+[role="button"],
+input[type="submit"],
+input[type="button"] {
+  touch-action: manipulation;
+}
+
+/* Scrollable container utility for touch devices */
+.scrollable {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+
+/* ============================================
    Mobile Touch Target Overrides
    ============================================ */
 @media (pointer: coarse) {
@@ -943,6 +963,16 @@
     width: 2.25rem;  /* 36px - better for touch */
     height: 2.25rem;
     border-radius: var(--radius-md);
+  }
+
+  /* Wider scrollbars for touch devices */
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    border-radius: 4px;
   }
 }
 

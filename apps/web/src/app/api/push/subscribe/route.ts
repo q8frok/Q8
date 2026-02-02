@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
+import { logger } from '@/lib/logger';
 
 export async function POST(req: NextRequest) {
   try {
@@ -31,13 +32,13 @@ export async function POST(req: NextRequest) {
     );
 
     if (error) {
-      console.error('Failed to save push subscription:', error);
+      logger.error('Failed to save push subscription', { error });
       return NextResponse.json({ error: 'Failed to subscribe' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Push subscription error:', error);
+    logger.error('Push subscription error', { error });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

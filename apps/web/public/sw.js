@@ -1,13 +1,14 @@
 // Service Worker for Q8 PWA
 // Handles caching, offline support, and push notifications
 
-const CACHE_NAME = 'q8-cache-v1';
-const RUNTIME_CACHE = 'q8-runtime-v1';
+const CACHE_NAME = 'q8-cache-v2';
+const RUNTIME_CACHE = 'q8-runtime-v2';
 
 // Static assets to cache on install
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
+  '/favicon.ico',
   '/icons/icon-192x192.png',
   '/icons/icon-512x512.png',
 ];

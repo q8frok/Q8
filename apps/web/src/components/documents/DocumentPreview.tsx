@@ -6,7 +6,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Loader2, FileText, AlertCircle } from 'lucide-react';
+import { Loader2, FileText, AlertCircle, Maximize2 } from 'lucide-react';
+import { FullScreenPreview } from './FullScreenPreview';
 import type { Document, DocumentChunk, FileType } from '@/lib/documents/types';
 
 interface DocumentPreviewProps {
@@ -23,6 +24,7 @@ export function DocumentPreview({ document, chunks: initialChunks, signedUrl }: 
   const [loading, setLoading] = useState(!initialChunks || initialChunks.length === 0);
   const [error, setError] = useState<string | null>(null);
   const [fetchAttempted, setFetchAttempted] = useState(false);
+  const [fullScreen, setFullScreen] = useState(false);
 
   // Sync when parent provides chunks
   useEffect(() => {
@@ -86,7 +88,24 @@ export function DocumentPreview({ document, chunks: initialChunks, signedUrl }: 
 
   return (
     <div className="space-y-4">
+      <div className="flex justify-end">
+        <button
+          onClick={() => setFullScreen(true)}
+          className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors"
+          aria-label="Full-screen preview"
+        >
+          <Maximize2 className="w-4 h-4" />
+        </button>
+      </div>
       {renderPreview(document.fileType, chunks, signedUrl)}
+      {fullScreen && (
+        <FullScreenPreview
+          doc={document}
+          chunks={chunks}
+          signedUrl={signedUrl}
+          onClose={() => setFullScreen(false)}
+        />
+      )}
     </div>
   );
 }

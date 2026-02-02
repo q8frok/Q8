@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { logger } from '@/lib/logger';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mic, MicOff, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -33,7 +34,7 @@ export function VoiceControlButton({
     onSearch,
     onModeChange,
     onError: (error) => {
-      console.error('Voice control error:', error);
+      logger.error('Voice control error', { error });
     },
   });
 

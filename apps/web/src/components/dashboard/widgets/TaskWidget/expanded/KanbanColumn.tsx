@@ -98,7 +98,7 @@ export function KanbanColumn({
       </div>
 
       {/* Tasks Container */}
-      <div className="flex-1 p-2 overflow-y-auto min-h-[200px] max-h-[calc(100vh-300px)]">
+      <div className="flex-1 p-2 overflow-y-auto min-h-[200px] max-h-[calc(var(--vh,1vh)*100-300px)] scrollable">
         <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
           <div className="space-y-2">
             {tasks.map((task) => (

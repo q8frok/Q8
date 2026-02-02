@@ -3,6 +3,8 @@
  * Web Speech API wrapper for text-to-speech
  */
 
+import { logger } from '@/lib/logger';
+
 export interface VoiceSynthesisOptions {
   voice?: SpeechSynthesisVoice;
   rate?: number;
@@ -65,7 +67,7 @@ export class VoiceSynthesis {
       this.synthesis.speak(this.currentUtterance);
       return true;
     } catch (error) {
-      console.error('Failed to speak:', error);
+      logger.error('Failed to speak', { error });
       return false;
     }
   }

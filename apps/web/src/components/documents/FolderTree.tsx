@@ -16,6 +16,8 @@ import {
   Trash2,
   FileText,
 } from 'lucide-react';
+import { ContextMenu, useContextMenu } from './ContextMenu';
+import type { ContextMenuItem } from './ContextMenu';
 import type { FolderTreeNode } from '@/lib/documents/types';
 
 interface FolderTreeProps {
@@ -51,8 +53,8 @@ function TreeNode({
   depth,
 }: TreeNodeProps) {
   const [expanded, setExpanded] = useState(depth < 2);
-  const [showMenu, setShowMenu] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const { menuPos, handleContextMenu, closeMenu } = useContextMenu();
   const isSelected = selectedFolderId === node.id;
   const hasChildren = node.children.length > 0;
 
@@ -65,10 +67,23 @@ function TreeNode({
     setExpanded((prev) => !prev);
   }, []);
 
-  const handleContextMenu = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    setShowMenu(true);
-  }, []);
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    switch (e.key) {
+      case 'Enter':
+      case ' ':
+        e.preventDefault();
+        onSelectFolder(node.id);
+        break;
+      case 'ArrowRight':
+        e.preventDefault();
+        if (hasChildren && !expanded) setExpanded(true);
+        break;
+      case 'ArrowLeft':
+        e.preventDefault();
+        if (expanded) setExpanded(false);
+        break;
+    }
+  }, [node.id, hasChildren, expanded, onSelectFolder]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -93,18 +108,42 @@ function TreeNode({
     }
   }, [node.id, onDropDocument]);
 
+  const contextMenuItems: ContextMenuItem[] = [
+    {
+      label: 'New subfolder',
+      icon: <Plus className="w-3.5 h-3.5" />,
+      onClick: () => onCreateFolder(node.id),
+    },
+    {
+      label: 'Rename',
+      icon: <Pencil className="w-3.5 h-3.5" />,
+      onClick: () => onRenameFolder(node.id, node.name, node.color),
+    },
+    {
+      label: 'Delete',
+      icon: <Trash2 className="w-3.5 h-3.5" />,
+      onClick: () => onDeleteFolder(node.id, node.name),
+      variant: 'danger',
+    },
+  ];
+
   const FolderIcon = isSelected || expanded ? FolderOpen : Folder;
 
   return (
     <div>
       <div
+        role="treeitem"
+        aria-expanded={hasChildren ? expanded : undefined}
+        aria-selected={isSelected}
+        tabIndex={0}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
+        onKeyDown={handleKeyDown}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         className={`
-          group flex items-center gap-1.5 px-2 py-1.5 rounded-lg cursor-pointer transition-all text-sm
+          group flex items-center gap-1.5 px-2 py-1.5 rounded-lg cursor-pointer transition-all text-sm outline-none focus-visible:ring-1 focus-visible:ring-white/30
           ${isSelected ? 'bg-white/10 text-white' : 'text-white/70 hover:bg-white/5 hover:text-white'}
           ${dragOver ? 'bg-blue-500/20 border border-blue-400/40' : 'border border-transparent'}
         `}
@@ -113,9 +152,11 @@ function TreeNode({
         {/* Expand toggle */}
         <button
           onClick={handleToggle}
+          aria-label={expanded ? 'Collapse folder' : 'Expand folder'}
           className={`p-0.5 rounded hover:bg-white/10 transition-colors ${
             hasChildren ? 'visible' : 'invisible'
           }`}
+          tabIndex={-1}
         >
           {expanded ? (
             <ChevronDown className="w-3.5 h-3.5" />
@@ -148,58 +189,24 @@ function TreeNode({
               onCreateFolder(node.id);
             }}
             className="p-0.5 rounded hover:bg-white/10"
-            title="New subfolder"
+            aria-label="New subfolder"
+            tabIndex={-1}
           >
             <Plus className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
 
-      {/* Context menu */}
-      {showMenu && (
-        <>
-          <div
-            className="fixed inset-0 z-40"
-            onClick={() => setShowMenu(false)}
-          />
-          <div className="relative z-50 ml-8 mt-1 w-44 bg-gray-800 border border-white/10 rounded-lg shadow-xl py-1">
-            <button
-              onClick={() => {
-                setShowMenu(false);
-                onCreateFolder(node.id);
-              }}
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-white/80 hover:bg-white/10"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              New subfolder
-            </button>
-            <button
-              onClick={() => {
-                setShowMenu(false);
-                onRenameFolder(node.id, node.name, node.color);
-              }}
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-white/80 hover:bg-white/10"
-            >
-              <Pencil className="w-3.5 h-3.5" />
-              Rename
-            </button>
-            <button
-              onClick={() => {
-                setShowMenu(false);
-                onDeleteFolder(node.id, node.name);
-              }}
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-red-400 hover:bg-red-400/10"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              Delete
-            </button>
-          </div>
-        </>
-      )}
+      {/* Portal-based context menu */}
+      <ContextMenu
+        items={contextMenuItems}
+        position={menuPos}
+        onClose={closeMenu}
+      />
 
       {/* Children */}
       {expanded && hasChildren && (
-        <div>
+        <div role="group">
           {node.children.map((child) => (
             <TreeNode
               key={child.id}
@@ -252,7 +259,7 @@ export function FolderTree({
   }, [onDropDocument]);
 
   return (
-    <div className="py-2 space-y-0.5">
+    <div className="py-2 space-y-0.5" role="tree" aria-label="Folder navigation">
       {/* All Documents (root) */}
       <div
         onClick={() => onSelectFolder(null)}

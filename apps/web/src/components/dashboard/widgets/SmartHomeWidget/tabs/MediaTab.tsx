@@ -60,7 +60,7 @@ export function MediaTab({ isOn, getState, callService, toggleEntity, sonosVolum
           {/* Navigation D-Pad */}
           <div className="grid grid-cols-3 gap-1.5">
             <motion.button
-              whileTap={{ scale: 0.95, backgroundColor: 'rgba(255,255,255,0.1)' }}
+              whileTap={{ scale: 0.95, backgroundColor: 'rgb(255 255 255 / 0.1)' }}
               onClick={() => callService('remote', 'send_command', ENTITIES.remotes.appleTV, { command: 'menu' })}
               className="h-14 rounded-xl bg-gradient-to-br from-gray-700/80 to-gray-800/80 border border-glass-border flex items-center justify-center gap-2 text-white/80 hover:text-white hover:border-white/20 transition-all"
             >
@@ -68,14 +68,14 @@ export function MediaTab({ isOn, getState, callService, toggleEntity, sonosVolum
               <span className="text-xs font-medium">Back</span>
             </motion.button>
             <motion.button
-              whileTap={{ scale: 0.95, backgroundColor: 'rgba(59,130,246,0.3)' }}
+              whileTap={{ scale: 0.95, backgroundColor: 'rgb(59 130 246 / 0.3)' }}
               onClick={() => callService('remote', 'send_command', ENTITIES.remotes.appleTV, { command: 'up' })}
               className="h-14 rounded-xl bg-gradient-to-b from-gray-600/80 to-gray-700/80 border border-glass-border flex items-center justify-center text-white hover:border-blue-500/50 hover:from-blue-600/30 hover:to-blue-700/30 transition-all"
             >
               <ChevronUp className="h-7 w-7" />
             </motion.button>
             <motion.button
-              whileTap={{ scale: 0.95, backgroundColor: 'rgba(255,255,255,0.1)' }}
+              whileTap={{ scale: 0.95, backgroundColor: 'rgb(255 255 255 / 0.1)' }}
               onClick={() => callService('remote', 'send_command', ENTITIES.remotes.appleTV, { command: 'home' })}
               className="h-14 rounded-xl bg-gradient-to-br from-gray-700/80 to-gray-800/80 border border-glass-border flex items-center justify-center gap-2 text-white/80 hover:text-white hover:border-white/20 transition-all"
             >
@@ -84,7 +84,7 @@ export function MediaTab({ isOn, getState, callService, toggleEntity, sonosVolum
             </motion.button>
 
             <motion.button
-              whileTap={{ scale: 0.95, backgroundColor: 'rgba(59,130,246,0.3)' }}
+              whileTap={{ scale: 0.95, backgroundColor: 'rgb(59 130 246 / 0.3)' }}
               onClick={() => callService('remote', 'send_command', ENTITIES.remotes.appleTV, { command: 'left' })}
               className="h-16 rounded-xl bg-gradient-to-r from-gray-600/80 to-gray-700/80 border border-glass-border flex items-center justify-center text-white hover:border-blue-500/50 hover:from-blue-600/30 hover:to-blue-700/30 transition-all"
             >
@@ -98,7 +98,7 @@ export function MediaTab({ isOn, getState, callService, toggleEntity, sonosVolum
               <span className="text-sm font-bold">OK</span>
             </motion.button>
             <motion.button
-              whileTap={{ scale: 0.95, backgroundColor: 'rgba(59,130,246,0.3)' }}
+              whileTap={{ scale: 0.95, backgroundColor: 'rgb(59 130 246 / 0.3)' }}
               onClick={() => callService('remote', 'send_command', ENTITIES.remotes.appleTV, { command: 'right' })}
               className="h-16 rounded-xl bg-gradient-to-l from-gray-600/80 to-gray-700/80 border border-glass-border flex items-center justify-center text-white hover:border-blue-500/50 hover:from-blue-600/30 hover:to-blue-700/30 transition-all"
             >
@@ -113,7 +113,7 @@ export function MediaTab({ isOn, getState, callService, toggleEntity, sonosVolum
               <SkipBack className="h-5 w-5" />
             </motion.button>
             <motion.button
-              whileTap={{ scale: 0.95, backgroundColor: 'rgba(59,130,246,0.3)' }}
+              whileTap={{ scale: 0.95, backgroundColor: 'rgb(59 130 246 / 0.3)' }}
               onClick={() => callService('remote', 'send_command', ENTITIES.remotes.appleTV, { command: 'down' })}
               className="h-14 rounded-xl bg-gradient-to-t from-gray-600/80 to-gray-700/80 border border-glass-border flex items-center justify-center text-white hover:border-blue-500/50 hover:from-blue-600/30 hover:to-blue-700/30 transition-all"
             >

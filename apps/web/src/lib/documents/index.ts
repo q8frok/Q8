@@ -23,6 +23,9 @@ export type {
   CreateFolderRequest,
   RenameFolderRequest,
   MoveDocumentRequest,
+  DocumentTag,
+  DocumentVersion,
+  BulkActionRequest,
 } from './types';
 
 // Parser
@@ -32,10 +35,17 @@ export {
   estimateTokens,
 } from './parser';
 
+// Validation
+export {
+  validateMagicBytes,
+  getValidationErrorMessage,
+} from './validation';
+
 // Processor
 export {
   uploadDocument,
   processDocument,
+  reprocessDocument,
   searchDocuments,
   getConversationContext,
   deleteDocument,
@@ -50,3 +60,6 @@ export {
   getFolderBreadcrumb,
   moveDocument,
 } from './processor';
+
+// Worker
+export { processDocumentJob } from './worker';

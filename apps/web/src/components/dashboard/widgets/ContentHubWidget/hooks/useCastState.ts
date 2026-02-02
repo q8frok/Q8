@@ -8,6 +8,7 @@ import { useContentHub } from '@/hooks/useContentHub';
 import { useContentHubStore } from '@/lib/stores/contenthub';
 import { useSpotifyWebPlayback } from '@/hooks/useSpotifyWebPlayback';
 import { logger } from '@/lib/logger';
+import { ENTITIES } from '@/components/dashboard/widgets/SmartHomeWidget/constants';
 import type { ContentItem, CastMessage } from '../types';
 import type { SpotifyDevice } from '../DeviceSelectorModal';
 
@@ -98,7 +99,7 @@ export function useCastState(): UseCastStateReturn {
       setCastMessage({ type: 'loading', text: 'Launching YouTube on Apple TV...' });
 
       try {
-        const result = await castToDevice(nowPlaying, 'media_player.living_room');
+        const result = await castToDevice(nowPlaying, ENTITIES.media.appleTV);
         if (result.success) {
           setError(null);
           setCastMessage({ type: 'success', text: 'YouTube launched on Apple TV!' });

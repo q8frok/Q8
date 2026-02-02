@@ -8,6 +8,7 @@ import { Button } from '../ui/button';
 import { getSyncEngine } from '@/lib/sync';
 import { getPushQueueManager } from '@/lib/sync/queue';
 import { logger } from '@/lib/logger';
+import { haptics } from '@/lib/pwa/haptics';
 
 interface OfflineIndicatorProps {
   /**
@@ -130,7 +131,7 @@ export function OfflineIndicator({
   // Handle manual retry
   const handleRetry = async () => {
     if (isSyncing) return;
-
+    haptics.light();
     setIsSyncing(true);
     try {
       const syncEngine = getSyncEngine();
@@ -158,7 +159,7 @@ export function OfflineIndicator({
         transition={{ type: 'spring', stiffness: 300, damping: 30 }}
         className={cn(
           'fixed left-0 right-0 z-50 mx-auto max-w-2xl px-4',
-          position === 'top' ? 'top-4' : 'bottom-4',
+          position === 'top' ? 'top-4' : 'bottom-[max(1rem,env(safe-area-inset-bottom,0px))]',
           className
         )}
         role="status"

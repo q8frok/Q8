@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useEffect, useState, useCallback } from 'react';
+import { logger } from '@/lib/logger';
 import { useAuth } from '@/hooks/useAuth';
 import type { Task, TaskFilters, TaskStatus } from '../types';
 
@@ -78,7 +79,7 @@ export function useTaskData(options: UseTaskDataOptions = {}): UseTaskDataReturn
       const data = await response.json();
       setRawTasks(data.tasks || []);
     } catch (err) {
-      console.error('Error fetching tasks:', err);
+      logger.error('Error fetching tasks', { error: err });
       setError(err instanceof Error ? err : new Error('Failed to fetch tasks'));
       setRawTasks([]);
     } finally {

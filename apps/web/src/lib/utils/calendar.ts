@@ -5,6 +5,17 @@
 
 import { format, parseISO, isToday, isTomorrow, isThisWeek, addDays, startOfDay, endOfDay } from 'date-fns';
 
+export interface GoogleCalendarEvent {
+  id: string;
+  summary?: string;
+  description?: string;
+  location?: string;
+  hangoutLink?: string;
+  start?: { dateTime?: string; date?: string };
+  end?: { dateTime?: string; date?: string };
+  attendees?: Array<{ email: string; responseStatus?: string }>;
+}
+
 export interface ParsedEvent {
   id: string;
   title: string;
@@ -17,7 +28,7 @@ export interface ParsedEvent {
   attendees?: string[];
 }
 
-export function parseGoogleCalendarEvent(event: any): ParsedEvent {
+export function parseGoogleCalendarEvent(event: GoogleCalendarEvent): ParsedEvent {
   const start = event.start?.dateTime 
     ? parseISO(event.start.dateTime)
     : parseISO(event.start?.date || new Date().toISOString());
@@ -39,7 +50,7 @@ export function parseGoogleCalendarEvent(event: any): ParsedEvent {
     isAllDay,
     location: event.location,
     meetingUrl,
-    attendees: event.attendees?.map((a: any) => a.email) || [],
+    attendees: event.attendees?.map((a) => a.email) || [],
   };
 }
 

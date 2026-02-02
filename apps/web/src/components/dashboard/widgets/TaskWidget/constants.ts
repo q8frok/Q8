@@ -140,14 +140,14 @@ export const VIEW_MODES = [
 ] as const;
 
 export const DEFAULT_TAGS = [
-  { name: 'work', color: '#3b82f6' },
-  { name: 'personal', color: '#10b981' },
-  { name: 'urgent', color: '#ef4444' },
-  { name: 'meeting', color: '#8b5cf6' },
-  { name: 'idea', color: '#f59e0b' },
-  { name: 'bug', color: '#dc2626' },
-  { name: 'feature', color: '#06b6d4' },
-  { name: 'docs', color: '#84cc16' },
+  { name: 'work', color: 'rgb(59, 130, 246)' },      // blue-500
+  { name: 'personal', color: 'rgb(16, 185, 129)' },   // emerald-500
+  { name: 'urgent', color: 'rgb(239, 68, 68)' },      // red-500
+  { name: 'meeting', color: 'rgb(139, 92, 246)' },    // violet-500
+  { name: 'idea', color: 'rgb(245, 158, 11)' },       // amber-500
+  { name: 'bug', color: 'rgb(220, 38, 38)' },         // red-600
+  { name: 'feature', color: 'rgb(6, 182, 212)' },     // cyan-500
+  { name: 'docs', color: 'rgb(132, 204, 22)' },       // lime-500
 ];
 
 export const ESTIMATED_TIME_OPTIONS = [

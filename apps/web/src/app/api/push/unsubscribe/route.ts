@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
+import { logger } from '@/lib/logger';
 
 export async function POST(req: NextRequest) {
   try {
@@ -24,13 +25,13 @@ export async function POST(req: NextRequest) {
       .eq('endpoint', endpoint);
 
     if (error) {
-      console.error('Failed to delete push subscription:', error);
+      logger.error('Failed to delete push subscription', { error });
       return NextResponse.json({ error: 'Failed to unsubscribe' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Push unsubscription error:', error);
+    logger.error('Push unsubscription error', { error });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

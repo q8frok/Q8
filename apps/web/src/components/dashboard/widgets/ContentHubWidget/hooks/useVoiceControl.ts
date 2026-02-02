@@ -90,6 +90,77 @@ const COMMAND_PATTERNS = {
   whatPlaying: /^what('s| is) playing$/i,
 } as const;
 
+/**
+ * Helper to execute a playback action across Spotify or YouTube.
+ * Falls back to store queue controls for non-Spotify/YouTube sources.
+ */
+function createPlaybackHelper(
+  spotifyControls: ReturnType<typeof useSpotifyControls>,
+) {
+  const getSource = () => useContentHubStore.getState().nowPlaying?.source;
+  const getYtControls = () => useContentHubStore.getState().youtubeControls;
+
+  return {
+    async play() {
+      const source = getSource();
+      if (source === 'spotify') {
+        await spotifyControls.play();
+      } else if (source === 'youtube') {
+        getYtControls()?.play();
+      }
+      useContentHubStore.setState({ isPlaying: true });
+    },
+    async pause() {
+      const source = getSource();
+      if (source === 'spotify') {
+        await spotifyControls.pause();
+      } else if (source === 'youtube') {
+        getYtControls()?.pause();
+      }
+      useContentHubStore.setState({ isPlaying: false });
+    },
+    async next() {
+      const source = getSource();
+      if (source === 'spotify') {
+        await spotifyControls.next();
+      } else {
+        useContentHubStore.getState().next();
+      }
+    },
+    async previous() {
+      const source = getSource();
+      if (source === 'spotify') {
+        await spotifyControls.previous();
+      } else {
+        useContentHubStore.getState().previous();
+      }
+    },
+    async setVolume(vol: number) {
+      const source = getSource();
+      if (source === 'spotify') {
+        await spotifyControls.setVolume(vol);
+      } else if (source === 'youtube') {
+        getYtControls()?.setVolume(vol);
+      }
+      useContentHubStore.setState({ volume: vol });
+    },
+    async shuffle(state: boolean) {
+      const source = getSource();
+      if (source === 'spotify') {
+        await spotifyControls.shuffle(state);
+      }
+      useContentHubStore.setState({ shuffleState: state });
+    },
+    async repeat(state: 'off' | 'track' | 'context') {
+      const source = getSource();
+      if (source === 'spotify') {
+        await spotifyControls.repeat(state);
+      }
+      useContentHubStore.setState({ repeatState: state });
+    },
+  };
+}
+
 export function useVoiceControl(options: UseVoiceControlOptions = {}): UseVoiceControlReturn {
   const { onSearch, onModeChange, onError } = options;
 
@@ -112,206 +183,210 @@ export function useVoiceControl(options: UseVoiceControlOptions = {}): UseVoiceC
 
   const spotifyControls = useSpotifyControls();
 
-  // Memoized commands array - only recreates when dependencies change
-  const commands = useMemo<VoiceCommand[]>(() => [
-    // Playback controls
-    {
-      pattern: COMMAND_PATTERNS.play,
-      action: 'play',
-      handler: async () => {
-        if (!isPlaying) {
-          await spotifyControls.play();
-          setLastCommand('Playing');
-        }
+  // Memoized commands array - now uses multi-source playback helper
+  const commands = useMemo<VoiceCommand[]>(() => {
+    const pb = createPlaybackHelper(spotifyControls);
+
+    return [
+      // Playback controls — work across all sources
+      {
+        pattern: COMMAND_PATTERNS.play,
+        action: 'play',
+        handler: async () => {
+          if (!isPlaying) {
+            await pb.play();
+            setLastCommand('Playing');
+          }
+        },
       },
-    },
-    {
-      pattern: COMMAND_PATTERNS.pause,
-      action: 'pause',
-      handler: async () => {
-        if (isPlaying) {
-          await spotifyControls.pause();
-          setLastCommand('Paused');
-        }
+      {
+        pattern: COMMAND_PATTERNS.pause,
+        action: 'pause',
+        handler: async () => {
+          if (isPlaying) {
+            await pb.pause();
+            setLastCommand('Paused');
+          }
+        },
       },
-    },
-    {
-      pattern: COMMAND_PATTERNS.next,
-      action: 'next',
-      handler: async () => {
-        await spotifyControls.next();
-        setLastCommand('Skipped to next');
+      {
+        pattern: COMMAND_PATTERNS.next,
+        action: 'next',
+        handler: async () => {
+          await pb.next();
+          setLastCommand('Skipped to next');
+        },
       },
-    },
-    {
-      pattern: COMMAND_PATTERNS.previous,
-      action: 'previous',
-      handler: async () => {
-        await spotifyControls.previous();
-        setLastCommand('Previous track');
+      {
+        pattern: COMMAND_PATTERNS.previous,
+        action: 'previous',
+        handler: async () => {
+          await pb.previous();
+          setLastCommand('Previous track');
+        },
       },
-    },
-    // Volume controls
-    {
-      pattern: COMMAND_PATTERNS.mute,
-      action: 'mute',
-      handler: async () => {
-        setVolume(0);
-        await spotifyControls.setVolume(0);
-        setLastCommand('Muted');
+      // Volume controls — work across all sources
+      {
+        pattern: COMMAND_PATTERNS.mute,
+        action: 'mute',
+        handler: async () => {
+          setVolume(0);
+          await pb.setVolume(0);
+          setLastCommand('Muted');
+        },
       },
-    },
-    {
-      pattern: COMMAND_PATTERNS.unmute,
-      action: 'unmute',
-      handler: async () => {
-        setVolume(80);
-        await spotifyControls.setVolume(80);
-        setLastCommand('Unmuted');
+      {
+        pattern: COMMAND_PATTERNS.unmute,
+        action: 'unmute',
+        handler: async () => {
+          setVolume(80);
+          await pb.setVolume(80);
+          setLastCommand('Unmuted');
+        },
       },
-    },
-    {
-      pattern: COMMAND_PATTERNS.volumeUp,
-      action: 'volume_up',
-      handler: async () => {
-        const newVolume = Math.min(100, volume + 10);
-        setVolume(newVolume);
-        await spotifyControls.setVolume(newVolume);
-        setLastCommand(`Volume ${newVolume}%`);
+      {
+        pattern: COMMAND_PATTERNS.volumeUp,
+        action: 'volume_up',
+        handler: async () => {
+          const newVolume = Math.min(100, volume + 10);
+          setVolume(newVolume);
+          await pb.setVolume(newVolume);
+          setLastCommand(`Volume ${newVolume}%`);
+        },
       },
-    },
-    {
-      pattern: COMMAND_PATTERNS.volumeDown,
-      action: 'volume_down',
-      handler: async () => {
-        const newVolume = Math.max(0, volume - 10);
-        setVolume(newVolume);
-        await spotifyControls.setVolume(newVolume);
-        setLastCommand(`Volume ${newVolume}%`);
+      {
+        pattern: COMMAND_PATTERNS.volumeDown,
+        action: 'volume_down',
+        handler: async () => {
+          const newVolume = Math.max(0, volume - 10);
+          setVolume(newVolume);
+          await pb.setVolume(newVolume);
+          setLastCommand(`Volume ${newVolume}%`);
+        },
       },
-    },
-    {
-      pattern: COMMAND_PATTERNS.setVolume,
-      action: 'set_volume',
-      handler: async (matches) => {
-        const volumeStr = matches[2] || '50';
-        const newVolume = Math.min(100, Math.max(0, parseInt(volumeStr, 10)));
-        setVolume(newVolume);
-        await spotifyControls.setVolume(newVolume);
-        setLastCommand(`Volume set to ${newVolume}%`);
+      {
+        pattern: COMMAND_PATTERNS.setVolume,
+        action: 'set_volume',
+        handler: async (matches) => {
+          const volumeStr = matches[2] || '50';
+          const newVolume = Math.min(100, Math.max(0, parseInt(volumeStr, 10)));
+          setVolume(newVolume);
+          await pb.setVolume(newVolume);
+          setLastCommand(`Volume set to ${newVolume}%`);
+        },
       },
-    },
-    // Shuffle and repeat
-    {
-      pattern: COMMAND_PATTERNS.shuffleOn,
-      action: 'shuffle_on',
-      handler: async () => {
-        await spotifyControls.shuffle(true);
-        setLastCommand('Shuffle enabled');
+      // Shuffle and repeat — Spotify has API support, others use local state
+      {
+        pattern: COMMAND_PATTERNS.shuffleOn,
+        action: 'shuffle_on',
+        handler: async () => {
+          await pb.shuffle(true);
+          setLastCommand('Shuffle enabled');
+        },
       },
-    },
-    {
-      pattern: COMMAND_PATTERNS.shuffleOff,
-      action: 'shuffle_off',
-      handler: async () => {
-        await spotifyControls.shuffle(false);
-        setLastCommand('Shuffle disabled');
+      {
+        pattern: COMMAND_PATTERNS.shuffleOff,
+        action: 'shuffle_off',
+        handler: async () => {
+          await pb.shuffle(false);
+          setLastCommand('Shuffle disabled');
+        },
       },
-    },
-    {
-      pattern: COMMAND_PATTERNS.repeatOff,
-      action: 'repeat_off',
-      handler: async () => {
-        await spotifyControls.repeat('off');
-        setLastCommand('Repeat off');
+      {
+        pattern: COMMAND_PATTERNS.repeatOff,
+        action: 'repeat_off',
+        handler: async () => {
+          await pb.repeat('off');
+          setLastCommand('Repeat off');
+        },
       },
-    },
-    {
-      pattern: COMMAND_PATTERNS.repeatTrack,
-      action: 'repeat_track',
-      handler: async () => {
-        await spotifyControls.repeat('track');
-        setLastCommand('Repeating track');
+      {
+        pattern: COMMAND_PATTERNS.repeatTrack,
+        action: 'repeat_track',
+        handler: async () => {
+          await pb.repeat('track');
+          setLastCommand('Repeating track');
+        },
       },
-    },
-    {
-      pattern: COMMAND_PATTERNS.repeatContext,
-      action: 'repeat_context',
-      handler: async () => {
-        await spotifyControls.repeat('context');
-        setLastCommand('Repeating playlist');
+      {
+        pattern: COMMAND_PATTERNS.repeatContext,
+        action: 'repeat_context',
+        handler: async () => {
+          await pb.repeat('context');
+          setLastCommand('Repeating playlist');
+        },
       },
-    },
-    // Mode changes
-    {
-      pattern: COMMAND_PATTERNS.modeFocus,
-      action: 'mode_focus',
-      handler: () => {
-        setMode('focus');
-        onModeChange?.('focus');
-        setLastCommand('Focus mode');
+      // Mode changes
+      {
+        pattern: COMMAND_PATTERNS.modeFocus,
+        action: 'mode_focus',
+        handler: () => {
+          setMode('focus');
+          onModeChange?.('focus');
+          setLastCommand('Focus mode');
+        },
       },
-    },
-    {
-      pattern: COMMAND_PATTERNS.modeBreak,
-      action: 'mode_break',
-      handler: () => {
-        setMode('break');
-        onModeChange?.('break');
-        setLastCommand('Break mode');
+      {
+        pattern: COMMAND_PATTERNS.modeBreak,
+        action: 'mode_break',
+        handler: () => {
+          setMode('break');
+          onModeChange?.('break');
+          setLastCommand('Break mode');
+        },
       },
-    },
-    {
-      pattern: COMMAND_PATTERNS.modeWorkout,
-      action: 'mode_workout',
-      handler: () => {
-        setMode('workout');
-        onModeChange?.('workout');
-        setLastCommand('Workout mode');
+      {
+        pattern: COMMAND_PATTERNS.modeWorkout,
+        action: 'mode_workout',
+        handler: () => {
+          setMode('workout');
+          onModeChange?.('workout');
+          setLastCommand('Workout mode');
+        },
       },
-    },
-    {
-      pattern: COMMAND_PATTERNS.modeSleep,
-      action: 'mode_sleep',
-      handler: () => {
-        setMode('sleep');
-        onModeChange?.('sleep');
-        setLastCommand('Sleep mode');
+      {
+        pattern: COMMAND_PATTERNS.modeSleep,
+        action: 'mode_sleep',
+        handler: () => {
+          setMode('sleep');
+          onModeChange?.('sleep');
+          setLastCommand('Sleep mode');
+        },
       },
-    },
-    {
-      pattern: COMMAND_PATTERNS.modeDiscover,
-      action: 'mode_discover',
-      handler: () => {
-        setMode('discover');
-        onModeChange?.('discover');
-        setLastCommand('Discover mode');
+      {
+        pattern: COMMAND_PATTERNS.modeDiscover,
+        action: 'mode_discover',
+        handler: () => {
+          setMode('discover');
+          onModeChange?.('discover');
+          setLastCommand('Discover mode');
+        },
       },
-    },
-    // Search
-    {
-      pattern: COMMAND_PATTERNS.search,
-      action: 'search',
-      handler: (matches) => {
-        const query = matches[2] || '';
-        if (query) onSearch?.(query);
-        setLastCommand(`Searching: ${query}`);
+      // Search
+      {
+        pattern: COMMAND_PATTERNS.search,
+        action: 'search',
+        handler: (matches) => {
+          const query = matches[2] || '';
+          if (query) onSearch?.(query);
+          setLastCommand(`Searching: ${query}`);
+        },
       },
-    },
-    // Info
-    {
-      pattern: COMMAND_PATTERNS.whatPlaying,
-      action: 'what_playing',
-      handler: () => {
-        const { nowPlaying } = useContentHubStore.getState();
-        if (nowPlaying) {
-          setLastCommand(`Now playing: ${nowPlaying.title} by ${nowPlaying.subtitle}`);
-        } else {
-          setLastCommand('Nothing is currently playing');
-        }
+      // Info
+      {
+        pattern: COMMAND_PATTERNS.whatPlaying,
+        action: 'what_playing',
+        handler: () => {
+          const { nowPlaying } = useContentHubStore.getState();
+          if (nowPlaying) {
+            setLastCommand(`Now playing: ${nowPlaying.title} by ${nowPlaying.subtitle}`);
+          } else {
+            setLastCommand('Nothing is currently playing');
+          }
+        },
       },
-    },
-  ], [isPlaying, volume, setVolume, setMode, spotifyControls, onModeChange, onSearch]);
+    ];
+  }, [isPlaying, volume, setVolume, setMode, spotifyControls, onModeChange, onSearch]);
 
   // Process voice command - now uses memoized commands
   const processCommand = useCallback(async (transcriptText: string) => {

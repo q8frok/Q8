@@ -102,7 +102,21 @@
       "WebFetch(domain:ai.google.dev)",
       "Bash(npx turbo build:*)",
       "Bash(pnpm run build:*)",
-      "Bash(git stash:*)"
+      "Bash(git stash:*)",
+      "WebFetch(domain:www.inngest.com)",
+      "WebFetch(domain:jakearchibald.com)",
+      "WebFetch(domain:aws.amazon.com)",
+      "Bash(npx next dev -p 3000)",
+      "Bash(ipconfig:*)",
+      "Bash(npx next dev:*)",
+      "Bash(docker exec 640859572ef6 curl -s -o /dev/null -w \"%{http_code}\" http://host.docker.internal:3000)",
+      "Bash(docker exec:*)",
+      "Bash(docker network inspect:*)",
+      "Bash(netsh advfirewall firewall add rule name=\"Next.js Dev 3000\" dir=in action=allow protocol=TCP localport=3000)",
+      "Bash(find:*)",
+      "Bash(xargs -I {} sh -c 'echo \"\"==={}===\"\" && head -30 \"\"{}\"\"')",
+      "Bash(npx next build)",
+      "Bash(npx next build:*)"
     ],
     "deny": [],
     "ask": []

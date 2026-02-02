@@ -10,6 +10,27 @@ import {
 import { supabaseAdmin as supabase } from '@/lib/supabase/server';
 import { logger } from '@/lib/logger';
 
+/** Map a Supabase task row (snake_case) to camelCase for the frontend */
+function mapTaskFromDB(task: Record<string, unknown>) {
+  return {
+    id: task.id,
+    userId: task.user_id,
+    title: task.title || task.text || 'Untitled Task',
+    description: task.description,
+    dueDate: task.due_date,
+    priority: task.priority || 'medium',
+    status: task.status || 'todo',
+    tags: task.tags || [],
+    projectId: task.project_id,
+    parentTaskId: task.parent_task_id,
+    sortOrder: task.sort_order || 0,
+    estimatedMinutes: task.estimated_minutes,
+    completedAt: task.completed_at,
+    createdAt: task.created_at,
+    updatedAt: task.updated_at,
+  };
+}
+
 /**
  * GET /api/tasks
  * Fetch tasks for the authenticated user with optional filters
@@ -28,6 +49,7 @@ export async function GET(request: NextRequest) {
     const priorityParam = searchParams.get('priority');
     const projectId = searchParams.get('projectId');
     const parentTaskId = searchParams.get('parentTaskId');
+    const idsParam = searchParams.getAll('ids');
     const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '50', 10), 1), 100);
     const offset = Math.max(parseInt(searchParams.get('offset') || '0', 10), 0);
 
@@ -39,6 +61,14 @@ export async function GET(request: NextRequest) {
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
+
+    // Filter by specific task IDs (used by DailyBriefWidget for live task sync)
+    if (idsParam.length > 0) {
+      const ids = idsParam.filter(Boolean);
+      if (ids.length > 0) {
+        query = query.in('id', ids);
+      }
+    }
 
     // Support comma-separated status values
     if (statusParam) {
@@ -72,23 +102,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Transform snake_case to camelCase for frontend
-    const tasks = data?.map((task) => ({
-      id: task.id,
-      userId: task.user_id,
-      title: task.title || task.text || 'Untitled Task',
-      description: task.description,
-      dueDate: task.due_date,
-      priority: task.priority || 'medium',
-      status: task.status || 'todo',
-      tags: task.tags || [],
-      projectId: task.project_id,
-      parentTaskId: task.parent_task_id,
-      sortOrder: task.sort_order || 0,
-      estimatedMinutes: task.estimated_minutes,
-      completedAt: task.completed_at,
-      createdAt: task.created_at,
-      updatedAt: task.updated_at,
-    })) ?? [];
+    const tasks = data?.map(mapTaskFromDB) ?? [];
 
     return NextResponse.json({
       tasks,
@@ -150,23 +164,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({
-      id: data.id,
-      userId: data.user_id,
-      title: data.title,
-      description: data.description,
-      dueDate: data.due_date,
-      priority: data.priority,
-      status: data.status,
-      tags: data.tags,
-      projectId: data.project_id,
-      parentTaskId: data.parent_task_id,
-      sortOrder: data.sort_order,
-      estimatedMinutes: data.estimated_minutes,
-      completedAt: data.completed_at,
-      createdAt: data.created_at,
-      updatedAt: data.updated_at,
-    }, { status: 201 });
+    return NextResponse.json(mapTaskFromDB(data), { status: 201 });
   } catch (error) {
     logger.error('Create task error', { error });
     return NextResponse.json(
@@ -226,25 +224,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({
-      task: {
-        id: data.id,
-        userId: data.user_id,
-        title: data.title,
-        description: data.description,
-        dueDate: data.due_date,
-        priority: data.priority,
-        status: data.status,
-        tags: data.tags,
-        projectId: data.project_id,
-        parentTaskId: data.parent_task_id,
-        sortOrder: data.sort_order,
-        estimatedMinutes: data.estimated_minutes,
-        completedAt: data.completed_at,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at,
-      },
-    });
+    return NextResponse.json({ task: mapTaskFromDB(data) });
   } catch (error) {
     logger.error('Update task error', { error });
     return NextResponse.json(

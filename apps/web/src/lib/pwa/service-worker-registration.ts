@@ -3,7 +3,13 @@
  * Handles SW lifecycle and updates
  */
 
-export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
+interface RegisterOptions {
+  onUpdate?: (worker: ServiceWorker) => void;
+}
+
+export async function registerServiceWorker(
+  options?: RegisterOptions
+): Promise<ServiceWorkerRegistration | null> {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
     console.warn('Service Workers not supported');
     return null;
@@ -21,11 +27,7 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
       newWorker.addEventListener('statechange', () => {
         if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
           console.log('New service worker available, refresh to update');
-          
-          if (window.confirm('A new version is available. Reload to update?')) {
-            newWorker.postMessage({ type: 'SKIP_WAITING' });
-            window.location.reload();
-          }
+          options?.onUpdate?.(newWorker);
         }
       });
     });

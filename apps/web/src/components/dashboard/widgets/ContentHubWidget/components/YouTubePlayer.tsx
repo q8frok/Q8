@@ -3,6 +3,7 @@
 import { useEffect, useId, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { useYouTubePlayer } from '@/hooks/useYouTubePlayer';
+import { useContentHubStore } from '@/lib/stores/contenthub';
 import { Loader2 } from 'lucide-react';
 
 interface YouTubePlayerProps {
@@ -52,7 +53,7 @@ export function YouTubePlayer({
     [onError]
   );
 
-  const { isReady } = useYouTubePlayer(containerId, {
+  const { isReady, play, pause, seekTo, setVolume } = useYouTubePlayer(containerId, {
     videoId,
     autoplay,
     controls: true,
@@ -61,6 +62,23 @@ export function YouTubePlayer({
     onTimeUpdate: handleTimeUpdate,
     onError: handleError,
   });
+
+  // Register YouTube player controls in the store when ready
+  useEffect(() => {
+    if (isReady) {
+      useContentHubStore.getState().setYouTubeControls({
+        play,
+        pause,
+        seekTo: (seconds: number) => seekTo(seconds, true),
+        setVolume,
+      });
+    }
+
+    return () => {
+      // Unregister when unmounting
+      useContentHubStore.getState().setYouTubeControls(null);
+    };
+  }, [isReady, play, pause, seekTo, setVolume]);
 
   return (
     <div

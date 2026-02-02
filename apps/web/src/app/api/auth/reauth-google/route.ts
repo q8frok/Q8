@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { logger } from '@/lib/logger';
 import { clientEnv } from '@/lib/env';
 
 export async function GET(request: NextRequest) {
@@ -56,7 +57,7 @@ export async function GET(request: NextRequest) {
   });
 
   if (error) {
-    console.error('Re-auth error:', error);
+    logger.error('Re-auth error', { error });
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 

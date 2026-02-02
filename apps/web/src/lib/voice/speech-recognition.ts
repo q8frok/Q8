@@ -3,6 +3,31 @@
  * Web Speech API wrapper for voice input
  */
 
+import { logger } from '@/lib/logger';
+
+interface SpeechRecognitionEvent {
+  results: SpeechRecognitionResultList;
+  resultIndex: number;
+}
+
+interface SpeechRecognitionErrorEvent {
+  error: string;
+  message: string;
+}
+
+interface SpeechRecognitionInstance {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  maxAlternatives: number;
+  onresult: ((event: SpeechRecognitionEvent) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
+  onend: (() => void) | null;
+  start(): void;
+  stop(): void;
+  abort(): void;
+}
+
 export interface VoiceRecognitionOptions {
   continuous?: boolean;
   interimResults?: boolean;
@@ -20,18 +45,18 @@ export type VoiceRecognitionCallback = (result: VoiceRecognitionResult) => void;
 export type VoiceErrorCallback = (error: string) => void;
 
 export class VoiceRecognition {
-  private recognition: any = null;
+  private recognition: SpeechRecognitionInstance | null = null;
   private isListening = false;
 
   constructor(private options: VoiceRecognitionOptions = {}) {
     if (typeof window === 'undefined') return;
 
+    const w = window as unknown as Record<string, new () => SpeechRecognitionInstance>;
     const SpeechRecognitionAPI =
-      (window as any).SpeechRecognition || 
-      (window as any).webkitSpeechRecognition;
+      w.SpeechRecognition || w.webkitSpeechRecognition;
 
     if (!SpeechRecognitionAPI) {
-      console.warn('Speech recognition not supported in this browser');
+      logger.warn('Speech recognition not supported in this browser');
       return;
     }
 
@@ -52,8 +77,9 @@ export class VoiceRecognition {
   ): boolean {
     if (!this.recognition || this.isListening) return false;
 
-    this.recognition.onresult = (event: any) => {
+    this.recognition.onresult = (event: SpeechRecognitionEvent) => {
       const result = event.results[event.results.length - 1];
+      if (!result?.[0]) return;
       const transcript = result[0].transcript;
       const confidence = result[0].confidence;
 
@@ -64,8 +90,8 @@ export class VoiceRecognition {
       });
     };
 
-    this.recognition.onerror = (event: any) => {
-      console.error('Speech recognition error:', event.error);
+    this.recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+      logger.error('Speech recognition error', { error: event.error });
       onError?.(event.error);
     };
 
@@ -78,7 +104,7 @@ export class VoiceRecognition {
       this.isListening = true;
       return true;
     } catch (error) {
-      console.error('Failed to start speech recognition:', error);
+      logger.error('Failed to start speech recognition', { error });
       onError?.('Failed to start recognition');
       return false;
     }
@@ -91,7 +117,7 @@ export class VoiceRecognition {
       this.recognition.stop();
       this.isListening = false;
     } catch (error) {
-      console.error('Failed to stop speech recognition:', error);
+      logger.error('Failed to stop speech recognition', { error });
     }
   }
 
@@ -102,7 +128,7 @@ export class VoiceRecognition {
       this.recognition.abort();
       this.isListening = false;
     } catch (error) {
-      console.error('Failed to abort speech recognition:', error);
+      logger.error('Failed to abort speech recognition', { error });
     }
   }
 

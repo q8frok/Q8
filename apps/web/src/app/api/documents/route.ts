@@ -77,6 +77,20 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+    // Handle duplicate detection
+    if (errorMessage === 'Duplicate file' && error && typeof error === 'object' && 'existingDocument' in error) {
+      const dupError = error as { existingDocument: { id: string; name: string } };
+      return NextResponse.json(
+        {
+          error: 'File already exists',
+          duplicate: true,
+          existingDocument: dupError.existingDocument,
+        },
+        { status: 409 }
+      );
+    }
+
     logger.error('[Documents] Upload failed', { error: errorMessage });
 
     return NextResponse.json(
@@ -100,13 +114,16 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const scope = searchParams.get('scope') as DocumentScope | null;
     const threadId = searchParams.get('threadId');
-    const status = searchParams.get('status') as 'pending' | 'processing' | 'ready' | 'error' | null;
+    const status = searchParams.get('status') as 'pending' | 'processing' | 'ready' | 'error' | 'archived' | null;
     const limit = parseInt(searchParams.get('limit') || '50', 10);
     const offset = parseInt(searchParams.get('offset') || '0', 10);
 
     const folderIdParam = searchParams.get('folderId');
     // "root" means explicitly filter root (folder_id IS NULL), null param means all
     const folderId = folderIdParam === 'root' ? null : folderIdParam || undefined;
+
+    const orderBy = searchParams.get('orderBy') || 'created_at';
+    const orderDirection = searchParams.get('orderDirection') || 'desc';
 
     const { documents, total } = await getUserDocuments(user.id, {
       scope: scope || undefined,
@@ -115,6 +132,8 @@ export async function GET(request: NextRequest) {
       limit: Math.min(limit, 100),
       offset,
       folderId,
+      orderBy: orderBy as 'name' | 'created_at' | 'size_bytes' | 'file_type',
+      orderDirection: orderDirection as 'asc' | 'desc',
     });
 
     return NextResponse.json({

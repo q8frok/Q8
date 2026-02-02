@@ -16,6 +16,7 @@ import type {
   DocumentScope,
   ParsedChunk,
 } from './types';
+import { validateMagicBytes, getValidationErrorMessage } from './validation';
 import { logger } from '@/lib/logger';
 
 const STORAGE_BUCKET = 'documents';
@@ -34,6 +35,32 @@ export async function uploadDocument(
   }
 ): Promise<Document> {
   const { scope, threadId, name, folderId } = options;
+
+  // Compute content hash for dedup
+  const fileBuffer = await file.arrayBuffer();
+  const hashBuffer = await crypto.subtle.digest('SHA-256', fileBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const contentHash = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+
+  // Check for duplicate
+  const { data: existing } = await supabaseAdmin
+    .from('documents')
+    .select('id, name')
+    .eq('user_id', userId)
+    .eq('content_hash', contentHash)
+    .neq('status', 'archived')
+    .limit(1)
+    .maybeSingle();
+
+  if (existing) {
+    const error = new Error('Duplicate file') as Error & { status: number; existingDocument: { id: string; name: string } };
+    error.status = 409;
+    error.existingDocument = { id: existing.id, name: existing.name };
+    throw error;
+  }
+
+  // Reconstruct File from buffer for upload (since we consumed the arrayBuffer)
+  const fileBlob = new Blob([fileBuffer], { type: file.type });
 
   // Detect file type
   const fileType = detectFileType(file.type, file.name);
@@ -54,7 +81,7 @@ export async function uploadDocument(
   let uploadError;
   ({ error: uploadError } = await supabaseAdmin.storage
     .from(STORAGE_BUCKET)
-    .upload(storagePath, file, {
+    .upload(storagePath, fileBlob, {
       contentType,
       upsert: false,
     }));
@@ -67,7 +94,7 @@ export async function uploadDocument(
     });
     ({ error: uploadError } = await supabaseAdmin.storage
       .from(STORAGE_BUCKET)
-      .upload(storagePath, file, {
+      .upload(storagePath, fileBlob, {
         contentType: 'application/octet-stream',
         upsert: false,
       }));
@@ -94,6 +121,7 @@ export async function uploadDocument(
       scope,
       thread_id: threadId,
       folder_id: folderId || null,
+      content_hash: contentHash,
     })
     .select()
     .single();
@@ -104,10 +132,27 @@ export async function uploadDocument(
     throw new Error(`Failed to create document record: ${dbError?.message}`);
   }
 
-  // Start processing in background
-  processDocumentAsync(document.id).catch((error) => {
-    logger.error('Background processing failed', { documentId: document.id, error });
-  });
+  // Enqueue processing job via agent_jobs queue
+  const { error: jobError } = await supabaseAdmin
+    .from('agent_jobs')
+    .insert({
+      user_id: userId,
+      trigger_type: 'system',
+      agent_type: 'document_processor',
+      priority: 'normal',
+      input_message: `Process document: ${name || file.name}`,
+      input_context: { documentId: document.id },
+      max_retries: 3,
+      status: 'pending',
+    });
+
+  if (jobError) {
+    logger.error('Failed to enqueue document processing job', {
+      documentId: document.id,
+      error: jobError,
+    });
+    // Don't fail the upload - doc is saved, processing can be retried
+  }
 
   return transformDocument(document);
 }
@@ -134,6 +179,12 @@ export async function processDocument(documentId: string): Promise<void> {
       throw new Error(`Document not found: ${documentId}`);
     }
 
+    // Memory guard: reject files > 50MB
+    const MAX_FILE_SIZE = 50 * 1024 * 1024;
+    if (doc.size_bytes > MAX_FILE_SIZE) {
+      throw new Error(`File too large for processing: ${(doc.size_bytes / 1024 / 1024).toFixed(1)}MB exceeds 50MB limit`);
+    }
+
     // Download file from storage
     const { data: fileData, error: downloadError } = await supabaseAdmin.storage
       .from(doc.storage_bucket)
@@ -143,19 +194,47 @@ export async function processDocument(documentId: string): Promise<void> {
       throw new Error(`Failed to download file: ${downloadError?.message}`);
     }
 
+    // Validate magic bytes before parsing
+    const rawBuffer = await fileData.arrayBuffer();
+    if (!validateMagicBytes(rawBuffer, doc.file_type as FileType)) {
+      throw new Error(getValidationErrorMessage(doc.file_type as FileType));
+    }
+
     // Parse the document
     let content: ArrayBuffer | string;
     if (['pdf', 'docx', 'doc', 'xlsx', 'xls', 'pptx', 'ppt', 'image'].includes(doc.file_type)) {
-      content = await fileData.arrayBuffer();
+      content = rawBuffer;
     } else {
-      content = await fileData.text();
+      content = new TextDecoder().decode(rawBuffer);
     }
 
     const parsed = await parseDocument(content, doc.file_type as FileType, doc.original_name);
 
-    // Generate embeddings for all chunks
-    const chunkTexts = parsed.chunks.map((c) => c.content);
-    const embeddings = await generateEmbeddingsBatch(chunkTexts, { useCache: false });
+    // Generate embeddings in batches with progress updates
+    const embeddingBatchSize = 100;
+    const totalChunks = parsed.chunks.length;
+    const embeddings: (number[] | null)[] = new Array(totalChunks).fill(null);
+
+    for (let i = 0; i < totalChunks; i += embeddingBatchSize) {
+      const batchEnd = Math.min(i + embeddingBatchSize, totalChunks);
+      const batchTexts = parsed.chunks.slice(i, batchEnd).map((c) => c.content);
+      const batchEmbeddings = await generateEmbeddingsBatch(batchTexts, { useCache: false });
+
+      for (let j = 0; j < batchEmbeddings.length; j++) {
+        embeddings[i + j] = batchEmbeddings[j] ?? null;
+      }
+
+      // Update processing progress in metadata (picked up by Realtime subscription)
+      await supabaseAdmin
+        .from('documents')
+        .update({
+          metadata: {
+            ...parsed.metadata,
+            processing_progress: `${batchEnd}/${totalChunks} chunks embedded`,
+          },
+        })
+        .eq('id', documentId);
+    }
 
     // Prepare chunk records
     const chunkRecords = parsed.chunks.map((chunk, index) => ({
@@ -166,15 +245,15 @@ export async function processDocument(documentId: string): Promise<void> {
       source_page: chunk.sourcePage,
       source_line_start: chunk.sourceLineStart,
       source_line_end: chunk.sourceLineEnd,
-      embedding: embeddings[index] ? `[${embeddings[index]!.join(',')}]` : null,
-      token_count: estimateTokens(chunk.content),
+      embedding: embeddings[index] != null ? `[${embeddings[index]!.join(',')}]` : null,
+      token_count: estimateTokens(chunk.content, chunk.chunkType),
       metadata: chunk.metadata || {},
     }));
 
     // Insert chunks in batches
-    const batchSize = 50;
-    for (let i = 0; i < chunkRecords.length; i += batchSize) {
-      const batch = chunkRecords.slice(i, i + batchSize);
+    const insertBatchSize = 50;
+    for (let i = 0; i < chunkRecords.length; i += insertBatchSize) {
+      const batch = chunkRecords.slice(i, i + insertBatchSize);
       const { error: insertError } = await supabaseAdmin
         .from('document_chunks')
         .insert(batch);
@@ -222,12 +301,57 @@ export async function processDocument(documentId: string): Promise<void> {
 }
 
 /**
- * Process document asynchronously
+ * Reprocess a failed document: reset status, delete chunks, enqueue new job
  */
-async function processDocumentAsync(documentId: string): Promise<void> {
-  // Small delay to allow the initial response to complete
-  await new Promise((resolve) => setTimeout(resolve, 100));
-  await processDocument(documentId);
+export async function reprocessDocument(documentId: string, userId: string): Promise<void> {
+  // Verify ownership
+  const { data: doc, error: fetchError } = await supabaseAdmin
+    .from('documents')
+    .select('id, user_id, name')
+    .eq('id', documentId)
+    .single();
+
+  if (fetchError || !doc) {
+    throw new Error('Document not found');
+  }
+  if (doc.user_id !== userId) {
+    throw new Error('Unauthorized');
+  }
+
+  // Reset status and delete existing chunks
+  await supabaseAdmin
+    .from('document_chunks')
+    .delete()
+    .eq('document_id', documentId);
+
+  await supabaseAdmin
+    .from('documents')
+    .update({
+      status: 'pending',
+      processing_error: null,
+      chunk_count: 0,
+      token_count: 0,
+      processed_at: null,
+    })
+    .eq('id', documentId);
+
+  // Enqueue new processing job
+  const { error: jobError } = await supabaseAdmin
+    .from('agent_jobs')
+    .insert({
+      user_id: userId,
+      trigger_type: 'system',
+      agent_type: 'document_processor',
+      priority: 'normal',
+      input_message: `Reprocess document: ${doc.name}`,
+      input_context: { documentId },
+      max_retries: 3,
+      status: 'pending',
+    });
+
+  if (jobError) {
+    throw new Error(`Failed to enqueue reprocessing job: ${jobError.message}`);
+  }
 }
 
 /**
@@ -384,25 +508,36 @@ export async function getUserDocuments(
     limit?: number;
     offset?: number;
     folderId?: string | null;
+    orderBy?: 'name' | 'created_at' | 'size_bytes' | 'file_type';
+    orderDirection?: 'asc' | 'desc';
   } = {}
 ): Promise<{ documents: Document[]; total: number }> {
-  const { scope, threadId, status, limit = 50, offset = 0, folderId } = options;
+  const { scope, threadId, status, limit = 50, offset = 0, folderId, orderBy = 'created_at', orderDirection = 'desc' } = options;
+
+  const ascending = orderDirection === 'asc';
 
   let query = supabaseAdmin
     .from('documents')
     .select('*', { count: 'exact' })
     .eq('user_id', userId)
-    .neq('status', 'archived')
-    .order('created_at', { ascending: false });
+    .eq('is_latest', true)
+    .order(orderBy, { ascending });
+
+  // When querying archived docs, show only archived; otherwise exclude archived
+  if (status === 'archived') {
+    query = query.eq('status', 'archived');
+  } else {
+    query = query.neq('status', 'archived');
+    if (status) {
+      query = query.eq('status', status);
+    }
+  }
 
   if (scope) {
     query = query.eq('scope', scope);
   }
   if (threadId) {
     query = query.eq('thread_id', threadId);
-  }
-  if (status) {
-    query = query.eq('status', status);
   }
   // folderId: null = root only, string = specific folder, undefined = all
   if (folderId === null) {
@@ -481,6 +616,9 @@ function transformDocument(row: Record<string, unknown>): Document {
     metadata: (row.metadata as Record<string, unknown>) || {},
     chunkCount: row.chunk_count as number,
     tokenCount: row.token_count as number,
+    version: (row.version as number) || 1,
+    parentDocumentId: (row.parent_document_id as string | null) || null,
+    isLatest: row.is_latest !== false,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
     processedAt: row.processed_at as string | undefined,

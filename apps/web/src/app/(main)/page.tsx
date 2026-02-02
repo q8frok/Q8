@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Settings, Mic, Command, BookOpen } from 'lucide-react';
+import { Settings, Mic, Command, BookOpen, MessageCircle, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { BentoGrid, BentoItem } from '@/components/dashboard/BentoGrid';
@@ -28,8 +28,9 @@ import { ToastProvider, toast } from '@/components/ui/toast';
 import { AnimatedBackground } from '@/components/shared/AnimatedBackground';
 import { VoiceFAB } from '@/components/shared/VoiceFAB';
 import { ChatProvider } from '@/contexts/ChatContext';
+import { WidgetUpdateProvider } from '@/contexts/WidgetUpdateContext';
 import { logger } from '@/lib/logger';
-import { useViewportHeight } from '@/hooks/useViewportHeight';
+
 
 function DashboardContent() {
   // SECURITY: Get userId from authenticated session, not hardcoded
@@ -38,10 +39,8 @@ function DashboardContent() {
 
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [showMobileChat, setShowMobileChat] = useState(false);
   const chatRef = useRef<UnifiedChatWithThreadsRef>(null);
-
-  // Keyboard-aware viewport height (updates when iOS keyboard opens/closes)
-  useViewportHeight();
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -79,11 +78,11 @@ function DashboardContent() {
       {/* Animated Background */}
       <AnimatedBackground />
 
-      <div className="container mx-auto py-6 px-4 relative z-10 safe-area-container">
+      <div className="container mx-auto py-4 md:py-6 px-3 md:px-4 relative z-10 safe-area-container">
         {/* Header */}
-        <header className="mb-6 flex justify-between items-center">
+        <header className="mb-4 md:mb-6 flex justify-between items-center">
           <div>
-            <h1 className="text-2xl md:text-4xl font-bold text-white tracking-tight">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white tracking-tight">
               Q8
             </h1>
           </div>
@@ -131,9 +130,9 @@ function DashboardContent() {
           </div>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
           {/* Left Column - Dashboard Widgets */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-4 md:space-y-6">
             <BentoGrid>
               {/* Daily Brief - Summary with calendar, weather, tasks, quick actions, insights */}
               <BentoItem colSpan={2} rowSpan={2}>
@@ -191,8 +190,8 @@ function DashboardContent() {
             </BentoGrid>
           </div>
 
-          {/* Right Column - Chat Interface */}
-          <div className="lg:col-span-1">
+          {/* Right Column - Chat Interface (hidden on mobile, shown as overlay) */}
+          <div className="hidden lg:block lg:col-span-1">
             <div className="lg:sticky lg:top-6 surface-matte rounded-2xl h-[calc(var(--vh,1vh)*100-12rem)] overflow-hidden">
               <UnifiedChatWithThreads
                 ref={chatRef}
@@ -208,6 +207,40 @@ function DashboardContent() {
           </div>
         </div>
       </div>
+
+      {/* Mobile Chat Overlay */}
+      {showMobileChat && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setShowMobileChat(false)}
+          />
+          <div className="absolute inset-x-0 bottom-0 top-0 flex flex-col bg-[var(--surface-1)]">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-subtle)]">
+              <h2 className="text-base font-semibold">Chat</h2>
+              <button
+                onClick={() => setShowMobileChat(false)}
+                className="p-2 rounded-xl hover:bg-surface-3 transition-colors"
+                aria-label="Close chat"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <UnifiedChatWithThreads
+                ref={chatRef}
+                userId={userId}
+                userProfile={{
+                  name: fullName || 'User',
+                  timezone: 'America/New_York',
+                  communicationStyle: 'concise',
+                }}
+                defaultMode="text"
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Command Palette */}
       <CommandPalette
@@ -233,6 +266,7 @@ function DashboardContent() {
         onVoice={() => chatRef.current?.switchMode('voice')}
         onSettings={() => setIsSettingsOpen(true)}
         onKnowledge={() => router.push('/knowledge')}
+        onChat={() => setShowMobileChat(true)}
       />
     </main>
   );
@@ -242,9 +276,11 @@ export default function DashboardPage() {
   return (
     <ToastProvider>
       <ChatProvider>
-        <ProtectedRoute>
-          <DashboardContent />
-        </ProtectedRoute>
+        <WidgetUpdateProvider>
+          <ProtectedRoute>
+            <DashboardContent />
+          </ProtectedRoute>
+        </WidgetUpdateProvider>
       </ChatProvider>
     </ToastProvider>
   );

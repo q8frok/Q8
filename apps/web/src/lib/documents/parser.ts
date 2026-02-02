@@ -621,10 +621,39 @@ function chunkText(text: string, type: ChunkType): ParsedChunk[] {
   return chunks;
 }
 
+// CJK Unicode ranges for token estimation
+const CJK_REGEX = /[\u4e00-\u9fff\u3400-\u4dbf\u{20000}-\u{2a6df}\u{2a700}-\u{2b73f}\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af]/u;
+
 /**
  * Estimate token count for a string
- * Rough approximation: ~4 chars per token for English
+ * Uses different ratios based on content type:
+ * - English text: ~4 chars/token
+ * - Code: ~3.5 chars/token
+ * - CJK text: ~1.5 chars/token
+ * - JSON/structured: ~3 chars/token
  */
-export function estimateTokens(text: string): number {
+export function estimateTokens(text: string, chunkType?: ChunkType): number {
+  if (!text) return 0;
+
+  // Check for CJK content
+  const cjkChars = (text.match(CJK_REGEX) || []).length;
+  if (cjkChars > text.length * 0.3) {
+    // Predominantly CJK text
+    const cjkTokens = cjkChars / 1.5;
+    const otherTokens = (text.length - cjkChars) / 4;
+    return Math.ceil(cjkTokens + otherTokens);
+  }
+
+  // Content-type based estimation
+  if (chunkType === 'code') {
+    return Math.ceil(text.length / 3.5);
+  }
+
+  // Check for JSON/structured content
+  if (chunkType === 'table' || chunkType === 'metadata') {
+    return Math.ceil(text.length / 3);
+  }
+
+  // Default: English text
   return Math.ceil(text.length / 4);
 }

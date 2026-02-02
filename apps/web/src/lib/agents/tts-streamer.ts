@@ -6,6 +6,8 @@
  * by detecting sentence boundaries and speaking complete thoughts.
  */
 
+import { logger } from '@/lib/logger';
+
 export interface TTSStreamerOptions {
   /** Minimum characters before speaking (default: 40) */
   minChunkLength?: number;
@@ -94,7 +96,7 @@ export class TTSStreamer {
     }
 
     if (this.options.debug) {
-      console.log('[TTSStreamer] Buffer:', this.buffer.length, 'chars');
+      logger.debug('[TTSStreamer] Buffer', { length: this.buffer.length });
     }
   }
 
@@ -120,7 +122,7 @@ export class TTSStreamer {
       const text = this.speakQueue.shift();
       if (text) {
         if (this.options.debug) {
-          console.log('[TTSStreamer] Speaking:', text.slice(0, 50) + '...');
+          logger.debug('[TTSStreamer] Speaking', { text: text.slice(0, 50) });
         }
 
         try {
@@ -130,7 +132,7 @@ export class TTSStreamer {
             setTimeout(resolve, this.options.speakDelayMs)
           );
         } catch (error) {
-          console.error('[TTSStreamer] Speak error:', error);
+          logger.error('[TTSStreamer] Speak error', { error });
         }
       }
     }

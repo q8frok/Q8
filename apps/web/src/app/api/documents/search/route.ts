@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
 
     const { query, limit, minSimilarity, scope, threadId, fileTypes, folderId } = parseResult.data;
 
-    const results = await searchDocuments(user.id, query, {
+    const chunks = await searchDocuments(user.id, query, {
       limit,
       minSimilarity,
       scope: scope as DocumentScope | undefined,
@@ -56,6 +56,19 @@ export async function POST(request: NextRequest) {
       fileTypes: fileTypes as FileType[] | undefined,
       folderId,
     });
+
+    // Transform to DocumentSearchResult format with top-level similarity
+    const results = chunks.map((chunk) => ({
+      chunkId: chunk.id,
+      documentId: chunk.documentId,
+      documentName: (chunk.metadata?.documentName as string) || '',
+      fileType: (chunk.metadata?.fileType as string) || '',
+      content: chunk.content,
+      chunkType: chunk.chunkType,
+      sourcePage: chunk.sourcePage,
+      similarity: (chunk.metadata?.similarity as number) || 0,
+      metadata: chunk.metadata || {},
+    }));
 
     return NextResponse.json({
       success: true,

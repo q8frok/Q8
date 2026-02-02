@@ -29,6 +29,9 @@ interface QuickActionsProps {
   className?: string;
 }
 
+/** Duration (ms) to show transient feedback messages before auto-clearing */
+const FEEDBACK_DISMISS_MS = 3000;
+
 // Icon mapping for modes
 const MODE_ICONS: Record<ContentMode, React.ComponentType<{ className?: string }>> = {
   focus: Brain,
@@ -79,7 +82,7 @@ export function QuickActions({
     const config = PRESET_MODES[mode];
     const description = MODE_DESCRIPTIONS[mode];
     setError(`${config.name}: ${description}`);
-    setTimeout(() => setError(null), 3000);
+    setTimeout(() => setError(null), FEEDBACK_DISMISS_MS);
     logger.info('Mode changed', { mode, description });
   };
 
@@ -128,7 +131,7 @@ export function QuickActions({
               onAIDiscover();
             } else {
               setError('AI Suggest: Getting recommendations...');
-              setTimeout(() => setError(null), 2000);
+              setTimeout(() => setError(null), FEEDBACK_DISMISS_MS);
             }
           }}
           disabled={aiDiscoverLoading}
@@ -154,7 +157,7 @@ export function QuickActions({
               onSmartHome();
             } else {
               setError('Cast: Select a device to cast to');
-              setTimeout(() => setError(null), 2000);
+              setTimeout(() => setError(null), FEEDBACK_DISMISS_MS);
             }
           }}
         >
@@ -173,7 +176,7 @@ export function QuickActions({
               onVoice();
             } else {
               setError('Voice: Click the mic icon in the header');
-              setTimeout(() => setError(null), 2000);
+              setTimeout(() => setError(null), FEEDBACK_DISMISS_MS);
             }
           }}
         >
