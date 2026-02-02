@@ -32,7 +32,7 @@ export function VoiceFAB({ onVoice, onSettings, onKnowledge, onChat }: VoiceFABP
             {onChat && (
               <motion.button
                 initial={{ scale: 0, y: 0 }}
-                animate={{ scale: 1, y: -136 }}
+                animate={{ scale: 1, y: -200 }}
                 exit={{ scale: 0, y: 0 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={() => {
@@ -45,6 +45,21 @@ export function VoiceFAB({ onVoice, onSettings, onKnowledge, onChat }: VoiceFABP
                 <MessageCircle className="h-5 w-5" />
               </motion.button>
             )}
+            {/* Voice button */}
+            <motion.button
+              initial={{ scale: 0, y: 0 }}
+              animate={{ scale: 1, y: -136 }}
+              exit={{ scale: 0, y: 0 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => {
+                onVoice();
+                setExpanded(false);
+              }}
+              className="absolute bottom-0 right-0 h-12 w-12 rounded-full bg-neon-primary shadow-neon-primary/30 flex items-center justify-center shadow-lg"
+              aria-label="Voice Mode"
+            >
+              <Mic className="h-5 w-5" />
+            </motion.button>
             {/* Settings button */}
             <motion.button
               initial={{ scale: 0, y: 0 }}
@@ -82,33 +97,17 @@ export function VoiceFAB({ onVoice, onSettings, onKnowledge, onChat }: VoiceFABP
       {/* Main FAB */}
       <motion.button
         whileTap={{ scale: 0.95 }}
-        onClick={() => (expanded ? setExpanded(false) : onVoice())}
-        onContextMenu={(e) => {
-          e.preventDefault();
-          setExpanded(!expanded);
-        }}
+        onClick={() => setExpanded(!expanded)}
         className={cn(
           'relative h-14 w-14 rounded-full flex items-center justify-center shadow-lg transition-colors',
           expanded
             ? 'bg-surface-3 border border-border-subtle'
             : 'bg-neon-primary shadow-neon-primary/30'
         )}
-        aria-label={expanded ? 'Close menu' : 'Voice mode'}
+        aria-label={expanded ? 'Close menu' : 'Open menu'}
       >
         {expanded ? <X className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
       </motion.button>
-
-      {/* Hint text - shown only when not expanded */}
-      {!expanded && (
-        <motion.span
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1 }}
-          className="absolute -top-8 right-0 text-xs text-text-muted whitespace-nowrap pointer-events-none"
-        >
-          Hold for menu
-        </motion.span>
-      )}
     </div>
   );
 }
