@@ -28,33 +28,9 @@ export function PWAInitializer() {
   const [pendingWorker, setPendingWorker] = useState<ServiceWorker | null>(null);
   const [showUpdateToast, setShowUpdateToast] = useState(false);
 
-  // Prevent pull-to-refresh on mobile
-  useEffect(() => {
-    let startY = 0;
-
-    const handleTouchStart = (e: TouchEvent) => {
-      const touch = e.touches[0];
-      if (touch) startY = touch.pageY;
-    };
-
-    const handleTouchMove = (e: TouchEvent) => {
-      const touch = e.touches[0];
-      if (!touch) return;
-      const y = touch.pageY;
-      // Prevent pull-to-refresh when at top of page and pulling down
-      if (document.scrollingElement?.scrollTop === 0 && y > startY) {
-        e.preventDefault();
-      }
-    };
-
-    document.addEventListener('touchstart', handleTouchStart, { passive: true });
-    document.addEventListener('touchmove', handleTouchMove, { passive: false });
-
-    return () => {
-      document.removeEventListener('touchstart', handleTouchStart);
-      document.removeEventListener('touchmove', handleTouchMove);
-    };
-  }, []);
+  // Note: Pull-to-refresh is handled by the PullToRefresh component.
+  // The overscroll-behavior: none on body (globals.css) prevents the
+  // browser's native pull-to-refresh while allowing our custom implementation.
 
   // Service worker registration
   useEffect(() => {

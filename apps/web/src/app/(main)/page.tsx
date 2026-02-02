@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
-import { Settings, Mic, Command, BookOpen, MessageCircle, X } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Settings, Mic, Command, BookOpen, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { BentoGrid, BentoItem } from '@/components/dashboard/BentoGrid';
@@ -17,7 +17,7 @@ import {
   SmartHomeWidget,
   FinanceHubWidget,
 } from '@/components/dashboard/widgets';
-import { DailyBriefWidget } from '@/components/dashboard/DailyBriefWidget';
+import { DailyBriefWidget } from '@/components/dashboard/widgets/DailyBriefWidget';
 import { UnifiedChatWithThreads, UnifiedChatWithThreadsRef } from '@/components/chat/UnifiedChatWithThreads';
 import { UserProfile } from '@/components/auth/UserProfile';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
@@ -27,8 +27,10 @@ import { SettingsPanel } from '@/components/settings';
 import { ToastProvider, toast } from '@/components/ui/toast';
 import { AnimatedBackground } from '@/components/shared/AnimatedBackground';
 import { VoiceFAB } from '@/components/shared/VoiceFAB';
+import { BottomSheet, type SnapPoint } from '@/components/ui/BottomSheet';
 import { ChatProvider } from '@/contexts/ChatContext';
 import { WidgetUpdateProvider } from '@/contexts/WidgetUpdateContext';
+import { haptics } from '@/lib/pwa/haptics';
 import { logger } from '@/lib/logger';
 
 
@@ -39,7 +41,7 @@ function DashboardContent() {
 
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [showMobileChat, setShowMobileChat] = useState(false);
+  const [chatSheetSnap, setChatSheetSnap] = useState<SnapPoint>('closed');
   const chatRef = useRef<UnifiedChatWithThreadsRef>(null);
 
   // Global keyboard shortcuts
@@ -68,6 +70,12 @@ function DashboardContent() {
     }
   };
 
+  // Open chat sheet to half state
+  const openMobileChat = useCallback(() => {
+    haptics.light();
+    setChatSheetSnap('half');
+  }, []);
+
   // Show loading state while auth is being verified
   if (isLoading || !userId) {
     return null; // ProtectedRoute handles loading state
@@ -79,7 +87,7 @@ function DashboardContent() {
       <AnimatedBackground />
 
       <div className="container mx-auto py-4 md:py-6 px-3 md:px-4 relative z-10 safe-area-container">
-        {/* Header */}
+        {/* Header - optimized for 440pt */}
         <header className="mb-4 md:mb-6 flex justify-between items-center">
           <div>
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white tracking-tight">
@@ -97,14 +105,14 @@ function DashboardContent() {
               <span className="text-sm">⌘K</span>
             </button>
 
-            {/* Knowledge Base Button */}
+            {/* Knowledge Base Button - icon-only until md breakpoint */}
             <Link
               href="/knowledge"
-              className="flex items-center gap-2 p-2.5 sm:px-3 sm:py-2 rounded-xl bg-surface-3 hover:bg-surface-2 transition-colors border border-border-subtle"
+              className="flex items-center gap-2 p-2.5 md:px-3 md:py-2 rounded-xl bg-surface-3 hover:bg-surface-2 transition-colors border border-border-subtle"
               title="Knowledge Base"
             >
               <BookOpen className="h-4 w-4" />
-              <span className="hidden sm:inline text-sm">Knowledge</span>
+              <span className="hidden md:inline text-sm">Knowledge</span>
             </Link>
 
             {/* Voice Mode Button - Hidden on mobile (available in FAB) */}
@@ -117,10 +125,10 @@ function DashboardContent() {
               <span className="text-sm font-medium">Voice</span>
             </button>
 
-            {/* Settings Button */}
+            {/* Settings Button - hidden on mobile (available in FAB) */}
             <button
               onClick={() => setIsSettingsOpen(true)}
-              className="p-2.5 rounded-xl hover:bg-surface-3 transition-colors"
+              className="hidden md:flex p-2.5 rounded-xl hover:bg-surface-3 transition-colors"
               title="Settings (⌘.)"
             >
               <Settings className="h-5 w-5" />
@@ -190,7 +198,7 @@ function DashboardContent() {
             </BentoGrid>
           </div>
 
-          {/* Right Column - Chat Interface (hidden on mobile, shown as overlay) */}
+          {/* Right Column - Chat Interface (hidden on mobile, shown as bottom sheet) */}
           <div className="hidden lg:block lg:col-span-1">
             <div className="lg:sticky lg:top-6 surface-matte rounded-2xl h-[calc(var(--vh,1vh)*100-12rem)] overflow-hidden">
               <UnifiedChatWithThreads
@@ -208,39 +216,39 @@ function DashboardContent() {
         </div>
       </div>
 
-      {/* Mobile Chat Overlay */}
-      {showMobileChat && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <div
-            className="absolute inset-0 bg-black/50"
-            onClick={() => setShowMobileChat(false)}
-          />
-          <div className="absolute inset-x-0 bottom-0 top-0 flex flex-col bg-[var(--surface-1)]">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-subtle)]">
-              <h2 className="text-base font-semibold">Chat</h2>
-              <button
-                onClick={() => setShowMobileChat(false)}
-                className="p-2 rounded-xl hover:bg-surface-3 transition-colors"
-                aria-label="Close chat"
-              >
-                <X className="h-5 w-5" />
-              </button>
+      {/* Mobile Chat Bottom Sheet */}
+      <BottomSheet
+        snap={chatSheetSnap}
+        onSnapChange={setChatSheetSnap}
+        peekHeight={120}
+        peekContent={
+          <button
+            onClick={() => setChatSheetSnap('half')}
+            className="w-full flex items-center gap-3 px-2 py-2 text-left"
+          >
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <MessageCircle className="h-4 w-4 text-neon-primary shrink-0" />
+              <span className="text-sm text-text-secondary truncate">
+                Tap to open chat...
+              </span>
             </div>
-            <div className="flex-1 overflow-hidden">
-              <UnifiedChatWithThreads
-                ref={chatRef}
-                userId={userId}
-                userProfile={{
-                  name: fullName || 'User',
-                  timezone: 'America/New_York',
-                  communicationStyle: 'concise',
-                }}
-                defaultMode="text"
-              />
+            <div className="shrink-0 px-3 py-1.5 rounded-full bg-neon-primary/20 text-xs font-medium text-neon-primary">
+              Chat
             </div>
-          </div>
-        </div>
-      )}
+          </button>
+        }
+      >
+        <UnifiedChatWithThreads
+          ref={chatRef}
+          userId={userId}
+          userProfile={{
+            name: fullName || 'User',
+            timezone: 'America/New_York',
+            communicationStyle: 'concise',
+          }}
+          defaultMode="text"
+        />
+      </BottomSheet>
 
       {/* Command Palette */}
       <CommandPalette
@@ -266,7 +274,7 @@ function DashboardContent() {
         onVoice={() => chatRef.current?.switchMode('voice')}
         onSettings={() => setIsSettingsOpen(true)}
         onKnowledge={() => router.push('/knowledge')}
-        onChat={() => setShowMobileChat(true)}
+        onChat={openMobileChat}
       />
     </main>
   );

@@ -977,6 +977,20 @@ input[type="button"] {
 }
 
 /* ============================================
+   120Hz ProMotion Animation Tuning
+   ============================================ */
+@media (prefers-reduced-motion: no-preference) {
+  * {
+    scroll-behavior: smooth;
+  }
+}
+
+/* Ensure animated elements use GPU-friendly properties only */
+.will-change-transform {
+  will-change: transform;
+}
+
+/* ============================================
    Reduced Motion Support
    ============================================ */
 @media (prefers-reduced-motion: reduce) {

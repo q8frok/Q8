@@ -116,7 +116,8 @@
       "Bash(find:*)",
       "Bash(xargs -I {} sh -c 'echo \"\"==={}===\"\" && head -30 \"\"{}\"\"')",
       "Bash(npx next build)",
-      "Bash(npx next build:*)"
+      "Bash(npx next build:*)",
+      "Bash(git log:*)"
     ],
     "deny": [],
     "ask": []

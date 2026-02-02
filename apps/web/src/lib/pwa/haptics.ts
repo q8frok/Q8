@@ -3,7 +3,7 @@
  * Provides vibration patterns for different UI interactions
  */
 
-type HapticPattern = 'light' | 'medium' | 'heavy' | 'success' | 'warning' | 'error' | 'selection';
+type HapticPattern = 'light' | 'medium' | 'heavy' | 'success' | 'warning' | 'error' | 'selection' | 'snap' | 'tap' | 'impact';
 
 const PATTERNS: Record<HapticPattern, number | number[]> = {
   light: 10,
@@ -13,6 +13,9 @@ const PATTERNS: Record<HapticPattern, number | number[]> = {
   warning: [20, 100, 20],
   error: [30, 100, 30, 100, 30],
   selection: 5,
+  snap: 8,       // Bottom sheet snap, scroll snap
+  tap: 5,        // Lightweight UI taps
+  impact: 15,    // Button presses, confirmations
 };
 
 export function triggerHaptic(pattern: HapticPattern = 'light'): void {
@@ -42,5 +45,8 @@ export const haptics = {
   warning: () => triggerHaptic('warning'),
   error: () => triggerHaptic('error'),
   selection: () => triggerHaptic('selection'),
+  snap: () => triggerHaptic('snap'),
+  tap: () => triggerHaptic('tap'),
+  impact: () => triggerHaptic('impact'),
   cancel: cancelHaptic,
 };
