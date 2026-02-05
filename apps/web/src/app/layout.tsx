@@ -5,6 +5,7 @@ import { SessionManager } from '@/components/auth/SessionManager';
 import { SyncStatus } from '@/components/shared/SyncStatus';
 import { OfflineIndicator } from '@/components/shared/OfflineIndicator';
 import { PWAInitializer } from '@/components/pwa/PWAInitializer';
+import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
 
 export default function RootLayout({
   children,
@@ -38,11 +39,13 @@ export default function RootLayout({
       </head>
       <body className="antialiased">
         <PWAInitializer />
-        <SessionManager>
-          {children}
-          <SyncStatus />
-          <OfflineIndicator />
-        </SessionManager>
+        <ErrorBoundary>
+          <SessionManager>
+            {children}
+            <SyncStatus />
+            <OfflineIndicator />
+          </SessionManager>
+        </ErrorBoundary>
       </body>
     </html>
   );
