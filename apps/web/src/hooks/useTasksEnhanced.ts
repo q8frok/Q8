@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRxCollection } from 'rxdb-hooks';
+import type { MangoQuerySelector } from 'rxdb';
 import { logger } from '@/lib/logger';
 import type { TaskEnhanced, TaskTag } from '@/lib/db/schemas/tasks-enhanced';
 
@@ -13,8 +14,7 @@ export function useTasksEnhanced(userId: string, parentTaskId?: string | null) {
   useEffect(() => {
     if (!collection) return;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const selector: Record<string, any> = {
+    const selector: MangoQuerySelector<TaskEnhanced> = {
       user_id: userId,
       deleted_at: { $exists: false },
     };
