@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { errorResponse } from '@/lib/api/error-responses';
 import { logger } from '@/lib/logger';
 
 /**
@@ -194,7 +195,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    return NextResponse.json({ error: 'Unknown type' }, { status: 400 });
+    return errorResponse('Unknown type', 400);
   } catch (error) {
     logger.error('GitHub API error', { error: error });
     return NextResponse.json(getMockData(type), { status: 200 });
@@ -275,14 +276,11 @@ export async function POST(request: NextRequest) {
       }
 
       default:
-        return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
+        return errorResponse('Unknown action', 400);
     }
   } catch (error) {
     logger.error('GitHub action error', { error: error });
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Action failed' },
-      { status: 500 }
-    );
+    return errorResponse('Action failed', 500);
   }
 }
 

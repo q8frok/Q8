@@ -10,6 +10,10 @@ import { createServerClient } from '@supabase/ssr';
 import { NextRequest, NextResponse } from 'next/server';
 import { clientEnv } from '@/lib/env';
 import { logger } from '@/lib/logger';
+import {
+  unauthorizedResponse as sharedUnauthorizedResponse,
+  errorResponse,
+} from '@/lib/api/error-responses';
 
 /**
  * Authenticated user information extracted from session
@@ -146,17 +150,14 @@ export async function requireAuth(
 /**
  * Create a standard 401 Unauthorized response
  *
- * @param message - Custom error message (defaults to 'Unauthorized')
+ * @param message - Custom error message (defaults to 'Authentication required')
  * @returns NextResponse with 401 status
  */
-export function unauthorizedResponse(message = 'Unauthorized'): NextResponse {
-  return NextResponse.json(
-    {
-      error: message,
-      code: 'UNAUTHORIZED',
-    },
-    { status: 401 }
-  );
+export function unauthorizedResponse(message?: string): NextResponse {
+  if (message) {
+    return errorResponse(message, 401, 'UNAUTHORIZED');
+  }
+  return sharedUnauthorizedResponse();
 }
 
 /**
@@ -166,13 +167,7 @@ export function unauthorizedResponse(message = 'Unauthorized'): NextResponse {
  * @returns NextResponse with 403 status
  */
 export function forbiddenResponse(message = 'Forbidden'): NextResponse {
-  return NextResponse.json(
-    {
-      error: message,
-      code: 'FORBIDDEN',
-    },
-    { status: 403 }
-  );
+  return errorResponse(message, 403, 'FORBIDDEN');
 }
 
 /**

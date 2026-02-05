@@ -4,7 +4,8 @@ import {
   unauthorizedResponse,
   forbiddenResponse,
 } from '@/lib/auth/api-auth';
-import { updateTaskSchema, validationErrorResponse } from '@/lib/validations';
+import { updateTaskSchema } from '@/lib/validations';
+import { errorResponse, notFoundResponse, validationErrorResponse } from '@/lib/api/error-responses';
 import { supabaseAdmin as supabase } from '@/lib/supabase/server';
 import { logger } from '@/lib/logger';
 
@@ -34,10 +35,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     if (error) {
       if (error.code === 'PGRST116') {
-        return NextResponse.json({ error: 'Task not found' }, { status: 404 });
+        return notFoundResponse('Task');
       }
       logger.error('Task fetch error', { error, taskId: id });
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return errorResponse('Internal server error', 500);
     }
 
     // Verify ownership
@@ -64,10 +65,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
   } catch (error) {
     logger.error('Get task error', { error });
-    return NextResponse.json(
-      { error: 'Failed to fetch task' },
-      { status: 500 }
-    );
+    return errorResponse('Failed to fetch task', 500);
   }
 }
 
@@ -94,10 +92,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     if (fetchError) {
       if (fetchError.code === 'PGRST116') {
-        return NextResponse.json({ error: 'Task not found' }, { status: 404 });
+        return notFoundResponse('Task');
       }
       logger.error('Task fetch error', { error: fetchError, taskId: id });
-      return NextResponse.json({ error: fetchError.message }, { status: 500 });
+      return errorResponse('Internal server error', 500);
     }
 
     if (existingTask.user_id !== user.id) {
@@ -149,7 +147,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     if (error) {
       logger.error('Task update error', { error, taskId: id });
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return errorResponse('Internal server error', 500);
     }
 
     return NextResponse.json({
@@ -171,10 +169,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     });
   } catch (error) {
     logger.error('Update task error', { error });
-    return NextResponse.json(
-      { error: 'Failed to update task' },
-      { status: 500 }
-    );
+    return errorResponse('Failed to update task', 500);
   }
 }
 
@@ -201,10 +196,10 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     if (fetchError) {
       if (fetchError.code === 'PGRST116') {
-        return NextResponse.json({ error: 'Task not found' }, { status: 404 });
+        return notFoundResponse('Task');
       }
       logger.error('Task fetch error', { error: fetchError, taskId: id });
-      return NextResponse.json({ error: fetchError.message }, { status: 500 });
+      return errorResponse('Internal server error', 500);
     }
 
     if (existingTask.user_id !== user.id) {
@@ -218,15 +213,12 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     if (error) {
       logger.error('Task delete error', { error, taskId: id });
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return errorResponse('Internal server error', 500);
     }
 
     return NextResponse.json({ success: true, deleted: id });
   } catch (error) {
     logger.error('Delete task error', { error });
-    return NextResponse.json(
-      { error: 'Failed to delete task' },
-      { status: 500 }
-    );
+    return errorResponse('Failed to delete task', 500);
   }
 }

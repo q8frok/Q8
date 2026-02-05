@@ -29,17 +29,8 @@ export * from './tools';
 
 /**
  * Helper function to create validation error response
+ * Re-exports the shared helper from @/lib/api/error-responses for backward compatibility
  */
-import { NextResponse } from 'next/server';
-import type { ZodError } from 'zod';
+export { validationErrorResponse } from '@/lib/api/error-responses';
 
-export function validationErrorResponse(error: ZodError) {
-  return NextResponse.json(
-    {
-      error: 'Validation failed',
-      code: 'VALIDATION_ERROR',
-      details: error.flatten(),
-    },
-    { status: 400 }
-  );
-}
+// Keep unused imports removed to satisfy linter
