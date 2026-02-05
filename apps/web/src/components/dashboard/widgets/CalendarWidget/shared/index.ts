@@ -15,3 +15,8 @@ export {
   LinkCalendarPrompt,
   default as LinkCalendarPromptDefault,
 } from './LinkCalendarPrompt';
+export {
+  CalendarWidgetHeader,
+  default as CalendarWidgetHeaderDefault,
+} from './CalendarWidgetHeader';
+export type { CalendarWidgetHeaderProps } from './CalendarWidgetHeader';

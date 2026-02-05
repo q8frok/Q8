@@ -16,3 +16,13 @@ export {
   useQuickAddForm,
   default as useEventFormDefault,
 } from './useEventForm';
+export {
+  useCalendarNavigation,
+  default as useCalendarNavigationDefault,
+} from './useCalendarNavigation';
+export type { UseCalendarNavigationReturn } from './useCalendarNavigation';
+export {
+  useCalendarActions,
+  default as useCalendarActionsDefault,
+} from './useCalendarActions';
+export type { UseCalendarActionsReturn } from './useCalendarActions';

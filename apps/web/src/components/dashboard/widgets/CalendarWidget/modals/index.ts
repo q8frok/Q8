@@ -11,3 +11,8 @@ export {
   DeleteConfirmModal,
   default as DeleteConfirmModalDefault,
 } from './DeleteConfirmModal';
+export {
+  CalendarModals,
+  default as CalendarModalsDefault,
+} from './CalendarModals';
+export type { CalendarModalsProps } from './CalendarModals';
