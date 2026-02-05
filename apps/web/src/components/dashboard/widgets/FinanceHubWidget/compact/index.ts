@@ -5,3 +5,4 @@
 export { NetWorthCard } from './NetWorthCard';
 export { DailyBurnMeter } from './DailyBurnMeter';
 export { AlertCarousel } from './AlertCarousel';
+export { FinanceCompactView } from './FinanceCompactView';
