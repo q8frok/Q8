@@ -341,7 +341,7 @@ const githubListReposParamsSchema = z.object({
 });
 
 type GitHubListReposParamsInput = z.input<typeof githubListReposParamsSchema>;
-type GitHubListReposParams = z.output<typeof githubListReposParamsSchema>;
+type _GitHubListReposParams = z.output<typeof githubListReposParamsSchema>;
 
 /**
  * List repositories for the authenticated user

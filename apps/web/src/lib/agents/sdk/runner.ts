@@ -17,8 +17,8 @@
 import OpenAI from 'openai';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import { logger } from '@/lib/logger';
-import { getModel, getModelChain, type ModelConfig } from '../model_factory';
-import type { OrchestrationEvent, ExtendedAgentType } from '../orchestration/types';
+import { getModelChain, type ModelConfig } from '../model_factory';
+import type { OrchestrationEvent } from '../orchestration/types';
 import {
   getAgentConfig,
   getAgentTools,
@@ -33,7 +33,6 @@ import {
 import {
   executeHandoff,
   decideHandoff,
-  formatHandoffMessage,
   type HandoffResult,
 } from './handoffs';
 import type { ToolDefinition } from './tools/default';
@@ -681,7 +680,7 @@ export async function* streamMessage(
     };
 
     let currentAgent = routingDecision.agent;
-    let currentMessage = message;
+    const currentMessage = message;
     let handoffCount = 0;
     const maxHandoffs = 3; // Prevent infinite handoff loops
 

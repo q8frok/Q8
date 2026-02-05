@@ -143,7 +143,7 @@ export const HANDOFF_CONFIDENCE_THRESHOLD = 0.7;
 /**
  * Agents that can initiate handoffs (only orchestrator)
  */
-const HANDOFF_INITIATORS: AgentType[] = ['orchestrator'];
+const _HANDOFF_INITIATORS: AgentType[] = ['orchestrator'];
 
 /**
  * Valid handoff targets (all specialists)

@@ -8,7 +8,7 @@
 
 import { z } from 'zod';
 import { safeEvaluate } from '@/lib/utils/safe-math';
-import { createToolError, type ToolErrorResult } from '../utils/errors';
+import { createToolError } from '../utils/errors';
 
 // =============================================================================
 // Tool Definition Interface

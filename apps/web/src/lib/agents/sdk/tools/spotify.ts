@@ -220,7 +220,7 @@ function hasCredentials(): boolean {
 /**
  * Create a missing credentials error result
  */
-function missingCredentialsError(toolName: string): ToolErrorResult {
+function missingCredentialsError(_toolName: string): ToolErrorResult {
   return {
     success: false,
     message: "Spotify credentials are not configured. Please set up your Spotify API keys.",
@@ -319,7 +319,7 @@ const spotifySearchParamsSchema = z.object({
 // Input type allows optional type and limit
 type SpotifySearchParamsInput = z.input<typeof spotifySearchParamsSchema>;
 // Output type has defaults applied
-type SpotifySearchParams = z.output<typeof spotifySearchParamsSchema>;
+type _SpotifySearchParams = z.output<typeof spotifySearchParamsSchema>;
 
 interface SpotifySearchApiResponse {
   tracks?: {
