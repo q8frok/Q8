@@ -71,6 +71,21 @@ export {
   type ImageGenHandoffContext,
 } from './handoffs';
 
+// Runner exports
+export {
+  // Main entry points
+  streamMessage,
+  runAgent,
+  // Tool execution
+  executeTool,
+  // Utility functions
+  toOpenAITools,
+  buildSystemPrompt,
+  // Types
+  type RunContext,
+  type ToolExecutionResult,
+  type StreamMessageOptions,
+} from './runner';
+
 // These will be uncommented as files are created
 // export * from './triage';
-// export * from './runner';
