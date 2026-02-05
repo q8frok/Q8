@@ -3,6 +3,6 @@
  */
 
 export * from './retry';
+export * from './errors';
 // These will be uncommented as files are created
 // export * from './preflight';
-// export * from './errors';
