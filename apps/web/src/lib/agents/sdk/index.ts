@@ -35,6 +35,42 @@ export {
   type AgentConfig,
 } from './agents';
 
+// Handoff pattern exports
+export {
+  // Handoff creation functions
+  createHandoffToAgent,
+  handoffToCoder,
+  handoffToResearcher,
+  handoffToSecretary,
+  handoffToPersonality,
+  handoffToHome,
+  handoffToFinance,
+  handoffToImageGen,
+  handoffToOrchestrator,
+  // Handoff decision making
+  decideHandoff,
+  HANDOFF_CONFIDENCE_THRESHOLD,
+  // Handoff execution
+  executeHandoff,
+  // Utility functions
+  canHandoff,
+  formatHandoffMessage,
+  getHandoffTargetName,
+  isHandoffTarget,
+  getValidHandoffTargets,
+  // Types
+  type Handoff,
+  type HandoffDecision,
+  type HandoffResult,
+  type CoderHandoffContext,
+  type ResearcherHandoffContext,
+  type SecretaryHandoffContext,
+  type PersonalityHandoffContext,
+  type HomeHandoffContext,
+  type FinanceHandoffContext,
+  type ImageGenHandoffContext,
+} from './handoffs';
+
 // These will be uncommented as files are created
 // export * from './triage';
 // export * from './runner';
