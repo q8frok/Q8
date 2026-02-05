@@ -100,6 +100,8 @@ interface UseChatOptions {
       };
     };
   };
+  /** Use new Agents SDK instead of legacy orchestration */
+  useNewSdk?: boolean;
   onMessage?: (message: StreamingMessage) => void;
   onToolExecution?: (tool: ToolExecution) => void;
   onRouting?: (agent: AgentType, reason: string, confidence: number) => void;
@@ -121,6 +123,7 @@ export function useChat(options: UseChatOptions) {
     userId,
     threadId: initialThreadId,
     userProfile,
+    useNewSdk,
     onMessage,
     onToolExecution,
     onRouting,
@@ -281,6 +284,7 @@ export function useChat(options: UseChatOptions) {
           userId,
           threadId: state.threadId,
           userProfile,
+          useNewSdk,
         }),
         signal: abortControllerRef.current.signal,
       });
@@ -335,7 +339,7 @@ export function useChat(options: UseChatOptions) {
     }
   // Note: processStreamEvent is intentionally not in deps to avoid re-creating sendMessage
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, state.threadId, userProfile, onError]);
+  }, [userId, state.threadId, userProfile, useNewSdk, onError]);
 
   /**
    * Process a stream event

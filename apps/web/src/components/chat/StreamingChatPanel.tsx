@@ -1,15 +1,14 @@
 'use client';
 
-import { useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
+import { useRef, useEffect, forwardRef, useImperativeHandle, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Loader2, PanelLeft, MessageSquare } from 'lucide-react';
+import { Loader2, PanelLeft, MessageSquare, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useChat, type AgentType } from '@/hooks/useChat';
 import { StreamingMessage } from './StreamingMessage';
 import { ChatInput, type ChatInputRef } from './ChatInput';
 import { AgentHandoff, AgentBadge } from './AgentHandoff';
 import { ChatEmptyState } from './ChatEmptyState';
-import { useCallback } from 'react';
 import { Button } from '../ui/button';
 import { logger } from '@/lib/logger';
 
@@ -61,6 +60,11 @@ interface StreamingChatPanelProps {
    * Additional CSS classes
    */
   className?: string;
+
+  /**
+   * Initial state for using new Agents SDK (can be toggled in UI)
+   */
+  useNewSdkDefault?: boolean;
 }
 
 /**
@@ -79,12 +83,14 @@ export const StreamingChatPanel = forwardRef<StreamingChatPanelRef, StreamingCha
       sidebarOpen = false,
       onToggleSidebar,
       className,
+      useNewSdkDefault = false,
     },
     ref
   ) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<ChatInputRef>(null);
+  const [useNewSdk, setUseNewSdk] = useState(useNewSdkDefault);
 
   const {
     messages,
@@ -102,8 +108,9 @@ export const StreamingChatPanel = forwardRef<StreamingChatPanelRef, StreamingCha
     userId,
     threadId,
     userProfile,
+    useNewSdk,
     onRouting: (agent, reason) => {
-      logger.info('Chat routing to agent', { agent, reason });
+      logger.info('Chat routing to agent', { agent, reason, useNewSdk });
     },
     onToolExecution: (tool) => {
       logger.debug('Tool executed', { tool: tool.tool, status: tool.status });
@@ -183,16 +190,33 @@ export const StreamingChatPanel = forwardRef<StreamingChatPanelRef, StreamingCha
           )}
         </div>
 
-        {messages.length > 0 && (
+        <div className="flex items-center gap-2">
+          {/* SDK Toggle */}
           <Button
-            variant="ghost"
+            variant={useNewSdk ? 'default' : 'ghost'}
             size="sm"
-            onClick={clearMessages}
-            className="text-xs h-7"
+            onClick={() => setUseNewSdk(!useNewSdk)}
+            className={cn(
+              'text-xs h-7 gap-1.5 transition-all',
+              useNewSdk && 'bg-neon-primary/20 text-neon-primary border-neon-primary/30 hover:bg-neon-primary/30'
+            )}
+            title={useNewSdk ? 'Using new Agents SDK' : 'Using legacy orchestration'}
           >
-            Clear
+            <Sparkles className={cn('h-3 w-3', useNewSdk && 'animate-pulse')} />
+            {useNewSdk ? 'SDK' : 'Legacy'}
           </Button>
-        )}
+
+          {messages.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearMessages}
+              className="text-xs h-7"
+            >
+              Clear
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Messages Area */}
