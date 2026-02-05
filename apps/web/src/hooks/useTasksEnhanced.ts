@@ -10,6 +10,8 @@ export function useTasksEnhanced(userId: string, parentTaskId?: string | null) {
   const collection = useRxCollection<TaskEnhanced>('tasks');
   const [tasks, setTasks] = useState<TaskEnhanced[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [lastError, setLastError] = useState<Error | null>(null);
+  const clearError = useCallback(() => setLastError(null), []);
 
   useEffect(() => {
     if (!collection) return;
@@ -54,6 +56,7 @@ export function useTasksEnhanced(userId: string, parentTaskId?: string | null) {
         return doc.toJSON() as TaskEnhanced;
       } catch (error) {
         logger.error('Failed to create task', { error });
+        setLastError(error instanceof Error ? error : new Error(String(error)));
         return null;
       }
     },
@@ -78,6 +81,7 @@ export function useTasksEnhanced(userId: string, parentTaskId?: string | null) {
         return true;
       } catch (error) {
         logger.error('Failed to update task', { error });
+        setLastError(error instanceof Error ? error : new Error(String(error)));
         return false;
       }
     },
@@ -102,6 +106,7 @@ export function useTasksEnhanced(userId: string, parentTaskId?: string | null) {
         return true;
       } catch (error) {
         logger.error('Failed to delete task', { error });
+        setLastError(error instanceof Error ? error : new Error(String(error)));
         return false;
       }
     },
@@ -139,6 +144,7 @@ export function useTasksEnhanced(userId: string, parentTaskId?: string | null) {
         return true;
       } catch (error) {
         logger.error('Failed to add tag', { error });
+        setLastError(error instanceof Error ? error : new Error(String(error)));
         return false;
       }
     },
@@ -164,6 +170,7 @@ export function useTasksEnhanced(userId: string, parentTaskId?: string | null) {
         return true;
       } catch (error) {
         logger.error('Failed to remove tag', { error });
+        setLastError(error instanceof Error ? error : new Error(String(error)));
         return false;
       }
     },
@@ -173,6 +180,8 @@ export function useTasksEnhanced(userId: string, parentTaskId?: string | null) {
   return {
     tasks,
     isLoading,
+    lastError,
+    clearError,
     createTask,
     updateTask,
     deleteTask,
@@ -186,6 +195,8 @@ export function useTaskTags(userId: string) {
   const collection = useRxCollection<TaskTag>('task_tags');
   const [tags, setTags] = useState<TaskTag[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [lastError, setLastError] = useState<Error | null>(null);
+  const clearError = useCallback(() => setLastError(null), []);
 
   useEffect(() => {
     if (!collection) return;
@@ -202,6 +213,7 @@ export function useTaskTags(userId: string) {
         setTags(docs.map((doc) => doc.toJSON() as TaskTag));
       } catch (error) {
         logger.error('Failed to fetch tags', { error });
+        setLastError(error instanceof Error ? error : new Error(String(error)));
       } finally {
         setIsLoading(false);
       }
@@ -236,6 +248,7 @@ export function useTaskTags(userId: string) {
         return doc.toJSON() as TaskTag;
       } catch (error) {
         logger.error('Failed to create tag', { error });
+        setLastError(error instanceof Error ? error : new Error(String(error)));
         return null;
       }
     },
@@ -245,6 +258,8 @@ export function useTaskTags(userId: string) {
   return {
     tags,
     isLoading,
+    lastError,
+    clearError,
     createTag,
   };
 }

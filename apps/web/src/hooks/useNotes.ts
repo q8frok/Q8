@@ -20,6 +20,8 @@ interface UseNotesReturn {
   folders: (NoteFolder & { note_count: number })[];
   isLoading: boolean;
   error: string | null;
+  lastError: Error | null;
+  clearError: () => void;
   currentNote: Note | null;
   // Note operations
   createNote: (options?: CreateNoteOptions) => Promise<Note | null>;
@@ -69,6 +71,11 @@ export function useNotes(options: UseNotesOptions): UseNotesReturn {
   const [currentNote, setCurrentNote] = useState<Note | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastError, setLastError] = useState<Error | null>(null);
+  const clearError = useCallback(() => {
+    setLastError(null);
+    setError(null);
+  }, []);
 
   /**
    * Fetch notes from API
@@ -97,6 +104,7 @@ export function useNotes(options: UseNotesOptions): UseNotesReturn {
       setNotes(data.notes || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
+      setLastError(err instanceof Error ? err : new Error(String(err)));
     } finally {
       setIsLoading(false);
     }
@@ -116,6 +124,7 @@ export function useNotes(options: UseNotesOptions): UseNotesReturn {
       setFolders(data.folders || []);
     } catch (err) {
       logger.error('Failed to fetch folders', { userId, error: err });
+      setLastError(err instanceof Error ? err : new Error(String(err)));
     }
   }, [userId]);
 
@@ -152,6 +161,7 @@ export function useNotes(options: UseNotesOptions): UseNotesReturn {
       return newNote;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
+      setLastError(err instanceof Error ? err : new Error(String(err)));
       return null;
     }
   }, [userId, folderId]);
@@ -192,6 +202,7 @@ export function useNotes(options: UseNotesOptions): UseNotesReturn {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
+      setLastError(err instanceof Error ? err : new Error(String(err)));
     }
   }, [currentNote?.id]);
 
@@ -225,6 +236,7 @@ export function useNotes(options: UseNotesOptions): UseNotesReturn {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
+      setLastError(err instanceof Error ? err : new Error(String(err)));
     }
   }, [currentNote?.id, includeArchived]);
 
@@ -253,6 +265,7 @@ export function useNotes(options: UseNotesOptions): UseNotesReturn {
       setCurrentNote(data.note);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
+      setLastError(err instanceof Error ? err : new Error(String(err)));
     }
   }, [notes]);
 
@@ -316,6 +329,7 @@ export function useNotes(options: UseNotesOptions): UseNotesReturn {
       return data.folder;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
+      setLastError(err instanceof Error ? err : new Error(String(err)));
       return null;
     }
   }, [userId]);
@@ -341,6 +355,7 @@ export function useNotes(options: UseNotesOptions): UseNotesReturn {
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
+      setLastError(err instanceof Error ? err : new Error(String(err)));
     }
   }, []);
 
@@ -366,6 +381,7 @@ export function useNotes(options: UseNotesOptions): UseNotesReturn {
       return data.notes || [];
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
+      setLastError(err instanceof Error ? err : new Error(String(err)));
       return [];
     }
   }, [userId]);
@@ -518,6 +534,8 @@ export function useNotes(options: UseNotesOptions): UseNotesReturn {
     folders,
     isLoading,
     error,
+    lastError,
+    clearError,
     currentNote,
     createNote,
     updateNote,
