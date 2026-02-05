@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import type { NoteUpdate } from '@/lib/supabase/types';
 import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { errorResponse, notFoundResponse } from '@/lib/api/error-responses';
 import { logger } from '@/lib/logger';
 
 export const runtime = 'edge';
@@ -38,19 +39,13 @@ export async function GET(
 
     if (error) {
       logger.error('[Notes API] Error fetching note', { error });
-      return NextResponse.json(
-        { error: 'Note not found' },
-        { status: 404 }
-      );
+      return notFoundResponse('Note');
     }
 
     return NextResponse.json({ note });
   } catch (error) {
     logger.error('[Notes API] Error', { error });
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return errorResponse('Internal server error', 500);
   }
 }
 
@@ -134,19 +129,13 @@ export async function PATCH(
 
     if (error) {
       logger.error('[Notes API] Error updating note', { error });
-      return NextResponse.json(
-        { error: 'Failed to update note' },
-        { status: 500 }
-      );
+      return errorResponse('Failed to update note', 500);
     }
 
     return NextResponse.json({ note });
   } catch (error) {
     logger.error('[Notes API] Error', { error });
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return errorResponse('Internal server error', 500);
   }
 }
 
@@ -178,10 +167,7 @@ export async function DELETE(
 
       if (error) {
         logger.error('[Notes API] Error deleting note', { error });
-        return NextResponse.json(
-          { error: 'Failed to delete note' },
-          { status: 500 }
-        );
+        return errorResponse('Failed to delete note', 500);
       }
     } else {
       // Soft delete (archive)
@@ -195,19 +181,13 @@ export async function DELETE(
 
       if (error) {
         logger.error('[Notes API] Error archiving note', { error });
-        return NextResponse.json(
-          { error: 'Failed to archive note' },
-          { status: 500 }
-        );
+        return errorResponse('Failed to archive note', 500);
       }
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
     logger.error('[Notes API] Error', { error });
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return errorResponse('Internal server error', 500);
   }
 }

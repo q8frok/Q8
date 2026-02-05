@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import type { NoteFolderInsert } from '@/lib/supabase/types';
 import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { errorResponse } from '@/lib/api/error-responses';
 import { createFolderSchema, validationErrorResponse } from '@/lib/validations';
 import { logger } from '@/lib/logger';
 
@@ -35,10 +36,7 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       logger.error('[Folders API] Error fetching folders', { error });
-      return NextResponse.json(
-        { error: 'Failed to fetch folders' },
-        { status: 500 }
-      );
+      return errorResponse('Failed to fetch folders', 500);
     }
 
     // Also get note counts per folder
@@ -63,10 +61,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ folders: foldersWithCounts || [] });
   } catch (error) {
     logger.error('[Folders API] Error', { error });
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return errorResponse('Internal server error', 500);
   }
 }
 
@@ -119,19 +114,13 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       logger.error('[Folders API] Error creating folder', { error });
-      return NextResponse.json(
-        { error: 'Failed to create folder' },
-        { status: 500 }
-      );
+      return errorResponse('Failed to create folder', 500);
     }
 
     return NextResponse.json({ folder });
   } catch (error) {
     logger.error('[Folders API] Error', { error });
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return errorResponse('Internal server error', 500);
   }
 }
 
@@ -151,10 +140,7 @@ export async function DELETE(request: NextRequest) {
     const folderId = searchParams.get('id');
 
     if (!folderId) {
-      return NextResponse.json(
-        { error: 'Folder ID is required' },
-        { status: 400 }
-      );
+      return errorResponse('Folder ID is required', 400);
     }
 
     // Move notes to root first
@@ -171,18 +157,12 @@ export async function DELETE(request: NextRequest) {
 
     if (error) {
       logger.error('[Folders API] Error deleting folder', { error });
-      return NextResponse.json(
-        { error: 'Failed to delete folder' },
-        { status: 500 }
-      );
+      return errorResponse('Failed to delete folder', 500);
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
     logger.error('[Folders API] Error', { error });
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return errorResponse('Internal server error', 500);
   }
 }

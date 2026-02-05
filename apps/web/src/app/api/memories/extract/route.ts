@@ -8,6 +8,7 @@ import { supabaseAdmin } from '@/lib/supabase/server';
 import OpenAI from 'openai';
 import type { MemoryType, MemoryImportance, AgentMemoryInsert } from '@/lib/supabase/types';
 import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { errorResponse } from '@/lib/api/error-responses';
 import { logger } from '@/lib/logger';
 import { extractUserContext } from '@/lib/agents/orchestration/user-context';
 
@@ -50,10 +51,7 @@ export async function POST(request: NextRequest) {
     const userId = user.id; // Use authenticated user
 
     if (!userMessage) {
-      return NextResponse.json(
-        { error: 'userMessage is required' },
-        { status: 400 }
-      );
+      return errorResponse('userMessage is required', 400);
     }
 
     // Use GPT to extract memories from the conversation
@@ -174,10 +172,7 @@ Return ONLY valid JSON, no explanation.`;
 
     if (error) {
       logger.error('[Memory Extract] Error inserting memories', { error: error });
-      return NextResponse.json(
-        { error: 'Failed to save memories' },
-        { status: 500 }
-      );
+      return errorResponse('Failed to save memories', 500);
     }
 
     // Also extract and save to user context (The Memex)
@@ -204,9 +199,6 @@ Return ONLY valid JSON, no explanation.`;
     });
   } catch (error) {
     logger.error('[Memory Extract API] Error', { error: error });
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return errorResponse('Internal server error', 500);
   }
 }

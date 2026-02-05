@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+// import { errorResponse } from '@/lib/api/error-responses';
 import { logger } from '@/lib/logger';
 
 const SPOTIFY_API_BASE = 'https://api.spotify.com/v1';

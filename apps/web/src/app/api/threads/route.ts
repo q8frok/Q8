@@ -12,6 +12,7 @@ import {
   getAuthenticatedUser,
   unauthorizedResponse,
 } from '@/lib/auth/api-auth';
+import { errorResponse } from '@/lib/api/error-responses';
 import type { Thread, ThreadInsert } from '@/lib/supabase/types';
 import { logger } from '@/lib/logger';
 
@@ -51,10 +52,7 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       logger.error('[Threads API] Error fetching threads', { error: error });
-      return NextResponse.json(
-        { error: 'Failed to fetch threads' },
-        { status: 500 }
-      );
+      return errorResponse('Failed to fetch threads', 500);
     }
 
     // Get message counts and last message preview for each thread
@@ -84,10 +82,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ threads: threadsWithCounts });
   } catch (error) {
     logger.error('[Threads API] Error', { error: error });
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return errorResponse('Internal server error', 500);
   }
 }
 
@@ -124,18 +119,12 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       logger.error('[Threads API] Error creating thread', { error: error });
-      return NextResponse.json(
-        { error: 'Failed to create thread' },
-        { status: 500 }
-      );
+      return errorResponse('Failed to create thread', 500);
     }
 
     return NextResponse.json({ thread });
   } catch (error) {
     logger.error('[Threads API] Error', { error: error });
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return errorResponse('Internal server error', 500);
   }
 }

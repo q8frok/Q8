@@ -15,6 +15,7 @@ import {
   type MemoryImportance,
 } from '@/lib/memory';
 import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { errorResponse } from '@/lib/api/error-responses';
 import { logger } from '@/lib/logger';
 
 export const runtime = 'edge';
@@ -121,17 +122,11 @@ export async function POST(request: NextRequest) {
       }
 
       default:
-        return NextResponse.json(
-          { error: 'Invalid action' },
-          { status: 400 }
-        );
+        return errorResponse('Invalid action', 400);
     }
   } catch (error) {
     logger.error('[Memory API] Error', { error: error });
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return NextResponse.json(
-      { error: errorMessage },
-      { status: 500 }
-    );
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return errorResponse(message, 500);
   }
 }

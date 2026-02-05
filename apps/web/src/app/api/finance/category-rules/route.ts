@@ -4,6 +4,7 @@ import {
   getAuthenticatedUser,
   unauthorizedResponse,
 } from '@/lib/auth/api-auth';
+import { errorResponse, notFoundResponse } from '@/lib/api/error-responses';
 import { supabaseAdmin as supabase } from '@/lib/supabase/server';
 import { logger } from '@/lib/logger';
 
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       logger.error('Supabase error', { error });
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return errorResponse(error.message, 500);
     }
 
     // Transform snake_case to camelCase
@@ -60,10 +61,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ rules });
   } catch (error) {
     logger.error('Fetch category rules error', { error });
-    return NextResponse.json(
-      { error: 'Failed to fetch category rules' },
-      { status: 500 }
-    );
+    return errorResponse('Failed to fetch category rules', 500);
   }
 }
 
@@ -90,19 +88,13 @@ export async function POST(request: NextRequest) {
     } = body;
 
     if (!merchantPattern || !category) {
-      return NextResponse.json(
-        { error: 'Missing required fields: merchantPattern, category' },
-        { status: 400 }
-      );
+      return errorResponse('Missing required fields: merchantPattern, category', 400);
     }
 
     const normalizedPattern = normalizeMerchantName(merchantPattern);
 
     if (!normalizedPattern) {
-      return NextResponse.json(
-        { error: 'Invalid merchant pattern' },
-        { status: 400 }
-      );
+      return errorResponse('Invalid merchant pattern', 400);
     }
 
     const { data, error } = await supabase
@@ -124,13 +116,10 @@ export async function POST(request: NextRequest) {
     if (error) {
       // Handle duplicate rule
       if (error.code === '23505') {
-        return NextResponse.json(
-          { error: 'A rule with this pattern already exists' },
-          { status: 409 }
-        );
+        return errorResponse('A rule with this pattern already exists', 409, 'CONFLICT');
       }
       logger.error('Supabase insert error', { error });
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return errorResponse(error.message, 500);
     }
 
     return NextResponse.json({
@@ -149,10 +138,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     logger.error('Create category rule error', { error });
-    return NextResponse.json(
-      { error: 'Failed to create category rule' },
-      { status: 500 }
-    );
+    return errorResponse('Failed to create category rule', 500);
   }
 }
 
@@ -172,7 +158,7 @@ export async function PUT(request: NextRequest) {
     const { id, ...updates } = body;
 
     if (!id) {
-      return NextResponse.json({ error: 'Rule ID required' }, { status: 400 });
+      return errorResponse('Rule ID required', 400);
     }
 
     // Verify ownership
@@ -183,11 +169,11 @@ export async function PUT(request: NextRequest) {
       .single();
 
     if (fetchError || !existing) {
-      return NextResponse.json({ error: 'Rule not found' }, { status: 404 });
+      return notFoundResponse('Rule');
     }
 
     if (existing.user_id !== user.id) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      return errorResponse('Access denied', 403, 'FORBIDDEN');
     }
 
     // Transform camelCase to snake_case for update
@@ -211,7 +197,7 @@ export async function PUT(request: NextRequest) {
 
     if (error) {
       logger.error('Supabase update error', { error });
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return errorResponse(error.message, 500);
     }
 
     return NextResponse.json({
@@ -230,10 +216,7 @@ export async function PUT(request: NextRequest) {
     });
   } catch (error) {
     logger.error('Update category rule error', { error });
-    return NextResponse.json(
-      { error: 'Failed to update category rule' },
-      { status: 500 }
-    );
+    return errorResponse('Failed to update category rule', 500);
   }
 }
 
@@ -253,7 +236,7 @@ export async function DELETE(request: NextRequest) {
     const id = searchParams.get('id');
 
     if (!id) {
-      return NextResponse.json({ error: 'Rule ID required' }, { status: 400 });
+      return errorResponse('Rule ID required', 400);
     }
 
     // Verify ownership
@@ -264,11 +247,11 @@ export async function DELETE(request: NextRequest) {
       .single();
 
     if (fetchError || !existing) {
-      return NextResponse.json({ error: 'Rule not found' }, { status: 404 });
+      return notFoundResponse('Rule');
     }
 
     if (existing.user_id !== user.id) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      return errorResponse('Access denied', 403, 'FORBIDDEN');
     }
 
     const { error } = await supabase
@@ -278,15 +261,12 @@ export async function DELETE(request: NextRequest) {
 
     if (error) {
       logger.error('Supabase delete error', { error });
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return errorResponse(error.message, 500);
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
     logger.error('Delete category rule error', { error });
-    return NextResponse.json(
-      { error: 'Failed to delete category rule' },
-      { status: 500 }
-    );
+    return errorResponse('Failed to delete category rule', 500);
   }
 }

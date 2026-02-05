@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { ContentItem } from '@/types/contenthub';
 import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
 import { contentHubActionSchema, validationErrorResponse } from '@/lib/validations';
+import { errorResponse } from '@/lib/api/error-responses';
 import { logger } from '@/lib/logger';
 import { youtubeCache, cacheKeys, cacheTTL } from '@/lib/cache/youtube-cache';
 
@@ -90,10 +91,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(result);
   } catch (error) {
     logger.error('ContentHub aggregation error', { error: error });
-    return NextResponse.json(
-      { error: 'Failed to aggregate content' },
-      { status: 500 }
-    );
+    return errorResponse('Failed to aggregate content', 500);
   }
 }
 
@@ -524,14 +522,11 @@ export async function POST(request: NextRequest) {
         return handleSave(item);
 
       default:
-        return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
+        return errorResponse('Unknown action', 400);
     }
   } catch (error) {
     logger.error('ContentHub action error', { error: error });
-    return NextResponse.json(
-      { error: 'Action failed' },
-      { status: 500 }
-    );
+    return errorResponse('Action failed', 500);
   }
 }
 

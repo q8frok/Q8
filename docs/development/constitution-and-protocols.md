@@ -13,7 +13,7 @@ You are building **Q8**, a state-of-the-art local-first personal assistant. Your
 1. **No Broken Builds:** You must never output code that breaks the build. Run verification steps before finalizing any task.  
 2. **Local-First Truth:** Data lives in RxDB first. The UI must never wait for a server response to update state (Optimistic UI).  
 3. **Strict Type Safety:** any is forbidden. All schemas (Zod/RxDB/Supabase) must align perfectly.  
-4. **Visual Fidelity:** Use Tailwind v4. Components must be responsive, accessible, and animated (framer-motion).  
+4. **Visual Fidelity:** Use Tailwind CSS 3.4. Components must be responsive, accessible, and animated (framer-motion).  
 5. **Documentation First:** Before writing complex implementation code, **you MUST verify the latest API patterns** via web search or tool documentation if the library is bleeding-edge (e.g., React 19 actions, Next.js 15 caching, OpenAI Agents SDK). Do not guess APIs.
 
 ## **2\. Development Workflow (The "Loop")**
@@ -82,7 +82,7 @@ At the end of every response or session, provide a status block:
 | :---- | :---- | :---- |
 | **Frontend** | Next.js 15.5 (App Router) | Use Server Components for initial fetch, Client for interactivity. |
 | **State** | RxDB (IndexedDB) | UI reads from *here*, never directly from API fetchers. |
-| **Styling** | Tailwind v4 | Use @theme variables for Glassmorphism tokens. |
+| **Styling** | Tailwind CSS 3.4 | Use @theme variables for Glassmorphism tokens. |
 
 ### **AI Model Swarm (The "Hive")**
 
@@ -90,8 +90,8 @@ At the end of every response or session, provide a status block:
 
 | Role | Model | Reason |
 | :---- | :---- | :---- |
-| **Orchestrator** | **GPT-5.1-Preview** | Superior routing & reasoning. Supports Realtime API (Voice). |
-| **Coder** | **Claude 3.5 Sonnet / 4.5** | Best-in-class coding & architectural reasoning. |
+| **Orchestrator** | **GPT-5.2** | Superior routing & reasoning. Supports Realtime API (Voice). |
+| **Coder** | **Claude Opus 4.5** | Best-in-class coding & architectural reasoning. |
 | **Researcher** | **Perplexity Sonar** | Real-time web search with citation & fact-checking. |
 | **Secretary** | **Gemini 3.0 Pro** | Massive context window (2M tokens) for analyzing Drive/Docs. |
 | **Personality** | **Grok 4.1** | "Fun mode," creative writing, and real-time X (Twitter) trends. |

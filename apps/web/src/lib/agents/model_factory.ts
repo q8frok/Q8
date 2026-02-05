@@ -338,6 +338,12 @@ export function getModelChain(agentType: AgentType): ModelConfig[] {
  * @returns ModelConfig with model, baseURL, apiKey, and provider info
  */
 export function getModel(agentType: AgentType): ModelConfig {
+  // Validate agent type
+  const primary = PRIMARY_MODELS[agentType];
+  if (!primary) {
+    throw new Error(`Unknown agent type: ${agentType}`);
+  }
+
   // 1. Check for environment variable override
   const overrideEnv = MODEL_ENV_OVERRIDES[agentType];
   const override = overrideEnv ? process.env[overrideEnv] : undefined;
@@ -356,7 +362,6 @@ export function getModel(agentType: AgentType): ModelConfig {
   }
 
   // 2. Try primary model
-  const primary = PRIMARY_MODELS[agentType];
   if (hasApiKey(primary.envKey)) {
     return buildConfig(primary, false);
   }

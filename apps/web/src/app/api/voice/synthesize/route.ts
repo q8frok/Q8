@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
 import { synthesizeSchema, validationErrorResponse } from '@/lib/validations';
+import { errorResponse } from '@/lib/api/error-responses';
 import { logger } from '@/lib/logger';
 
 export const runtime = 'edge';
@@ -30,10 +31,7 @@ export async function POST(request: NextRequest) {
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      return NextResponse.json(
-        { error: 'OpenAI API key not configured' },
-        { status: 500 }
-      );
+      return errorResponse('OpenAI API key not configured', 500);
     }
 
     // Call OpenAI TTS API
@@ -55,10 +53,7 @@ export async function POST(request: NextRequest) {
     if (!response.ok) {
       const errorText = await response.text();
       logger.error('[Synthesize] OpenAI error', { errorText: errorText });
-      return NextResponse.json(
-        { error: `Speech synthesis failed: ${response.status}` },
-        { status: response.status }
-      );
+      return errorResponse(`Speech synthesis failed: ${response.status}`, response.status);
     }
 
     // Return audio as blob
@@ -72,11 +67,8 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     logger.error('[Synthesize] Error', { error: error });
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return NextResponse.json(
-      { error: errorMessage },
-      { status: 500 }
-    );
+    const message = error instanceof Error ? error.message : 'Speech synthesis failed';
+    return errorResponse(message, 500);
   }
 }
 

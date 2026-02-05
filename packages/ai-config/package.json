@@ -1,0 +1,16 @@
+{
+  "name": "@q8/ai-config",
+  "version": "1.0.0",
+  "description": "AI model configurations and system prompts for Q8",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./models": "./src/models.ts",
+    "./prompts": "./src/prompts.ts"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}

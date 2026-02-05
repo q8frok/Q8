@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { errorResponse } from '@/lib/api/error-responses';
 import { logger } from '@/lib/logger';
 
 export const runtime = 'edge';
@@ -22,18 +23,12 @@ export async function POST(request: NextRequest) {
     const language = formData.get('language') as string || 'en';
 
     if (!audioFile) {
-      return NextResponse.json(
-        { error: 'No audio file provided' },
-        { status: 400 }
-      );
+      return errorResponse('No audio file provided', 400);
     }
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      return NextResponse.json(
-        { error: 'OpenAI API key not configured' },
-        { status: 500 }
-      );
+      return errorResponse('OpenAI API key not configured', 500);
     }
 
     // Prepare form data for OpenAI
@@ -55,10 +50,7 @@ export async function POST(request: NextRequest) {
     if (!response.ok) {
       const errorText = await response.text();
       logger.error('[Transcribe] OpenAI error', { errorText: errorText });
-      return NextResponse.json(
-        { error: `Transcription failed: ${response.status}` },
-        { status: response.status }
-      );
+      return errorResponse(`Transcription failed: ${response.status}`, response.status);
     }
 
     const result = await response.json();
@@ -69,10 +61,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     logger.error('[Transcribe] Error', { error: error });
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return NextResponse.json(
-      { error: errorMessage },
-      { status: 500 }
-    );
+    const message = error instanceof Error ? error.message : 'Transcription failed';
+    return errorResponse(message, 500);
   }
 }

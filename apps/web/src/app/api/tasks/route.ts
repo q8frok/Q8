@@ -7,6 +7,7 @@ import {
   createTaskSchema,
   validationErrorResponse,
 } from '@/lib/validations';
+import { errorResponse } from '@/lib/api/error-responses';
 import { supabaseAdmin as supabase } from '@/lib/supabase/server';
 import { logger } from '@/lib/logger';
 
@@ -98,7 +99,7 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       logger.error('Tasks fetch error', { error, userId: user.id });
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return errorResponse(error.message, 500);
     }
 
     // Transform snake_case to camelCase for frontend
@@ -112,10 +113,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     logger.error('Tasks error', { error });
-    return NextResponse.json(
-      { error: 'Failed to fetch tasks' },
-      { status: 500 }
-    );
+    return errorResponse('Failed to fetch tasks', 500);
   }
 }
 
@@ -161,16 +159,13 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       logger.error('Task creation error', { error, userId: user.id });
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return errorResponse(error.message, 500);
     }
 
     return NextResponse.json(mapTaskFromDB(data), { status: 201 });
   } catch (error) {
     logger.error('Create task error', { error });
-    return NextResponse.json(
-      { error: 'Failed to create task' },
-      { status: 500 }
-    );
+    return errorResponse('Failed to create task', 500);
   }
 }
 
@@ -189,10 +184,7 @@ export async function PATCH(request: NextRequest) {
     const { id, ...updates } = body;
 
     if (!id) {
-      return NextResponse.json(
-        { error: 'Task ID is required' },
-        { status: 400 }
-      );
+      return errorResponse('Task ID is required', 400);
     }
 
     // Transform camelCase to snake_case for Supabase
@@ -221,16 +213,13 @@ export async function PATCH(request: NextRequest) {
 
     if (error) {
       logger.error('Task update error', { error, userId: user.id, taskId: id });
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return errorResponse(error.message, 500);
     }
 
     return NextResponse.json({ task: mapTaskFromDB(data) });
   } catch (error) {
     logger.error('Update task error', { error });
-    return NextResponse.json(
-      { error: 'Failed to update task' },
-      { status: 500 }
-    );
+    return errorResponse('Failed to update task', 500);
   }
 }
 
@@ -249,10 +238,7 @@ export async function DELETE(request: NextRequest) {
     const id = searchParams.get('id');
 
     if (!id) {
-      return NextResponse.json(
-        { error: 'Task ID is required' },
-        { status: 400 }
-      );
+      return errorResponse('Task ID is required', 400);
     }
 
     const { error } = await supabase
@@ -263,15 +249,12 @@ export async function DELETE(request: NextRequest) {
 
     if (error) {
       logger.error('Task delete error', { error, userId: user.id, taskId: id });
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return errorResponse(error.message, 500);
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
     logger.error('Delete task error', { error });
-    return NextResponse.json(
-      { error: 'Failed to delete task' },
-      { status: 500 }
-    );
+    return errorResponse('Failed to delete task', 500);
   }
 }

@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { errorResponse } from '@/lib/api/error-responses';
 import { searchDocuments } from '@/lib/documents';
 import type { DocumentScope, FileType } from '@/lib/documents';
 import { logger } from '@/lib/logger';
@@ -40,10 +41,7 @@ export async function POST(request: NextRequest) {
     const parseResult = searchSchema.safeParse(body);
 
     if (!parseResult.success) {
-      return NextResponse.json(
-        { error: 'Invalid search parameters', details: parseResult.error.issues },
-        { status: 400 }
-      );
+      return errorResponse('Invalid search parameters', 400);
     }
 
     const { query, limit, minSimilarity, scope, threadId, fileTypes, folderId } = parseResult.data;
@@ -79,9 +77,6 @@ export async function POST(request: NextRequest) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[Documents] Search failed', { error: errorMessage });
 
-    return NextResponse.json(
-      { error: errorMessage },
-      { status: 500 }
-    );
+    return errorResponse(errorMessage, 500);
   }
 }

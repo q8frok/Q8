@@ -615,7 +615,7 @@ describe('Data transformation', () => {
 
     expect(transformed).toMatchObject({
       id: 'test-1',
-      user_id: 'user-1',
+      user_id: 'test-user-id',
       created_at: '2024-01-01T00:00:00Z',
       updated_at: '2024-01-01T00:00:00Z',
       logical_clock: 5,

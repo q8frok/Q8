@@ -36,7 +36,12 @@
       "Bash(python fix-lint.py:*)",
       "Bash(python fix-unused.py:*)",
       "Bash(python:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(for hook in src/hooks/*.ts)",
+      "Bash(do basename \"$hook\" .ts)",
+      "Bash(done)",
+      "Bash(for test in tests/hooks/*.test.ts)",
+      "Bash(do basename \"$test\" .test.ts)"
     ],
     "deny": []
   },

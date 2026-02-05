@@ -2,62 +2,40 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, Loader2, AlertCircle, Volume2, Square } from 'lucide-react';
+import { Mic, Loader2, AlertCircle, Volume2, Square, Zap, WifiOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useVoice, type Voice } from '@/hooks/useVoice';
+import { useRealtimeVoice } from '@/hooks/useRealtimeVoice';
 import { logger } from '@/lib/logger';
 
 interface VoiceButtonEnhancedProps {
-  /**
-   * Callback with transcribed text
-   */
+  /** Callback with transcribed text */
   onTranscription?: (text: string) => void;
-
-  /**
-   * Callback when voice input should trigger a message send
-   */
+  /** Callback when voice input should trigger a message send */
   onSend?: (text: string) => void;
-
-  /**
-   * Text to speak (for TTS responses)
-   */
+  /** Text to speak (for TTS responses) — only used in HTTP mode */
   speakText?: string;
-
-  /**
-   * Auto-speak responses
-   */
+  /** Auto-speak responses — only used in HTTP mode */
   autoSpeak?: boolean;
-
-  /**
-   * Voice for TTS
-   */
+  /** Voice for TTS */
   voice?: Voice;
-
-  /**
-   * Enable push-to-talk (Space bar)
-   */
+  /** Enable push-to-talk (Space bar) — only used in HTTP mode */
   enablePushToTalk?: boolean;
-
-  /**
-   * Button size
-   */
+  /** Button size */
   size?: 'sm' | 'default' | 'lg';
-
-  /**
-   * Show status text
-   */
+  /** Show status text */
   showStatusText?: boolean;
-
-  /**
-   * Additional CSS classes
-   */
+  /** Use WebRTC realtime mode */
+  useWebRTC?: boolean;
+  /** Additional CSS classes */
   className?: string;
 }
 
 /**
  * VoiceButtonEnhanced Component
  *
- * Full voice interaction with recording, transcription, and TTS
+ * Full voice interaction with recording, transcription, and TTS.
+ * Supports WebRTC realtime mode (sub-500ms latency) and HTTP fallback.
  */
 export function VoiceButtonEnhanced({
   onTranscription,
@@ -68,15 +46,44 @@ export function VoiceButtonEnhanced({
   enablePushToTalk = true,
   size = 'default',
   showStatusText = true,
+  useWebRTC = false,
   className,
 }: VoiceButtonEnhancedProps) {
   const [isPushToTalkActive, setIsPushToTalkActive] = useState(false);
+  const [mode, setMode] = useState<'webrtc' | 'http'>(useWebRTC ? 'webrtc' : 'http');
 
+  // ── WebRTC Realtime Mode ──────────────────────────────────────────────
+  const {
+    state: realtimeState,
+    isConnected: rtcConnected,
+    isSpeaking: rtcSpeaking,
+    isListening: rtcListening,
+    connect: rtcConnect,
+    disconnect: rtcDisconnect,
+    interrupt: rtcInterrupt,
+    lastTranscript: rtcTranscript,
+    error: rtcError,
+  } = useRealtimeVoice({
+    voice,
+    onTranscript: (text, isFinal) => {
+      if (isFinal && text.trim()) {
+        onTranscription?.(text);
+        if (onSend) onSend(text);
+      }
+    },
+    onError: (error) => {
+      logger.error('WebRTC voice error', { error, component: 'VoiceButtonEnhanced' });
+      // Fallback to HTTP on error
+      if (mode === 'webrtc') setMode('http');
+    },
+  });
+
+  // ── HTTP Fallback Mode ────────────────────────────────────────────────
   const {
     status,
     isRecording,
     isTranscribing: _isTranscribing,
-    isSpeaking,
+    isSpeaking: httpSpeaking,
     transcript,
     error,
     audioLevel,
@@ -89,40 +96,62 @@ export function VoiceButtonEnhanced({
     voice,
     onTranscription: (text) => {
       onTranscription?.(text);
-      // Auto-send if onSend is provided
-      if (onSend && text.trim()) {
-        onSend(text);
-      }
+      if (onSend && text.trim()) onSend(text);
     },
     onError: (err) => {
       logger.error('Voice button error', { error: err, component: 'VoiceButtonEnhanced' });
     },
   });
 
-  // Auto-speak when speakText changes
+  // ── Derived State ─────────────────────────────────────────────────────
+  const isWebRTC = mode === 'webrtc';
+  const isSpeakingNow = isWebRTC ? rtcSpeaking : httpSpeaking;
+  const isListeningNow = isWebRTC ? rtcListening : isRecording;
+  const isProcessingNow = isWebRTC
+    ? realtimeState === 'connecting'
+    : status === 'transcribing' || status === 'processing' || status === 'requesting-permission';
+  const currentTranscript = isWebRTC ? rtcTranscript : transcript;
+  const currentError = isWebRTC ? rtcError : error;
+  const effectiveStatus = isWebRTC ? realtimeState : status;
+
+  // Auto-speak when speakText changes (HTTP mode only)
   useEffect(() => {
-    if (autoSpeak && speakText && !isSpeaking && status === 'idle') {
+    if (!isWebRTC && autoSpeak && speakText && !httpSpeaking && status === 'idle') {
       speak(speakText);
     }
-  }, [speakText, autoSpeak, isSpeaking, status, speak]);
+  }, [speakText, autoSpeak, httpSpeaking, status, speak, isWebRTC]);
 
   // Handle click
   const handleClick = useCallback(async () => {
-    if (isSpeaking) {
-      stopSpeaking();
+    if (isWebRTC) {
+      if (rtcConnected) {
+        if (rtcSpeaking) {
+          rtcInterrupt();
+        } else {
+          rtcDisconnect();
+        }
+      } else {
+        rtcConnect();
+      }
       return;
     }
 
+    // HTTP mode
+    if (httpSpeaking) {
+      stopSpeaking();
+      return;
+    }
     if (isRecording) {
       await stopRecording();
     } else if (status === 'idle' || status === 'error') {
       await startRecording();
     }
-  }, [isRecording, isSpeaking, status, startRecording, stopRecording, stopSpeaking]);
+  }, [isWebRTC, rtcConnected, rtcSpeaking, rtcInterrupt, rtcConnect, rtcDisconnect,
+      httpSpeaking, isRecording, status, startRecording, stopRecording, stopSpeaking]);
 
-  // Keyboard shortcuts (Space bar for push-to-talk)
+  // Keyboard shortcuts (Space bar for push-to-talk — HTTP mode only)
   useEffect(() => {
-    if (!enablePushToTalk) return;
+    if (!enablePushToTalk || isWebRTC) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (
@@ -154,7 +183,7 @@ export function VoiceButtonEnhanced({
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [enablePushToTalk, isRecording, isPushToTalkActive, status, startRecording, stopRecording]);
+  }, [enablePushToTalk, isWebRTC, isRecording, isPushToTalkActive, status, startRecording, stopRecording]);
 
   // Size variants
   const sizeClasses = {
@@ -170,39 +199,67 @@ export function VoiceButtonEnhanced({
   };
 
   // Status colors
-  const statusColors = {
-    idle: 'bg-neon-primary text-white',
-    'requesting-permission': 'bg-yellow-500 text-white',
-    recording: 'bg-red-500 text-white',
-    transcribing: 'bg-blue-500 text-white',
-    processing: 'bg-blue-500 text-white',
-    speaking: 'bg-green-500 text-white',
-    error: 'bg-red-600 text-white',
+  const getStatusColor = () => {
+    if (isWebRTC) {
+      if (rtcConnected && !rtcSpeaking && !rtcListening) return 'bg-emerald-500 text-white';
+      if (rtcListening) return 'bg-red-500 text-white';
+      if (rtcSpeaking) return 'bg-green-500 text-white';
+      if (realtimeState === 'connecting') return 'bg-yellow-500 text-white';
+      if (realtimeState === 'error') return 'bg-red-600 text-white';
+      return 'bg-neon-primary text-white';
+    }
+    const statusColors: Record<string, string> = {
+      idle: 'bg-neon-primary text-white',
+      'requesting-permission': 'bg-yellow-500 text-white',
+      recording: 'bg-red-500 text-white',
+      transcribing: 'bg-blue-500 text-white',
+      processing: 'bg-blue-500 text-white',
+      speaking: 'bg-green-500 text-white',
+      error: 'bg-red-600 text-white',
+    };
+    return statusColors[status] || 'bg-neon-primary text-white';
   };
 
   // Status text
-  const statusText = {
-    idle: enablePushToTalk ? 'Hold Space or click to talk' : 'Click to talk',
-    'requesting-permission': 'Requesting microphone...',
-    recording: 'Recording... Release to send',
-    transcribing: 'Transcribing...',
-    processing: 'Processing...',
-    speaking: 'Speaking... Click to stop',
-    error: error || 'Error occurred',
+  const getStatusText = () => {
+    if (isWebRTC) {
+      if (realtimeState === 'connecting') return 'Connecting...';
+      if (rtcConnected && !rtcSpeaking && !rtcListening) return 'Connected — speak naturally';
+      if (rtcListening) return 'Hearing you...';
+      if (rtcSpeaking) return 'Speaking... Tap to interrupt';
+      if (realtimeState === 'error') return rtcError || 'Connection error';
+      return 'Tap to connect';
+    }
+    const texts: Record<string, string> = {
+      idle: enablePushToTalk ? 'Hold Space or click to talk' : 'Click to talk',
+      'requesting-permission': 'Requesting microphone...',
+      recording: 'Recording... Release to send',
+      transcribing: 'Transcribing...',
+      processing: 'Processing...',
+      speaking: 'Speaking... Click to stop',
+      error: error || 'Error occurred',
+    };
+    return texts[status] || '';
   };
 
-  // Get icon based on status
+  // Get icon based on state
   const getIcon = () => {
-    if (status === 'transcribing' || status === 'processing' || status === 'requesting-permission') {
+    if (isProcessingNow) {
       return <Loader2 className={cn(iconSizeClasses[size], 'animate-spin')} />;
     }
-    if (status === 'speaking') {
+    if (isSpeakingNow) {
       return <Volume2 className={iconSizeClasses[size]} />;
     }
-    if (status === 'error') {
+    if (currentError && !isWebRTC) {
       return <AlertCircle className={iconSizeClasses[size]} />;
     }
-    if (isRecording) {
+    if (isWebRTC && rtcConnected) {
+      return <Zap className={iconSizeClasses[size]} />;
+    }
+    if (isWebRTC && !rtcConnected && realtimeState === 'error') {
+      return <WifiOff className={iconSizeClasses[size]} />;
+    }
+    if (isListeningNow) {
       return <Square className={iconSizeClasses[size]} />;
     }
     return <Mic className={iconSizeClasses[size]} />;
@@ -214,22 +271,26 @@ export function VoiceButtonEnhanced({
       <div className="relative">
         <motion.button
           onClick={handleClick}
-          disabled={status === 'transcribing' || status === 'requesting-permission'}
+          disabled={isProcessingNow && !isWebRTC}
           className={cn(
             'relative rounded-full flex items-center justify-center transition-all duration-200',
             'focus:outline-none focus:ring-2 focus:ring-neon-primary focus:ring-offset-2',
             'disabled:opacity-50 disabled:cursor-not-allowed',
             sizeClasses[size],
-            statusColors[status]
+            getStatusColor()
           )}
           whileTap={{ scale: 0.95 }}
-          animate={isRecording ? { scale: [1, 1.05, 1] } : {}}
-          transition={isRecording ? { duration: 0.5, repeat: Infinity } : {}}
-          aria-label={isRecording ? 'Stop recording' : 'Start recording'}
+          animate={isListeningNow ? { scale: [1, 1.05, 1] } : {}}
+          transition={isListeningNow ? { duration: 0.5, repeat: Infinity } : {}}
+          aria-label={
+            isWebRTC
+              ? rtcConnected ? 'Disconnect realtime voice' : 'Connect realtime voice'
+              : isRecording ? 'Stop recording' : 'Start recording'
+          }
         >
           <AnimatePresence mode="wait">
             <motion.div
-              key={status}
+              key={String(effectiveStatus)}
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8 }}
@@ -240,16 +301,16 @@ export function VoiceButtonEnhanced({
           </AnimatePresence>
         </motion.button>
 
-        {/* Audio Level Indicator (Recording) */}
+        {/* Audio Level Indicator (Recording / Listening) */}
         <AnimatePresence>
-          {isRecording && (
+          {isListeningNow && (
             <>
               <motion.div
                 className="absolute inset-0 rounded-full border-2 border-red-500"
                 initial={{ scale: 1, opacity: 0.8 }}
-                animate={{ 
-                  scale: 1 + audioLevel * 0.5, 
-                  opacity: 0.8 - audioLevel * 0.5 
+                animate={{
+                  scale: 1 + (isWebRTC ? 0.3 : audioLevel * 0.5),
+                  opacity: 0.8 - (isWebRTC ? 0.3 : audioLevel * 0.5),
                 }}
                 transition={{ duration: 0.1 }}
               />
@@ -265,7 +326,7 @@ export function VoiceButtonEnhanced({
 
         {/* Speaking Indicator */}
         <AnimatePresence>
-          {isSpeaking && (
+          {isSpeakingNow && (
             <motion.div
               className="absolute inset-0 rounded-full border-2 border-green-500"
               initial={{ scale: 1, opacity: 0.8 }}
@@ -274,31 +335,43 @@ export function VoiceButtonEnhanced({
             />
           )}
         </AnimatePresence>
+
+        {/* WebRTC Connected Indicator */}
+        <AnimatePresence>
+          {isWebRTC && rtcConnected && !isListeningNow && !isSpeakingNow && (
+            <motion.div
+              className="absolute inset-0 rounded-full border-2 border-emerald-500/50"
+              initial={{ scale: 1, opacity: 0.4 }}
+              animate={{ scale: 1.2, opacity: 0 }}
+              transition={{ duration: 2, repeat: Infinity }}
+            />
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Status Text */}
       {showStatusText && (
         <motion.p
-          key={status}
+          key={getStatusText()}
           initial={{ opacity: 0, y: -5 }}
           animate={{ opacity: 1, y: 0 }}
           className={cn(
             'text-sm text-center max-w-[200px]',
-            status === 'error' ? 'text-red-400' : 'text-text-muted'
+            currentError ? 'text-red-400' : 'text-text-muted'
           )}
         >
-          {statusText[status]}
+          {getStatusText()}
         </motion.p>
       )}
 
       {/* Transcript Preview */}
-      {transcript && status === 'idle' && (
+      {currentTranscript && !isListeningNow && !isSpeakingNow && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           className="text-xs text-text-muted text-center max-w-[200px] truncate"
         >
-          &ldquo;{transcript}&rdquo;
+          &ldquo;{currentTranscript}&rdquo;
         </motion.div>
       )}
     </div>

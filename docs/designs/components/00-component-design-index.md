@@ -4,6 +4,8 @@
 **Design Date**: 2025-01-20
 **Status**: Complete - Ready for Implementation
 
+> **Note:** These design specs are from January 2025. Implementations may differ from these original specifications as the codebase has evolved.
+
 ---
 
 ## Overview
@@ -98,7 +100,7 @@ Comprehensive component design specifications for all major UI components in the
 
 **Key Features**:
 - WebRTC voice integration
-- GPT-5.1 Realtime API support
+- GPT-5.2 Realtime API support
 - Multi-language transcription
 - Audio device management
 - Confidence indicators

@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/api-auth';
+import { errorResponse } from '@/lib/api/error-responses';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { logger } from '@/lib/logger';
 
@@ -24,35 +25,26 @@ const COLLECTION_TABLE_MAP: Record<string, string> = {
 
 export async function POST(request: NextRequest) {
   try {
-    const [user, errorResponse] = await requireAuth(request);
-    if (errorResponse) return errorResponse;
+    const [user, authError] = await requireAuth(request);
+    if (authError) return authError;
 
     const { searchParams } = new URL(request.url);
     const collection = searchParams.get('collection');
 
     if (!collection) {
-      return NextResponse.json(
-        { error: 'Collection parameter is required' },
-        { status: 400 }
-      );
+      return errorResponse('Collection parameter is required', 400);
     }
 
     const tableName = COLLECTION_TABLE_MAP[collection];
     if (!tableName) {
-      return NextResponse.json(
-        { error: `Unknown collection: ${collection}` },
-        { status: 400 }
-      );
+      return errorResponse(`Unknown collection: ${collection}`, 400);
     }
 
     const body = await request.json();
     const { documents } = body;
 
     if (!Array.isArray(documents)) {
-      return NextResponse.json(
-        { error: 'Documents must be an array' },
-        { status: 400 }
-      );
+      return errorResponse('Documents must be an array', 400);
     }
 
     if (documents.length === 0) {
@@ -142,10 +134,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     logger.error('[Sync Push] Unexpected error', { error: error });
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return errorResponse('Internal server error', 500);
   }
 }
 

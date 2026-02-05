@@ -29,12 +29,13 @@ User Action → RxDB (IndexedDB) → Instant UI Update
 **Philosophy:** One assistant, many specialized brains.
 
 ```
-User Request → Orchestrator (GPT-5.1)
+User Request → Orchestrator (GPT-5.2)
                     ↓
-         ┌──────────┼──────────┐
-         ↓          ↓          ↓
-    Dev Agent  Research  Secretary
-   (Claude 4.5) (Perplexity) (Gemini)
+    ┌────────┬──────┼──────┬────────┐
+    ↓        ↓      ↓      ↓        ↓
+Dev Agent Research Secretary Home  Finance  ...
+(Claude   (Perplexity) (Gemini) (GPT-5  (Gemini)
+ Opus 4.5)                      -mini)
 ```
 
 **Key Components:**
@@ -57,9 +58,9 @@ Agent → MCP Client → MCP Server → External Service
 ### Frontend Layer
 
 **Tech Stack:**
-- Next.js 15 (App Router, RSC)
-- React 19 (Server Actions, useOptimistic)
-- Tailwind v4 (Glassmorphism)
+- Next.js 15.5.7 (App Router, RSC)
+- React 19.0.1 (Server Actions, useOptimistic)
+- Tailwind CSS 3.4 (Glassmorphism)
 - RxDB (Local Database)
 
 **Responsibilities:**
@@ -161,7 +162,7 @@ Orchestrator analyzes intent
    ↓
 Classifies as: CODE_TASK
    ↓
-Transfers to: Dev Agent (Claude 4.5)
+Transfers to: Dev Agent (Claude Opus 4.5)
    ↓
 Dev Agent uses: github_list_prs tool
    ↓
@@ -314,13 +315,13 @@ Railway / Cloud Run
 
 | Layer | Technologies |
 |-------|-------------|
-| **Frontend** | Next.js 15, React 19, Tailwind v4 |
+| **Frontend** | Next.js 15.5.7, React 19.0.1, Tailwind 3.4 |
 | **State** | RxDB, TanStack Query |
 | **Agents** | OpenAI Agents SDK, LiteLLM |
 | **Database** | Supabase, PostgreSQL, pgvector |
 | **Tools** | MCP, Express.js |
 | **Infrastructure** | Vercel, Railway, Docker |
-| **AI Models** | GPT-5.1, Claude 4.5, Gemini 3.0, Perplexity, Grok 4.1 |
+| **AI Models** | GPT-5.2, Claude Opus 4.5, Gemini 3, Perplexity, Grok 4.1, GPT-5-mini |
 
 ## Design Patterns
 
@@ -348,5 +349,4 @@ Railway / Cloud Run
 ## Next Steps
 
 - See [Agent Swarm Architecture](./agent-swarm.md) for agent details
-- See [Database Architecture](./database-architecture.md) for data layer
-- See [MCP Integration](./mcp-integration.md) for tool layer
+- See [Orchestration Engine](./orchestration-engine.md) for routing and execution pipeline

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+// errorResponse and notFoundResponse imports removed - not using standardized errors yet
 import { logger } from '@/lib/logger';
 
 const LRCLIB_API = 'https://lrclib.net/api';

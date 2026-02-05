@@ -3,6 +3,7 @@ import {
   getAuthenticatedUser,
   unauthorizedResponse,
 } from '@/lib/auth/api-auth';
+import { errorResponse } from '@/lib/api/error-responses';
 import { supabaseAdmin as supabase } from '@/lib/supabase/server';
 import { logger } from '@/lib/logger';
 
@@ -35,7 +36,7 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       logger.error('Supabase error', { error });
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return errorResponse(error.message, 500);
     }
 
     // Transform snake_case to camelCase
@@ -55,10 +56,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(snapshots);
   } catch (error) {
     logger.error('Snapshots error', { error });
-    return NextResponse.json(
-      { error: 'Failed to fetch snapshots' },
-      { status: 500 }
-    );
+    return errorResponse('Failed to fetch snapshots', 500);
   }
 }
 
@@ -84,7 +82,7 @@ export async function POST(request: NextRequest) {
       .eq('user_id', userId);
 
     if (accountsError) {
-      return NextResponse.json({ error: accountsError.message }, { status: 500 });
+      return errorResponse(accountsError.message, 500);
     }
 
     // Calculate totals
@@ -137,7 +135,7 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       logger.error('Supabase upsert error', { error });
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return errorResponse(error.message, 500);
     }
 
     return NextResponse.json({
@@ -151,9 +149,6 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     logger.error('Create snapshot error', { error });
-    return NextResponse.json(
-      { error: 'Failed to create snapshot' },
-      { status: 500 }
-    );
+    return errorResponse('Failed to create snapshot', 500);
   }
 }

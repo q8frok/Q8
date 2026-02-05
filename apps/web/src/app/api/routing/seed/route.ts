@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { seedExampleEmbeddings, getRoutingStats } from '@/lib/agents/orchestration/vector-router';
+import { errorResponse } from '@/lib/api/error-responses';
 import { logger } from '@/lib/logger';
 
 export const runtime = 'nodejs';
@@ -46,7 +47,7 @@ function verifyAuthorization(request: NextRequest): boolean {
  */
 export async function POST(request: NextRequest) {
   if (!verifyAuthorization(request)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return errorResponse('Unauthorized', 401);
   }
 
   try {
@@ -64,10 +65,7 @@ export async function POST(request: NextRequest) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[Routing Seed] Failed', { error: errorMessage });
 
-    return NextResponse.json(
-      { success: false, error: errorMessage },
-      { status: 500 }
-    );
+    return errorResponse(errorMessage, 500);
   }
 }
 
@@ -77,7 +75,7 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   if (!verifyAuthorization(request)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return errorResponse('Unauthorized', 401);
   }
 
   try {
@@ -91,9 +89,6 @@ export async function GET(request: NextRequest) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[Routing Seed] Failed to get stats', { error: errorMessage });
 
-    return NextResponse.json(
-      { success: false, error: errorMessage },
-      { status: 500 }
-    );
+    return errorResponse(errorMessage, 500);
   }
 }

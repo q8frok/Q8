@@ -12,6 +12,7 @@ import {
   getAuthenticatedUser,
   unauthorizedResponse,
 } from '@/lib/auth/api-auth';
+import { errorResponse } from '@/lib/api/error-responses';
 import type {
   AgentMemoryInsert,
   MemoryType,
@@ -60,19 +61,13 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       logger.error('[Memories API] Error fetching memories', { error: error });
-      return NextResponse.json(
-        { error: 'Failed to fetch memories' },
-        { status: 500 }
-      );
+      return errorResponse('Failed to fetch memories', 500);
     }
 
     return NextResponse.json({ memories: memories || [] });
   } catch (error) {
     logger.error('[Memories API] Error', { error: error });
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return errorResponse('Internal server error', 500);
   }
 }
 
@@ -107,10 +102,7 @@ export async function POST(request: NextRequest) {
     };
 
     if (!content || !memoryType) {
-      return NextResponse.json(
-        { error: 'content and memoryType are required' },
-        { status: 400 }
-      );
+      return errorResponse('content and memoryType are required', 400);
     }
 
     const memoryData: AgentMemoryInsert = {
@@ -131,18 +123,12 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       logger.error('[Memories API] Error creating memory', { error: error });
-      return NextResponse.json(
-        { error: 'Failed to create memory' },
-        { status: 500 }
-      );
+      return errorResponse('Failed to create memory', 500);
     }
 
     return NextResponse.json({ memory });
   } catch (error) {
     logger.error('[Memories API] Error', { error: error });
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return errorResponse('Internal server error', 500);
   }
 }

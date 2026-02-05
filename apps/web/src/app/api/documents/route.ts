@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { errorResponse } from '@/lib/api/error-responses';
 import { uploadDocument, getUserDocuments } from '@/lib/documents';
 import type { DocumentScope } from '@/lib/documents';
 import { logger } from '@/lib/logger';
@@ -32,27 +33,18 @@ export async function POST(request: NextRequest) {
     const name = formData.get('name') as string | null;
 
     if (!file) {
-      return NextResponse.json(
-        { error: 'No file provided' },
-        { status: 400 }
-      );
+      return errorResponse('No file provided', 400);
     }
 
     // Validate file size (50MB max)
     const maxSize = 50 * 1024 * 1024;
     if (file.size > maxSize) {
-      return NextResponse.json(
-        { error: 'File too large. Maximum size is 50MB.' },
-        { status: 400 }
-      );
+      return errorResponse('File too large. Maximum size is 50MB.', 400);
     }
 
     // Validate scope
     if (scope === 'conversation' && !threadId) {
-      return NextResponse.json(
-        { error: 'threadId required for conversation-scoped documents' },
-        { status: 400 }
-      );
+      return errorResponse('threadId required for conversation-scoped documents', 400);
     }
 
     const folderId = formData.get('folderId') as string | null;
@@ -83,7 +75,7 @@ export async function POST(request: NextRequest) {
       const dupError = error as { existingDocument: { id: string; name: string } };
       return NextResponse.json(
         {
-          error: 'File already exists',
+          error: { code: 'CONFLICT', message: 'File already exists' },
           duplicate: true,
           existingDocument: dupError.existingDocument,
         },
@@ -92,11 +84,7 @@ export async function POST(request: NextRequest) {
     }
 
     logger.error('[Documents] Upload failed', { error: errorMessage });
-
-    return NextResponse.json(
-      { error: errorMessage },
-      { status: 500 }
-    );
+    return errorResponse(errorMessage, 500);
   }
 }
 
@@ -146,10 +134,6 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[Documents] List failed', { error: errorMessage });
-
-    return NextResponse.json(
-      { error: errorMessage },
-      { status: 500 }
-    );
+    return errorResponse(errorMessage, 500);
   }
 }

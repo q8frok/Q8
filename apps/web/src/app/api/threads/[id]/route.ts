@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import type { ThreadUpdate } from '@/lib/supabase/types';
 import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { errorResponse, notFoundResponse } from '@/lib/api/error-responses';
 import { logger } from '@/lib/logger';
 
 export const runtime = 'edge';
@@ -42,10 +43,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .single();
 
     if (threadError || !thread) {
-      return NextResponse.json(
-        { error: 'Thread not found' },
-        { status: 404 }
-      );
+      return notFoundResponse('Thread');
     }
 
     // Get messages if requested
@@ -68,10 +66,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ thread, messages });
   } catch (error) {
     logger.error('[Thread API] Error', { error: error });
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return errorResponse('Internal server error', 500);
   }
 }
 
@@ -106,19 +101,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     if (error) {
       logger.error('[Thread API] Error updating thread', { error: error });
-      return NextResponse.json(
-        { error: 'Failed to update thread' },
-        { status: 500 }
-      );
+      return errorResponse('Failed to update thread', 500);
     }
 
     return NextResponse.json({ thread });
   } catch (error) {
     logger.error('[Thread API] Error', { error: error });
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return errorResponse('Internal server error', 500);
   }
 }
 
@@ -147,10 +136,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
       if (error) {
         logger.error('[Thread API] Error deleting thread', { error: error });
-        return NextResponse.json(
-          { error: 'Failed to delete thread' },
-          { status: 500 }
-        );
+        return errorResponse('Failed to delete thread', 500);
       }
     } else {
       // Soft delete - archive the thread
@@ -161,19 +147,13 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
       if (error) {
         logger.error('[Thread API] Error archiving thread', { error: error });
-        return NextResponse.json(
-          { error: 'Failed to archive thread' },
-          { status: 500 }
-        );
+        return errorResponse('Failed to archive thread', 500);
       }
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
     logger.error('[Thread API] Error', { error: error });
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return errorResponse('Internal server error', 500);
   }
 }

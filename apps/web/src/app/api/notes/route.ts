@@ -12,6 +12,7 @@ import {
   getAuthenticatedUser,
   unauthorizedResponse,
 } from '@/lib/auth/api-auth';
+import { errorResponse } from '@/lib/api/error-responses';
 import type { NoteInsert } from '@/lib/supabase/types';
 import { logger } from '@/lib/logger';
 
@@ -155,10 +156,7 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       logger.error('[Notes API] Error fetching notes', { error });
-      return NextResponse.json(
-        { error: 'Failed to fetch notes' },
-        { status: 500 }
-      );
+      return errorResponse('Failed to fetch notes', 500);
     }
 
     return NextResponse.json({
@@ -167,10 +165,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     logger.error('[Notes API] Error', { error });
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return errorResponse('Internal server error', 500);
   }
 }
 
@@ -258,18 +253,12 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       logger.error('[Notes API] Error creating note', { error });
-      return NextResponse.json(
-        { error: 'Failed to create note' },
-        { status: 500 }
-      );
+      return errorResponse('Failed to create note', 500);
     }
 
     return NextResponse.json({ note });
   } catch (error) {
     logger.error('[Notes API] Error', { error });
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return errorResponse('Internal server error', 500);
   }
 }

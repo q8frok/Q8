@@ -36,10 +36,10 @@ describe('Model Factory', () => {
 
   describe('getModel - Agent Type Configurations', () => {
     describe('orchestrator agent', () => {
-      it('returns GPT-5.1 model', async () => {
+      it('returns GPT-5.2 model', async () => {
         const { getModel } = await import('@/lib/agents/model_factory');
         const config = getModel('orchestrator');
-        expect(config.model).toBe('gpt-5.1-chat-latest');
+        expect(config.model).toBe('gpt-5.2');
       });
 
       it('uses OPENAI_API_KEY', async () => {
@@ -56,10 +56,10 @@ describe('Model Factory', () => {
     });
 
     describe('coder agent', () => {
-      it('returns Claude Sonnet 4.5 model', async () => {
+      it('returns Claude Opus 4.5 model', async () => {
         const { getModel } = await import('@/lib/agents/model_factory');
         const config = getModel('coder');
-        expect(config.model).toBe('claude-sonnet-4-5');
+        expect(config.model).toBe('claude-opus-4-5-20251101');
       });
 
       it('uses Anthropic baseURL', async () => {
@@ -76,10 +76,10 @@ describe('Model Factory', () => {
     });
 
     describe('researcher agent', () => {
-      it('returns Perplexity Sonar Pro model', async () => {
+      it('returns Perplexity Sonar Reasoning Pro model', async () => {
         const { getModel } = await import('@/lib/agents/model_factory');
         const config = getModel('researcher');
-        expect(config.model).toBe('sonar-pro');
+        expect(config.model).toBe('sonar-reasoning-pro');
       });
 
       it('uses Perplexity baseURL', async () => {
@@ -96,10 +96,10 @@ describe('Model Factory', () => {
     });
 
     describe('secretary agent', () => {
-      it('returns Gemini 3.0 Pro model', async () => {
+      it('returns Gemini 3 Flash Preview model', async () => {
         const { getModel } = await import('@/lib/agents/model_factory');
         const config = getModel('secretary');
-        expect(config.model).toBe('gemini-3-pro-preview-11-2025');
+        expect(config.model).toBe('gemini-3-flash-preview');
       });
 
       it('uses Google Generative AI baseURL', async () => {
@@ -118,10 +118,10 @@ describe('Model Factory', () => {
     });
 
     describe('personality agent', () => {
-      it('returns Grok 4.1 Fast Non-Reasoning model', async () => {
+      it('returns Grok 4.1 Fast model', async () => {
         const { getModel } = await import('@/lib/agents/model_factory');
         const config = getModel('personality');
-        expect(config.model).toBe('grok-4-1-fast-non-reasoning');
+        expect(config.model).toBe('grok-4-1-fast');
       });
 
       it('uses X.AI baseURL', async () => {
@@ -138,10 +138,10 @@ describe('Model Factory', () => {
     });
 
     describe('home agent', () => {
-      it('returns GPT-5.1 model', async () => {
+      it('returns GPT-5-mini model', async () => {
         const { getModel } = await import('@/lib/agents/model_factory');
         const config = getModel('home');
-        expect(config.model).toBe('gpt-5.1-chat-latest');
+        expect(config.model).toBe('gpt-5-mini');
       });
 
       it('uses OPENAI_API_KEY', async () => {
@@ -158,10 +158,10 @@ describe('Model Factory', () => {
     });
 
     describe('finance agent', () => {
-      it('returns Gemini 3.0 Pro model', async () => {
+      it('returns Gemini 3 Flash Preview model', async () => {
         const { getModel } = await import('@/lib/agents/model_factory');
         const config = getModel('finance');
-        expect(config.model).toBe('gemini-3-pro-preview-11-2025');
+        expect(config.model).toBe('gemini-3-flash-preview');
       });
 
       it('uses Google Generative AI baseURL', async () => {
@@ -362,11 +362,12 @@ describe('Model Factory', () => {
   });
 
   describe('Model Consistency', () => {
-    it('orchestrator and home use same model', async () => {
+    it('orchestrator uses different model than home', async () => {
       const { getModel } = await import('@/lib/agents/model_factory');
       const orchestrator = getModel('orchestrator');
       const home = getModel('home');
-      expect(orchestrator.model).toBe(home.model);
+      expect(orchestrator.model).toBe('gpt-5.2');
+      expect(home.model).toBe('gpt-5-mini');
     });
 
     it('secretary and finance use same model', async () => {

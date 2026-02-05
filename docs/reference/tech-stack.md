@@ -3,12 +3,12 @@
 ## Frontend
 
 ### Core Framework
-- **Next.js 15.5/16** - React framework with App Router
-- **React 19.2** - UI library with Server Components
+- **Next.js 15.5.7** - React framework with App Router
+- **React 19.0.1** - UI library with Server Components
 - **TypeScript 5.4+** - Type-safe JavaScript
 
 ### Styling
-- **Tailwind CSS v4** - Utility-first CSS framework
+- **Tailwind CSS 3.4** - Utility-first CSS framework
 - **Framer Motion 11** - Animation library
 - **Shadcn/ui** - Component library (with customizations)
 
@@ -26,19 +26,32 @@
 ## Backend & AI
 
 ### Agent Framework
-- **OpenAI Agents SDK 2.0+** - Multi-agent orchestration
+- **openai 4.28.0** - OpenAI SDK for agent orchestration
 - **LiteLLM** - Multi-provider AI routing
-- **OpenAI API** - GPT-5.1 for orchestrator
+- **OpenAI API** - GPT-5.2 for orchestrator
 
 ### AI Models
-| Agent | Provider | Model | Version |
-|-------|----------|-------|---------|
-| Orchestrator | OpenAI | GPT-5.1-Preview | Latest |
-| Dev Agent | Anthropic | Claude Sonnet 4.5 | Latest |
-| Research Agent | Perplexity | Sonar Pro | Latest |
-| Secretary Agent | Google | Gemini 3.0 Pro | Preview |
-| Personality Agent | xAI | Grok 4.1 Fast | Latest |
-| Home Agent | OpenAI | GPT-4 Turbo | Latest |
+| Agent | Provider | Model | Model ID |
+|-------|----------|-------|----------|
+| Orchestrator | OpenAI | GPT-5.2 | `gpt-5.2` |
+| Dev Agent | Anthropic | Claude Opus 4.5 | `claude-opus-4-5-20251101` |
+| Research Agent | Perplexity | Sonar Reasoning Pro | `sonar-reasoning-pro` |
+| Secretary Agent | Google | Gemini 3 Flash | `gemini-3-flash` |
+| Personality Agent | xAI | Grok 4.1 Fast | `grok-4-1-fast` |
+| Home Agent | OpenAI | GPT-5-mini | `gpt-5-mini` |
+| Finance Agent | Google | Gemini 3 Flash | `gemini-3-flash` |
+| ImageGen Agent | OpenAI | GPT-5-mini (orch) / gpt-image-1.5 (gen) | `gpt-5-mini` / `gpt-image-1.5` |
+
+### Fallback Chains
+Each agent has automatic fallback when the primary model is unavailable:
+- **Orchestrator:** GPT-5.2 → GPT-5-mini → GPT-5-nano
+- **Dev Agent:** Claude Opus 4.5 → Sonnet 4.5 → GPT-5.2 → GPT-5-mini
+- **Research Agent:** sonar-reasoning-pro → sonar-pro → sonar → GPT-5-mini
+- **Secretary Agent:** Gemini 3 Flash → Gemini 3 Pro → GPT-5-mini
+- **Home Agent:** GPT-5-mini → GPT-5.2 → GPT-5-nano
+- **Finance Agent:** Gemini 3 Flash → Gemini 3 Pro → GPT-5-mini
+- **Personality Agent:** Grok 4.1 Fast → GPT-5.2 → GPT-5-mini → GPT-5-nano
+- **ImageGen:** GPT-5-mini → GPT-5.2 → GPT-5-nano (orchestration); gpt-image-1.5 (generation)
 
 ### Database
 - **Supabase** - Backend-as-a-Service
@@ -57,7 +70,7 @@
 - **pnpm workspaces** - Monorepo management
 
 ### Code Quality
-- **ESLint** - JavaScript linting
+- **ESLint** - JavaScript linting (`@typescript-eslint/recommended`, `no-explicit-any: error`)
 - **Prettier 3.2+** - Code formatting
 - **TypeScript Compiler** - Type checking
 
@@ -89,7 +102,7 @@
 ## External Services
 
 ### AI Providers
-- **OpenAI** - GPT models and embeddings
+- **OpenAI** - GPT models, embeddings, and image generation
 - **Anthropic** - Claude models
 - **Google AI** - Gemini models
 - **Perplexity** - Search models
@@ -136,9 +149,9 @@
 ### Core (Fixed)
 ```json
 {
-  "next": "^15.0.3",
-  "react": "^19.0.0",
-  "react-dom": "^19.0.0",
+  "next": "^15.5.7",
+  "react": "^19.0.1",
+  "react-dom": "^19.0.1",
   "typescript": "^5.4.5"
 }
 ```
@@ -178,7 +191,7 @@
 - First Contentful Paint: <1.5s
 - Time to Interactive: <3.5s
 - RxDB query: <100ms
-- Agent response (GPT-5.1): 1-3s
+- Agent response (GPT-5.2): 1-3s
 - Agent response (Claude): 2-5s
 
 ## Cost Estimates (Monthly)
@@ -189,9 +202,9 @@
 - GitHub Actions: 2,000 minutes
 
 ### Estimated AI Costs (Per 1000 users)
-- GPT-5.1: ~$100-200
-- Claude Sonnet: ~$150-300
-- Gemini 3.0: ~$50-100
+- GPT-5.2: ~$100-200
+- Claude Opus: ~$150-300
+- Gemini 3: ~$50-100
 - Perplexity: ~$75-150
 - Grok: ~$50-100
 

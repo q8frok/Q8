@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { ContentItem, ContentSource } from '@/types/contenthub';
 import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+// import { errorResponse } from '@/lib/api/error-responses';
 
 /**
  * ContentHub Search API - Unified Search Across Sources

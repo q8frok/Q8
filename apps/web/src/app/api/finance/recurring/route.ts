@@ -3,6 +3,7 @@ import {
   getAuthenticatedUser,
   unauthorizedResponse,
 } from '@/lib/auth/api-auth';
+import { errorResponse, notFoundResponse } from '@/lib/api/error-responses';
 import { supabaseAdmin as supabase } from '@/lib/supabase/server';
 import { logger } from '@/lib/logger';
 
@@ -44,7 +45,7 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       logger.error('Supabase error', { error });
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return errorResponse(error.message, 500);
     }
 
     // Transform snake_case to camelCase
@@ -74,10 +75,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(recurring);
   } catch (error) {
     logger.error('Finance recurring error', { error });
-    return NextResponse.json(
-      { error: 'Failed to fetch recurring items' },
-      { status: 500 }
-    );
+    return errorResponse('Failed to fetch recurring items', 500);
   }
 }
 
@@ -112,10 +110,7 @@ export async function POST(request: NextRequest) {
     } = body;
 
     if (!name || amount === undefined || !frequency || !startDate || !nextDueDate) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      );
+      return errorResponse('Missing required fields', 400);
     }
 
     const { data, error } = await supabase
@@ -143,7 +138,7 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       logger.error('Supabase insert error', { error });
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return errorResponse(error.message, 500);
     }
 
     return NextResponse.json({
@@ -160,10 +155,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     logger.error('Create recurring error', { error });
-    return NextResponse.json(
-      { error: 'Failed to create recurring item' },
-      { status: 500 }
-    );
+    return errorResponse('Failed to create recurring item', 500);
   }
 }
 
@@ -183,7 +175,7 @@ export async function PUT(request: NextRequest) {
     const { id, ...updates } = body;
 
     if (!id) {
-      return NextResponse.json({ error: 'Recurring ID required' }, { status: 400 });
+      return errorResponse('Recurring ID required', 400);
     }
 
     // Verify ownership
@@ -194,11 +186,11 @@ export async function PUT(request: NextRequest) {
       .single();
 
     if (fetchError || !existing) {
-      return NextResponse.json({ error: 'Recurring item not found' }, { status: 404 });
+      return notFoundResponse('Recurring item');
     }
 
     if (existing.user_id !== user.id) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      return errorResponse('Access denied', 403, 'FORBIDDEN');
     }
 
     // Transform camelCase to snake_case
@@ -225,7 +217,7 @@ export async function PUT(request: NextRequest) {
 
     if (error) {
       logger.error('Supabase update error', { error });
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return errorResponse(error.message, 500);
     }
 
     return NextResponse.json({
@@ -239,10 +231,7 @@ export async function PUT(request: NextRequest) {
     });
   } catch (error) {
     logger.error('Update recurring error', { error });
-    return NextResponse.json(
-      { error: 'Failed to update recurring item' },
-      { status: 500 }
-    );
+    return errorResponse('Failed to update recurring item', 500);
   }
 }
 
@@ -262,7 +251,7 @@ export async function DELETE(request: NextRequest) {
     const id = searchParams.get('id');
 
     if (!id) {
-      return NextResponse.json({ error: 'Recurring ID required' }, { status: 400 });
+      return errorResponse('Recurring ID required', 400);
     }
 
     // Verify ownership
@@ -273,11 +262,11 @@ export async function DELETE(request: NextRequest) {
       .single();
 
     if (fetchError || !existing) {
-      return NextResponse.json({ error: 'Recurring item not found' }, { status: 404 });
+      return notFoundResponse('Recurring item');
     }
 
     if (existing.user_id !== user.id) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      return errorResponse('Access denied', 403, 'FORBIDDEN');
     }
 
     const { error } = await supabase
@@ -287,15 +276,12 @@ export async function DELETE(request: NextRequest) {
 
     if (error) {
       logger.error('Supabase delete error', { error });
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return errorResponse(error.message, 500);
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
     logger.error('Delete recurring error', { error });
-    return NextResponse.json(
-      { error: 'Failed to delete recurring item' },
-      { status: 500 }
-    );
+    return errorResponse('Failed to delete recurring item', 500);
   }
 }

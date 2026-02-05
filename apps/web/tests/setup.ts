@@ -12,6 +12,9 @@ vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'test-anon-key');
 vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'test-service-key');
 vi.stubEnv('OPENAI_API_KEY', 'test-openai-key');
 vi.stubEnv('ANTHROPIC_API_KEY', 'test-anthropic-key');
+vi.stubEnv('PERPLEXITY_API_KEY', 'test-perplexity-key');
+vi.stubEnv('GOOGLE_GENERATIVE_AI_KEY', 'test-google-key');
+vi.stubEnv('XAI_API_KEY', 'test-xai-key');
 
 // Mock fetch globally
 global.fetch = vi.fn();

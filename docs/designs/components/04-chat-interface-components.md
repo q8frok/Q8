@@ -8,7 +8,7 @@
 
 ## Overview
 
-Components for multi-agent conversation interfaces supporting the Q8 agent swarm architecture. These components enable seamless chat with GPT-5.1 orchestrator and specialized sub-agents (Claude 4.5 Dev, Perplexity Research, Gemini 3.0 Secretary, Grok 4.1 Personality).
+Components for multi-agent conversation interfaces supporting the Q8 agent swarm architecture. These components enable seamless chat with GPT-5.2 orchestrator and specialized sub-agents (Claude Opus 4.5 Dev, Perplexity Research, Gemini 3.0 Secretary, Grok 4.1 Personality).
 
 ---
 
@@ -897,7 +897,7 @@ function getAgentConfig(role: AgentRole) {
   const configs = {
     orchestrator: {
       name: 'Q8 Orchestrator',
-      model: 'GPT-5.1',
+      model: 'GPT-5.2',
       icon: Bot,
       iconColor: 'text-neon-primary',
       bgColor: 'bg-neon-primary/20',

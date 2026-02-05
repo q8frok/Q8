@@ -4,6 +4,7 @@ import {
   unauthorizedResponse,
   forbiddenResponse,
 } from '@/lib/auth/api-auth';
+import { errorResponse, notFoundResponse } from '@/lib/api/error-responses';
 import { supabaseAdmin as supabase } from '@/lib/supabase/server';
 import { logger } from '@/lib/logger';
 
@@ -32,10 +33,10 @@ export async function GET(
 
     if (error) {
       if (error.code === 'PGRST116') {
-        return NextResponse.json({ error: 'Account not found' }, { status: 404 });
+        return notFoundResponse('Account');
       }
       logger.error('Supabase error', { error });
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return errorResponse(error.message, 500);
     }
 
     // Verify ownership
@@ -71,10 +72,7 @@ export async function GET(
     return NextResponse.json(account);
   } catch (error) {
     logger.error('Get account error', { error });
-    return NextResponse.json(
-      { error: 'Failed to fetch account' },
-      { status: 500 }
-    );
+    return errorResponse('Failed to fetch account', 500);
   }
 }
 
@@ -104,9 +102,9 @@ export async function PUT(
 
     if (fetchError) {
       if (fetchError.code === 'PGRST116') {
-        return NextResponse.json({ error: 'Account not found' }, { status: 404 });
+        return notFoundResponse('Account');
       }
-      return NextResponse.json({ error: fetchError.message }, { status: 500 });
+      return errorResponse(fetchError.message, 500);
     }
 
     if (existing.user_id !== user.id) {
@@ -141,7 +139,7 @@ export async function PUT(
 
     if (error) {
       logger.error('Supabase update error', { error });
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return errorResponse(error.message, 500);
     }
 
     // Transform back to camelCase for response
@@ -172,10 +170,7 @@ export async function PUT(
     return NextResponse.json(account);
   } catch (error) {
     logger.error('Update account error', { error });
-    return NextResponse.json(
-      { error: 'Failed to update account' },
-      { status: 500 }
-    );
+    return errorResponse('Failed to update account', 500);
   }
 }
 
@@ -205,9 +200,9 @@ export async function DELETE(
 
     if (fetchError) {
       if (fetchError.code === 'PGRST116') {
-        return NextResponse.json({ error: 'Account not found' }, { status: 404 });
+        return notFoundResponse('Account');
       }
-      return NextResponse.json({ error: fetchError.message }, { status: 500 });
+      return errorResponse(fetchError.message, 500);
     }
 
     // Verify ownership
@@ -217,10 +212,7 @@ export async function DELETE(
 
     // Only allow deletion of manual accounts
     if (!existing.is_manual) {
-      return NextResponse.json(
-        { error: 'Cannot delete linked accounts. Please unlink from Plaid/SnapTrade instead.' },
-        { status: 400 }
-      );
+      return errorResponse('Cannot delete linked accounts. Please unlink from Plaid/SnapTrade instead.', 400);
     }
 
     // Delete associated transactions first
@@ -237,15 +229,12 @@ export async function DELETE(
 
     if (deleteError) {
       logger.error('Supabase delete error', { error: deleteError });
-      return NextResponse.json({ error: deleteError.message }, { status: 500 });
+      return errorResponse(deleteError.message, 500);
     }
 
     return NextResponse.json({ success: true, message: 'Account deleted' });
   } catch (error) {
     logger.error('Delete account error', { error });
-    return NextResponse.json(
-      { error: 'Failed to delete account' },
-      { status: 500 }
-    );
+    return errorResponse('Failed to delete account', 500);
   }
 }

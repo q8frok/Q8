@@ -8,7 +8,7 @@
 
 ## Overview
 
-Enhanced voice interaction components for Q8's WebRTC-based voice interface using GPT-5.1 Realtime API. These components provide visual feedback, live transcription, and voice settings for natural conversation with the AI assistant.
+Enhanced voice interaction components for Q8's WebRTC-based voice interface using GPT-5.2 Realtime API. These components provide visual feedback, live transcription, and voice settings for natural conversation with the AI assistant.
 
 ---
 
@@ -1290,7 +1290,7 @@ export default function VoicePage() {
 - [ ] Create `VoiceSettings.tsx` with device selection
 
 ### Phase 2: WebRTC Integration
-- [ ] Integrate GPT-5.1 Realtime API
+- [ ] Integrate GPT-5.2 Realtime API
 - [ ] Set up WebRTC connection
 - [ ] Implement audio streaming
 - [ ] Add voice activity detection

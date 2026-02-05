@@ -221,7 +221,7 @@ describe('POST /api/chat', () => {
     expect(response.status).toBe(500);
 
     const body = await response.json();
-    expect(body.error).toBe('Failed to process message');
-    expect(body.details).toBe('LLM service unavailable');
+    expect(body.error.code).toBe('INTERNAL_ERROR');
+    expect(body.error.message).toBe('LLM service unavailable');
   });
 });

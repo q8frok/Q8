@@ -20,8 +20,11 @@ A responsive grid layout system for the Q8 dashboard, inspired by Apple's macOS 
 
 ### C
 
-**Claude Sonnet 4.5**
-Anthropic's AI model used as the Dev Agent for coding tasks.
+**Claude Opus 4.5**
+Anthropic's AI model used as the Dev Agent for coding tasks. Model ID: `claude-opus-4-5-20251101`.
+
+**Context Compression**
+Technique for reducing token usage by summarizing older conversation messages while preserving recent context verbatim. Implemented in `orchestration/context-compressor.ts`.
 
 **Context Window**
 The amount of text (tokens) an AI model can process at once.
@@ -29,7 +32,7 @@ The amount of text (tokens) an AI model can process at once.
 ### D
 
 **Dev Agent**
-Specialist agent powered by Claude Sonnet 4.5, handles coding and GitHub operations.
+Specialist agent powered by Claude Opus 4.5, handles coding and GitHub operations.
 
 ### E
 
@@ -38,22 +41,25 @@ Serverless functions that run on edge networks close to users for low latency.
 
 ### G
 
-**Gemini 3.0 Pro**
-Google's AI model used as the Secretary Agent with massive 2M token context window.
+**Gemini 3 Flash**
+Google's AI model used as the Secretary Agent and Finance Agent.
 
 **Glassmorphism**
 UI design style using frosted glass effects, transparency, and blur.
 
-**GPT-5.1**
+**GPT-5.2**
 OpenAI's model used as the Orchestrator for routing and reasoning.
 
-**Grok 4.1**
+**GPT-5-mini**
+OpenAI's smaller model used as the Home Agent and as a fallback for other agents.
+
+**Grok 4.1 Fast**
 xAI's model used as the Personality Agent for creative and casual interactions.
 
 ### H
 
 **Handoff**
-The process of transferring a task from one agent to another.
+The process of transferring a task from one agent to another. Managed by `orchestration/handoff.ts`.
 
 **HNSW**
 Hierarchical Navigable Small World - algorithm for efficient vector similarity search.
@@ -81,8 +87,11 @@ Microservice that implements MCP protocol to provide tools (e.g., GitHub integra
 
 ### O
 
+**Orchestration Engine**
+The 19-module middleware in `lib/agents/orchestration/` that handles routing, context building, execution, quality scoring, and caching. See [orchestration-engine.md](../../docs/architecture/orchestration-engine.md).
+
 **Orchestrator**
-Main agent (GPT-5.1) that routes user requests to specialist sub-agents.
+Main agent (GPT-5.2) that routes user requests to specialist sub-agents.
 
 **Optimistic UI**
 UI updates immediately before server confirmation, assuming success.
@@ -121,10 +130,13 @@ Reactive database for JavaScript, built on IndexedDB.
 ### S
 
 **Secretary Agent**
-Specialist agent powered by Gemini 3.0 Pro for productivity tasks (email, calendar, docs).
+Specialist agent powered by Gemini 3 Flash for productivity tasks (email, calendar, docs).
 
 **Server Actions**
 React 19 feature for running server-side code from client components.
+
+**Speculative Execution**
+Technique where the system pre-fetches likely data or queries multiple agents in parallel for ambiguous requests, reducing perceived latency. Implemented in `orchestration/speculative-executor.ts` and `speculative-router.ts`.
 
 **SSR (Server-Side Rendering)**
 Rendering React components on the server for faster initial load.
@@ -133,7 +145,7 @@ Rendering React components on the server for faster initial load.
 Backend-as-a-Service providing PostgreSQL, Auth, Storage, and Realtime.
 
 **Sub-Agent**
-Specialist agent that handles specific domains (coding, research, productivity, etc.).
+Specialist agent that handles specific domains (coding, research, productivity, finance, home, etc.).
 
 ### T
 
@@ -148,6 +160,9 @@ Numerical representation of text for semantic similarity search.
 **Vector Search**
 Finding similar items using vector embeddings and distance calculations.
 
+**Vibe Check**
+Sentiment and energy analysis of user messages, used to adjust agent tone dynamically. Implemented in `orchestration/vibe-check.ts`.
+
 ### W
 
 **WebRTC**
@@ -155,12 +170,14 @@ Real-time communication protocol for voice/video, used for Q8's voice interface.
 
 ## Agent Types
 
-- **Orchestrator:** GPT-5.1 - Main router
-- **Dev Agent:** Claude Sonnet 4.5 - Coding specialist
+- **Orchestrator:** GPT-5.2 - Main router
+- **Dev Agent:** Claude Opus 4.5 - Coding specialist
 - **Research Agent:** Perplexity Sonar Pro - Web search specialist
-- **Secretary Agent:** Gemini 3.0 Pro - Productivity specialist
-- **Personality Agent:** Grok 4.1 - Creative chat specialist
-- **Home Agent:** GPT-4 Turbo - Smart home specialist
+- **Secretary Agent:** Gemini 3 Flash - Productivity specialist
+- **Personality Agent:** Grok 4.1 Fast - Creative chat specialist
+- **Home Agent:** GPT-5-mini - Smart home specialist
+- **Finance Agent:** Gemini 3 Flash - Financial tracking specialist
+- **ImageGen Agent:** gpt-image-1.5 - Image generation specialist
 
 ## Acronyms
 

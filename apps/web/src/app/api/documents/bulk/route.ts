@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { errorResponse } from '@/lib/api/error-responses';
 import { deleteDocument } from '@/lib/documents';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { logger } from '@/lib/logger';
@@ -30,7 +31,7 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
   const parsed = bulkSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Invalid request', details: parsed.error.issues }, { status: 400 });
+    return errorResponse('Invalid request', 400);
   }
 
   const { action, documentIds, params } = parsed.data;
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest) {
           .eq('user_id', user.id);
 
         if (error) {
-          return NextResponse.json({ error: error.message }, { status: 500 });
+          return errorResponse(error.message, 500);
         }
         results.push(...documentIds.map((id) => ({ id, success: true })));
         break;
@@ -68,7 +69,7 @@ export async function POST(request: NextRequest) {
       case 'tag': {
         const tagId = params?.tagId;
         if (!tagId) {
-          return NextResponse.json({ error: 'tagId required for tag action' }, { status: 400 });
+          return errorResponse('tagId required for tag action', 400);
         }
 
         const assignments = documentIds.map((docId) => ({
@@ -82,7 +83,7 @@ export async function POST(request: NextRequest) {
           .upsert(assignments, { onConflict: 'document_id,tag_id' });
 
         if (error) {
-          return NextResponse.json({ error: error.message }, { status: 500 });
+          return errorResponse(error.message, 500);
         }
         results.push(...documentIds.map((id) => ({ id, success: true })));
         break;
@@ -102,6 +103,6 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[Documents] Bulk action failed', { error: errorMessage });
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    return errorResponse(errorMessage, 500);
   }
 }

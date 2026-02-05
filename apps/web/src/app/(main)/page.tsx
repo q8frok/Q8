@@ -5,22 +5,49 @@ import { Settings, Mic, Command, BookOpen, MessageCircle, LayoutGrid } from 'luc
 import { AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { BentoGrid, BentoItem } from '@/components/dashboard/BentoGrid';
 import { ModeSelector } from '@/components/dashboard/ModeSelector';
-import { useVisibleWidgets } from '@/lib/stores/dashboard';
+import { useVisibleWidgets, useWidgetOrder } from '@/lib/stores/dashboard';
+// Light widgets - static imports (small bundle impact)
 import {
   WeatherWidget,
-  ContentHubWidget,
-  GitHubPRWidget,
   TaskWidget,
-  CalendarWidget,
   ClockWidget,
   QuickNotesWidget,
-  SmartHomeWidget,
-  FinanceHubWidget,
+  WidgetSkeleton,
 } from '@/components/dashboard/widgets';
-import { DailyBriefWidget } from '@/components/dashboard/widgets/DailyBriefWidget';
-import { UnifiedChatWithThreads, UnifiedChatWithThreadsRef } from '@/components/chat/UnifiedChatWithThreads';
+// Heavy widgets - dynamic imports (code splitting)
+const CalendarWidget = dynamic(
+  () => import('@/components/dashboard/widgets/CalendarWidget/index').then(m => m.CalendarWidget),
+  { loading: () => <WidgetSkeleton className="col-span-2 row-span-1" />, ssr: false }
+);
+const FinanceHubWidget = dynamic(
+  () => import('@/components/dashboard/widgets/FinanceHubWidget').then(m => m.FinanceHubWidget),
+  { loading: () => <WidgetSkeleton className="col-span-2 row-span-2" />, ssr: false }
+);
+const ContentHubWidget = dynamic(
+  () => import('@/components/dashboard/widgets/ContentHubWidget').then(m => m.ContentHubWidget),
+  { loading: () => <WidgetSkeleton className="col-span-2 row-span-2" />, ssr: false }
+);
+const SmartHomeWidget = dynamic(
+  () => import('@/components/dashboard/widgets/SmartHomeWidget/index').then(m => m.SmartHomeWidget),
+  { loading: () => <WidgetSkeleton className="col-span-2 row-span-3" />, ssr: false }
+);
+const GitHubPRWidget = dynamic(
+  () => import('@/components/dashboard/widgets/GitHubPRWidget').then(m => m.GitHubPRWidget),
+  { loading: () => <WidgetSkeleton className="col-span-2 row-span-2" />, ssr: false }
+);
+const DailyBriefWidget = dynamic(
+  () => import('@/components/dashboard/widgets/DailyBriefWidget').then(m => m.DailyBriefWidget),
+  { loading: () => <WidgetSkeleton className="col-span-2 row-span-2" />, ssr: false }
+);
+// Heavy chat component - dynamic import
+const UnifiedChatWithThreads = dynamic(
+  () => import('@/components/chat/UnifiedChatWithThreads').then(m => m.UnifiedChatWithThreads),
+  { ssr: false }
+);
+import type { UnifiedChatWithThreadsRef } from '@/components/chat/UnifiedChatWithThreads';
 import { UserProfile } from '@/components/auth/UserProfile';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useAuth } from '@/hooks/useAuth';
@@ -41,6 +68,7 @@ function DashboardContent() {
   const router = useRouter();
 
   const visibleWidgets = useVisibleWidgets();
+  const widgetOrder = useWidgetOrder();
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [chatSheetSnap, setChatSheetSnap] = useState<SnapPoint>('closed');
@@ -146,69 +174,74 @@ function DashboardContent() {
           <div className="lg:col-span-2 space-y-4 md:space-y-6">
             <BentoGrid>
               <AnimatePresence mode="popLayout">
-                {visibleWidgets.includes('daily-brief') && (
-                  <BentoItem key="daily-brief" colSpan={2} rowSpan={2}>
-                    <DailyBriefWidget userId={userId} />
-                  </BentoItem>
-                )}
-
-                {visibleWidgets.includes('clock') && (
-                  <BentoItem key="clock" colSpan={2} rowSpan={2}>
-                    <ClockWidget colSpan={2} rowSpan={2} />
-                  </BentoItem>
-                )}
-
-                {visibleWidgets.includes('weather') && (
-                  <BentoItem key="weather" colSpan={2} rowSpan={2}>
-                    <WeatherWidget
-                      location="New York"
-                      unit="fahrenheit"
-                      showForecast={true}
-                    />
-                  </BentoItem>
-                )}
-
-                {visibleWidgets.includes('tasks') && (
-                  <BentoItem key="tasks" colSpan={2} rowSpan={2}>
-                    <TaskWidget />
-                  </BentoItem>
-                )}
-
-                {visibleWidgets.includes('calendar') && (
-                  <BentoItem key="calendar" colSpan={2} rowSpan={1}>
-                    <CalendarWidget maxItems={3} />
-                  </BentoItem>
-                )}
-
-                {visibleWidgets.includes('quick-notes') && (
-                  <BentoItem key="quick-notes" colSpan={2} rowSpan={2}>
-                    <QuickNotesWidget userId={userId} />
-                  </BentoItem>
-                )}
-
-                {visibleWidgets.includes('content-hub') && (
-                  <BentoItem key="content-hub" colSpan={2} rowSpan={2}>
-                    <ContentHubWidget />
-                  </BentoItem>
-                )}
-
-                {visibleWidgets.includes('github') && (
-                  <BentoItem key="github" colSpan={2} rowSpan={2}>
-                    <GitHubPRWidget maxItems={5} />
-                  </BentoItem>
-                )}
-
-                {visibleWidgets.includes('home') && (
-                  <BentoItem key="home" colSpan={2} rowSpan={3}>
-                    <SmartHomeWidget />
-                  </BentoItem>
-                )}
-
-                {visibleWidgets.includes('finance') && (
-                  <BentoItem key="finance" colSpan={2} rowSpan={2}>
-                    <FinanceHubWidget />
-                  </BentoItem>
-                )}
+                {widgetOrder
+                  .filter((id) => visibleWidgets.includes(id))
+                  .map((widgetId) => {
+                    switch (widgetId) {
+                      case 'daily-brief':
+                        return (
+                          <BentoItem key="daily-brief" id="daily-brief" colSpan={2} rowSpan={2}>
+                            <DailyBriefWidget userId={userId} />
+                          </BentoItem>
+                        );
+                      case 'clock':
+                        return (
+                          <BentoItem key="clock" id="clock" colSpan={2} rowSpan={2}>
+                            <ClockWidget colSpan={2} rowSpan={2} />
+                          </BentoItem>
+                        );
+                      case 'weather':
+                        return (
+                          <BentoItem key="weather" id="weather" colSpan={2} rowSpan={2}>
+                            <WeatherWidget location="New York" unit="fahrenheit" showForecast={true} />
+                          </BentoItem>
+                        );
+                      case 'tasks':
+                        return (
+                          <BentoItem key="tasks" id="tasks" colSpan={2} rowSpan={2}>
+                            <TaskWidget />
+                          </BentoItem>
+                        );
+                      case 'calendar':
+                        return (
+                          <BentoItem key="calendar" id="calendar" colSpan={2} rowSpan={1}>
+                            <CalendarWidget maxItems={3} />
+                          </BentoItem>
+                        );
+                      case 'quick-notes':
+                        return (
+                          <BentoItem key="quick-notes" id="quick-notes" colSpan={2} rowSpan={2}>
+                            <QuickNotesWidget userId={userId} />
+                          </BentoItem>
+                        );
+                      case 'content-hub':
+                        return (
+                          <BentoItem key="content-hub" id="content-hub" colSpan={2} rowSpan={2}>
+                            <ContentHubWidget />
+                          </BentoItem>
+                        );
+                      case 'github':
+                        return (
+                          <BentoItem key="github" id="github" colSpan={2} rowSpan={2}>
+                            <GitHubPRWidget maxItems={5} />
+                          </BentoItem>
+                        );
+                      case 'home':
+                        return (
+                          <BentoItem key="home" id="home" colSpan={2} rowSpan={3}>
+                            <SmartHomeWidget />
+                          </BentoItem>
+                        );
+                      case 'finance':
+                        return (
+                          <BentoItem key="finance" id="finance" colSpan={2} rowSpan={2}>
+                            <FinanceHubWidget />
+                          </BentoItem>
+                        );
+                      default:
+                        return null;
+                    }
+                  })}
               </AnimatePresence>
 
               {visibleWidgets.length === 0 && (

@@ -8,6 +8,7 @@ import {
   getAuthenticatedUser,
   unauthorizedResponse,
 } from '@/lib/auth/api-auth';
+import { errorResponse } from '@/lib/api/error-responses';
 import { supabaseAdmin as supabase } from '@/lib/supabase/server';
 import { logger } from '@/lib/logger';
 
@@ -43,7 +44,7 @@ export async function POST(request: NextRequest) {
     const { message, conversationHistory = [] } = body;
 
     if (!message) {
-      return NextResponse.json({ error: 'Message required' }, { status: 400 });
+      return errorResponse('Message required', 400);
     }
 
     // Get financial context for the system prompt
@@ -75,10 +76,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     logger.error('Finance chat error', { error });
-    return NextResponse.json(
-      { error: 'Failed to process chat message' },
-      { status: 500 }
-    );
+    return errorResponse('Failed to process chat message', 500);
   }
 }
 
@@ -265,9 +263,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     logger.error('Chat history fetch error', { error });
-    return NextResponse.json(
-      { error: 'Failed to fetch chat history' },
-      { status: 500 }
-    );
+    return errorResponse('Failed to fetch chat history', 500);
   }
 }

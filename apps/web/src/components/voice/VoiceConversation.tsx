@@ -11,42 +11,31 @@ import {
   MessageSquare,
   Bot,
   Sparkles,
+  Wifi,
+  WifiOff,
+  Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useVoice, type Voice } from '@/hooks/useVoice';
+import { useRealtimeVoice } from '@/hooks/useRealtimeVoice';
 import { useChat } from '@/hooks/useChat';
 import { Button } from '@/components/ui/button';
 import { logger } from '@/lib/logger';
 
 interface VoiceConversationProps {
-  /**
-   * Whether the voice conversation is open
-   */
+  /** Whether the voice conversation is open */
   isOpen: boolean;
-
-  /**
-   * Callback to close the voice conversation
-   */
+  /** Callback to close the voice conversation */
   onClose: () => void;
-
-  /**
-   * User ID for chat
-   */
+  /** User ID for chat */
   userId: string;
-
-  /**
-   * Thread ID for chat
-   */
+  /** Thread ID for chat */
   threadId: string;
-
-  /**
-   * TTS Voice
-   */
+  /** TTS Voice */
   voice?: Voice;
-
-  /**
-   * Additional CSS classes
-   */
+  /** Use WebRTC realtime mode (sub-500ms latency) */
+  useWebRTC?: boolean;
+  /** Additional CSS classes */
   className?: string;
 }
 
@@ -60,7 +49,10 @@ interface ConversationEntry {
 /**
  * VoiceConversation Component
  *
- * Full-screen ambient voice conversation mode
+ * Full-screen ambient voice conversation mode.
+ * Supports two modes:
+ * - WebRTC (default): Direct bidirectional audio via OpenAI Realtime API (<500ms latency)
+ * - HTTP fallback: Record → transcribe → chat → TTS (2-4s latency)
  */
 export function VoiceConversation({
   isOpen,
@@ -68,18 +60,59 @@ export function VoiceConversation({
   userId,
   threadId,
   voice = 'nova',
+  useWebRTC = true,
   className,
 }: VoiceConversationProps) {
   const [conversationHistory, setConversationHistory] = useState<ConversationEntry[]>([]);
   const [isMuted, setIsMuted] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [selectedVoice, setSelectedVoice] = useState<Voice>(voice);
+  const [mode, setMode] = useState<'webrtc' | 'http'>(useWebRTC ? 'webrtc' : 'http');
   const lastResponseRef = useRef<string | null>(null);
 
+  // ── WebRTC Realtime Mode ──────────────────────────────────────────────
+  const {
+    state: realtimeState,
+    isConnected: rtcConnected,
+    isSpeaking: rtcSpeaking,
+    isListening: rtcListening,
+    connect: rtcConnect,
+    disconnect: rtcDisconnect,
+    interrupt: rtcInterrupt,
+    lastTranscript: rtcTranscript,
+    lastResponse: rtcResponse,
+    latencyMs,
+    error: rtcError,
+  } = useRealtimeVoice({
+    voice: selectedVoice,
+    instructions: 'You are Q8, a helpful AI personal assistant. Be concise, friendly, and conversational.',
+    onTranscript: (text, isFinal) => {
+      if (isFinal && text.trim()) {
+        addEntry('user', text);
+      }
+    },
+    onResponse: (text) => {
+      if (text.trim()) {
+        addEntry('assistant', text);
+      }
+    },
+    onError: (error) => {
+      logger.error('WebRTC voice error', { error, component: 'VoiceConversation' });
+      // Fall back to HTTP mode on WebRTC failure
+      if (mode === 'webrtc') {
+        setMode('http');
+      }
+    },
+    onStateChange: (newState) => {
+      logger.debug('Realtime voice state changed', { state: newState });
+    },
+  });
+
+  // ── HTTP Fallback Mode ────────────────────────────────────────────────
   const {
     status: voiceStatus,
     isRecording,
-    isSpeaking,
+    isSpeaking: httpSpeaking,
     audioLevel,
     startRecording,
     stopRecording,
@@ -89,12 +122,11 @@ export function VoiceConversation({
     voice: selectedVoice,
     onTranscription: handleTranscription,
     onError: (error) => {
-      logger.error('Voice error in VoiceConversation', { error, component: 'VoiceConversation' });
+      logger.error('HTTP voice error', { error, component: 'VoiceConversation' });
     },
   });
 
   const {
-    messages: _messages,
     isLoading,
     isStreaming,
     currentAgent,
@@ -105,70 +137,80 @@ export function VoiceConversation({
     onMessage: handleAgentResponse,
   });
 
-  /**
-   * Handle user's transcribed speech
-   */
-  async function handleTranscription(text: string) {
-    if (!text.trim()) return;
-
-    // Add user message to history
-    const userEntry: ConversationEntry = {
-      id: `voice_${Date.now()}_user`,
-      role: 'user',
-      content: text,
+  // ── Shared Helpers ────────────────────────────────────────────────────
+  function addEntry(role: 'user' | 'assistant', content: string) {
+    const entry: ConversationEntry = {
+      id: `voice_${Date.now()}_${role}`,
+      role,
+      content,
       timestamp: new Date(),
     };
-    setConversationHistory(prev => [...prev, userEntry]);
+    setConversationHistory(prev => [...prev, entry]);
+  }
 
-    // Send to chat
+  /** HTTP mode: handle transcribed speech */
+  async function handleTranscription(text: string) {
+    if (!text.trim()) return;
+    addEntry('user', text);
     await sendMessage(text);
   }
 
-  /**
-   * Handle agent response
-   */
+  /** HTTP mode: handle agent response */
   function handleAgentResponse(message: { content: string }) {
     if (!message.content || message.content === lastResponseRef.current) return;
     lastResponseRef.current = message.content;
-
-    // Add assistant message to history
-    const assistantEntry: ConversationEntry = {
-      id: `voice_${Date.now()}_assistant`,
-      role: 'assistant',
-      content: message.content,
-      timestamp: new Date(),
-    };
-    setConversationHistory(prev => [...prev, assistantEntry]);
-
-    // Speak the response
+    addEntry('assistant', message.content);
     if (!isMuted) {
       speak(message.content);
     }
   }
 
-  /**
-   * Handle click/tap to record
-   */
+  // ── Connection Lifecycle ──────────────────────────────────────────────
+  useEffect(() => {
+    if (isOpen && mode === 'webrtc' && !rtcConnected && realtimeState === 'idle') {
+      rtcConnect();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, mode]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      if (mode === 'webrtc' && rtcConnected) {
+        rtcDisconnect();
+      }
+    }
+  }, [isOpen, mode, rtcConnected, rtcDisconnect]);
+
+  // ── Interaction Handler ───────────────────────────────────────────────
   const handleInteraction = useCallback(async () => {
-    if (isSpeaking) {
-      stopSpeaking();
+    if (mode === 'webrtc') {
+      // In WebRTC mode, tapping interrupts if AI is speaking
+      if (rtcSpeaking) {
+        rtcInterrupt();
+      }
+      // Otherwise no action needed — server VAD handles recording automatically
       return;
     }
 
+    // HTTP mode
+    if (httpSpeaking) {
+      stopSpeaking();
+      return;
+    }
     if (isRecording) {
       await stopRecording();
     } else {
       await startRecording();
     }
-  }, [isRecording, isSpeaking, startRecording, stopRecording, stopSpeaking]);
+  }, [mode, rtcSpeaking, rtcInterrupt, httpSpeaking, isRecording, startRecording, stopRecording, stopSpeaking]);
 
-  // Keyboard shortcuts
+  // ── Keyboard Shortcuts ────────────────────────────────────────────────
   useEffect(() => {
     if (!isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (isRecording) {
+        if (mode === 'http' && isRecording) {
           stopRecording();
         } else {
           onClose();
@@ -181,7 +223,50 @@ export function VoiceConversation({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, isRecording, handleInteraction, stopRecording, onClose]);
+  }, [isOpen, mode, isRecording, handleInteraction, stopRecording, onClose]);
+
+  // ── Derived State ─────────────────────────────────────────────────────
+  const isWebRTC = mode === 'webrtc';
+  const isActive = isWebRTC
+    ? rtcConnected
+    : voiceStatus !== 'idle' || isLoading || isStreaming;
+  const isSpeakingNow = isWebRTC ? rtcSpeaking : httpSpeaking;
+  const isListeningNow = isWebRTC ? rtcListening : isRecording;
+  const isProcessing = isWebRTC
+    ? realtimeState === 'connecting'
+    : isLoading || isStreaming || voiceStatus === 'transcribing';
+  const currentError = isWebRTC ? rtcError : null;
+  const activeAgentName = isWebRTC ? 'Q8 (Realtime)' : currentAgent;
+
+  // ── Status Text ───────────────────────────────────────────────────────
+  const getStatusText = () => {
+    if (currentError) return currentError;
+    if (isWebRTC) {
+      switch (realtimeState) {
+        case 'connecting': return 'Connecting to realtime voice...';
+        case 'connected': return 'Listening — just speak naturally';
+        case 'speaking': return 'Q8 is responding... Tap to interrupt';
+        case 'listening': return 'Hearing you...';
+        case 'error': return rtcError || 'Connection error';
+        default: return 'Initializing...';
+      }
+    }
+    if (isRecording) return 'Listening...';
+    if (voiceStatus === 'transcribing') return 'Processing...';
+    if (isLoading) return 'Thinking...';
+    if (isStreaming) return 'Responding...';
+    if (httpSpeaking) return 'Speaking...';
+    return 'Tap or hold Space to speak';
+  };
+
+  // ── Orb Color ─────────────────────────────────────────────────────────
+  const getOrbColors = () => {
+    if (isListeningNow) return 'from-red-500 to-red-600';
+    if (isSpeakingNow) return 'from-green-500 to-green-600';
+    if (isProcessing) return 'from-blue-500 to-blue-600';
+    if (isWebRTC && rtcConnected) return 'from-emerald-500 to-teal-600';
+    return 'from-neon-primary to-purple-600';
+  };
 
   // Voice options
   const voiceOptions: { value: Voice; label: string }[] = [
@@ -214,14 +299,55 @@ export function VoiceConversation({
               <Sparkles className="h-5 w-5 text-neon-primary" />
             </div>
             <div>
-              <h1 className="text-lg font-semibold">Voice Mode</h1>
-              <p className="text-sm text-text-muted">
-                {currentAgent ? `Talking to ${currentAgent}` : 'Q8 is listening'}
+              <h1 className="text-lg font-semibold flex items-center gap-2">
+                Voice Mode
+                {isWebRTC && (
+                  <span className="flex items-center gap-1 text-xs font-normal px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">
+                    <Zap className="h-3 w-3" />
+                    Realtime
+                  </span>
+                )}
+              </h1>
+              <p className="text-sm text-text-muted flex items-center gap-1.5">
+                {isWebRTC ? (
+                  rtcConnected ? (
+                    <>
+                      <Wifi className="h-3 w-3 text-emerald-400" />
+                      Connected
+                      {latencyMs !== null && (
+                        <span className="text-xs text-text-muted">({latencyMs}ms)</span>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <WifiOff className="h-3 w-3 text-yellow-400" />
+                      {realtimeState === 'connecting' ? 'Connecting...' : 'Disconnected'}
+                    </>
+                  )
+                ) : (
+                  activeAgentName ? `Talking to ${activeAgentName}` : 'Q8 is listening'
+                )}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Mode Toggle */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                const newMode = mode === 'webrtc' ? 'http' : 'webrtc';
+                if (mode === 'webrtc' && rtcConnected) rtcDisconnect();
+                setMode(newMode);
+              }}
+              title={mode === 'webrtc' ? 'Switch to HTTP mode' : 'Switch to Realtime mode'}
+              className="text-xs gap-1"
+            >
+              {mode === 'webrtc' ? <Zap className="h-3.5 w-3.5" /> : <Wifi className="h-3.5 w-3.5" />}
+              {mode === 'webrtc' ? 'Realtime' : 'HTTP'}
+            </Button>
+
             <Button
               variant="ghost"
               size="icon"
@@ -309,6 +435,28 @@ export function VoiceConversation({
                 </motion.div>
               ))}
             </AnimatePresence>
+
+            {/* Live WebRTC transcript preview */}
+            {isWebRTC && rtcListening && rtcTranscript && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 0.7 }}
+                className="mb-4 p-3 rounded-xl bg-neon-primary/10 ml-8 border border-neon-primary/20"
+              >
+                <p className="text-sm italic text-text-muted">{rtcTranscript}...</p>
+              </motion.div>
+            )}
+
+            {/* Live WebRTC response preview */}
+            {isWebRTC && rtcSpeaking && rtcResponse && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 0.7 }}
+                className="mb-4 p-3 rounded-xl bg-surface-3/70 mr-8 border border-white/10"
+              >
+                <p className="text-sm italic text-text-muted">{rtcResponse}</p>
+              </motion.div>
+            )}
           </div>
 
           {/* Central Voice Orb */}
@@ -321,13 +469,14 @@ export function VoiceConversation({
             <motion.div
               className={cn(
                 'absolute inset-0 rounded-full blur-3xl',
-                isRecording && 'bg-red-500/30',
-                isSpeaking && 'bg-green-500/30',
-                !isRecording && !isSpeaking && 'bg-neon-primary/20'
+                isListeningNow && 'bg-red-500/30',
+                isSpeakingNow && 'bg-green-500/30',
+                isWebRTC && rtcConnected && !isListeningNow && !isSpeakingNow && 'bg-emerald-500/20',
+                !isActive && 'bg-neon-primary/20'
               )}
               animate={{
-                scale: isRecording ? [1, 1.2, 1] : 1,
-                opacity: isRecording ? [0.5, 0.8, 0.5] : 0.5,
+                scale: isListeningNow ? [1, 1.2, 1] : 1,
+                opacity: isListeningNow ? [0.5, 0.8, 0.5] : 0.5,
               }}
               transition={{ duration: 1.5, repeat: Infinity }}
               style={{ width: 250, height: 250 }}
@@ -338,15 +487,12 @@ export function VoiceConversation({
               className={cn(
                 'relative h-40 w-40 rounded-full flex items-center justify-center',
                 'bg-gradient-to-br shadow-2xl',
-                isRecording && 'from-red-500 to-red-600',
-                isSpeaking && 'from-green-500 to-green-600',
-                isLoading && 'from-blue-500 to-blue-600',
-                !isRecording && !isSpeaking && !isLoading && 'from-neon-primary to-purple-600'
+                getOrbColors()
               )}
               animate={
-                isRecording
-                  ? { scale: [1, 1 + audioLevel * 0.15, 1] }
-                  : isSpeaking
+                isListeningNow
+                  ? { scale: [1, 1 + (isWebRTC ? 0.05 : audioLevel * 0.15), 1] }
+                  : isSpeakingNow
                   ? { scale: [1, 1.05, 1] }
                   : {}
               }
@@ -356,22 +502,24 @@ export function VoiceConversation({
               <div className="absolute inset-4 rounded-full bg-gradient-to-br from-white/20 to-transparent" />
 
               {/* Icon */}
-              {isLoading || isStreaming ? (
+              {isProcessing ? (
                 <motion.div
                   animate={{ rotate: 360 }}
                   transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
                 >
                   <Bot className="h-16 w-16 text-white/80" />
                 </motion.div>
-              ) : isSpeaking ? (
+              ) : isSpeakingNow ? (
                 <Volume2 className="h-16 w-16 text-white/80" />
+              ) : isWebRTC && rtcConnected ? (
+                <Zap className="h-16 w-16 text-white/80" />
               ) : (
                 <Mic className="h-16 w-16 text-white/80" />
               )}
             </motion.div>
 
-            {/* Ripple effects when recording */}
-            {isRecording && (
+            {/* Ripple effects when listening */}
+            {isListeningNow && (
               <>
                 <motion.div
                   className="absolute inset-0 rounded-full border-2 border-red-500"
@@ -389,6 +537,17 @@ export function VoiceConversation({
                 />
               </>
             )}
+
+            {/* WebRTC connected pulse */}
+            {isWebRTC && rtcConnected && !isListeningNow && !isSpeakingNow && (
+              <motion.div
+                className="absolute inset-0 rounded-full border-2 border-emerald-500/50"
+                initial={{ scale: 1, opacity: 0.3 }}
+                animate={{ scale: 1.3, opacity: 0 }}
+                transition={{ duration: 2, repeat: Infinity }}
+                style={{ width: 160, height: 160, margin: 'auto' }}
+              />
+            )}
           </motion.button>
 
           {/* Status Text */}
@@ -397,22 +556,19 @@ export function VoiceConversation({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
           >
-            {isRecording && 'Listening...'}
-            {voiceStatus === 'transcribing' && 'Processing...'}
-            {isLoading && 'Thinking...'}
-            {isStreaming && 'Responding...'}
-            {isSpeaking && 'Speaking...'}
-            {voiceStatus === 'idle' && !isLoading && !isStreaming && 'Tap or hold Space to speak'}
+            {getStatusText()}
           </motion.p>
 
           {/* Hint */}
           <p className="mt-2 text-sm text-text-muted">
-            Press ESC to close
+            {isWebRTC && rtcConnected
+              ? 'Server VAD active — just speak naturally. ESC to close.'
+              : 'Press ESC to close'}
           </p>
         </div>
 
         {/* Bottom Controls */}
-        <footer className="p-6 flex justify-center">
+        <footer className="p-6 flex justify-center gap-3">
           <Button
             variant="glass"
             onClick={onClose}

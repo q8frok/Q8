@@ -3,6 +3,7 @@ import {
   getAuthenticatedUser,
   unauthorizedResponse,
 } from '@/lib/auth/api-auth';
+import { errorResponse } from '@/lib/api/error-responses';
 import { supabaseAdmin as supabase } from '@/lib/supabase/server';
 import { logger } from '@/lib/logger';
 
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       logger.error('Supabase error', { error });
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return errorResponse(error.message, 500);
     }
 
     // Transform snake_case to camelCase for frontend
@@ -58,10 +59,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(accounts);
   } catch (error) {
     logger.error('Finance accounts error', { error });
-    return NextResponse.json(
-      { error: 'Failed to fetch accounts' },
-      { status: 500 }
-    );
+    return errorResponse('Failed to fetch accounts', 500);
   }
 }
 
@@ -90,10 +88,7 @@ export async function POST(request: NextRequest) {
     } = body;
 
     if (!name || !type) {
-      return NextResponse.json(
-        { error: 'Missing required fields: name, type' },
-        { status: 400 }
-      );
+      return errorResponse('Missing required fields: name, type', 400);
     }
 
     const { data, error } = await supabase
@@ -115,7 +110,7 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       logger.error('Supabase insert error', { error });
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return errorResponse(error.message, 500);
     }
 
     return NextResponse.json({
@@ -135,9 +130,6 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     logger.error('Create account error', { error });
-    return NextResponse.json(
-      { error: 'Failed to create account' },
-      { status: 500 }
-    );
+    return errorResponse('Failed to create account', 500);
   }
 }

@@ -8,6 +8,7 @@ import { supabaseAdmin } from '@/lib/supabase/server';
 import OpenAI from 'openai';
 import type { MemoryType, MemoryImportance } from '@/lib/supabase/types';
 import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { errorResponse } from '@/lib/api/error-responses';
 import { logger } from '@/lib/logger';
 
 export const runtime = 'edge';
@@ -83,10 +84,7 @@ export async function POST(request: NextRequest) {
     const userId = user.id;
 
     if (!query) {
-      return NextResponse.json(
-        { error: 'query is required' },
-        { status: 400 }
-      );
+      return errorResponse('query is required', 400);
     }
 
     // Generate embedding for query
@@ -98,10 +96,7 @@ export async function POST(request: NextRequest) {
     const queryEmbedding = embeddingResponse.data[0]?.embedding;
 
     if (!queryEmbedding) {
-      return NextResponse.json(
-        { error: 'Failed to generate embedding' },
-        { status: 500 }
-      );
+      return errorResponse('Failed to generate embedding', 500);
     }
 
     // Extract keywords for hybrid search (use provided or extract from query)
@@ -123,10 +118,7 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       logger.error('[Memory Search API] Error', { error });
-      return NextResponse.json(
-        { error: 'Search failed', details: error.message },
-        { status: 500 }
-      );
+      return errorResponse(`Search failed: ${error.message}`, 500);
     }
 
     // Transform results to match expected response format
@@ -153,9 +145,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ memories });
   } catch (error) {
     logger.error('[Memory Search API] Error', { error });
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return errorResponse('Internal server error', 500);
   }
 }

@@ -23,6 +23,7 @@ import { processMessage } from '@/lib/agents/orchestration/service';
 import { route } from '@/lib/agents/orchestration/router';
 import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
 import { chatMessageSchema, validationErrorResponse } from '@/lib/validations';
+import { errorResponse } from '@/lib/api/error-responses';
 import { logger } from '@/lib/logger';
 import type { ExtendedAgentType } from '@/lib/agents/orchestration/types';
 
@@ -139,15 +140,8 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     logger.error('[Fast Chat] Error', { error });
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-
-    return NextResponse.json(
-      {
-        error: 'Failed to process message',
-        details: errorMessage,
-      },
-      { status: 500 }
-    );
+    const message = error instanceof Error ? error.message : 'Failed to process message';
+    return errorResponse(message, 500);
   }
 }
 

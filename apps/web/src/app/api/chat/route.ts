@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { processMessage, type ExtendedAgentType } from '@/lib/agents/orchestration';
 import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
 import { chatMessageSchema, validationErrorResponse } from '@/lib/validations';
+import { errorResponse } from '@/lib/api/error-responses';
 import { logger } from '@/lib/logger';
 
 export const runtime = 'nodejs';
@@ -87,14 +88,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     logger.error('[Chat API] Error', { error });
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-
-    return NextResponse.json(
-      {
-        error: 'Failed to process message',
-        details: errorMessage,
-      },
-      { status: 500 }
-    );
+    const message = error instanceof Error ? error.message : 'Failed to process message';
+    return errorResponse(message, 500);
   }
 }

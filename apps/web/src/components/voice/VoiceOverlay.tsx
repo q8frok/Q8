@@ -2,10 +2,11 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { MicOff, Minimize2 } from 'lucide-react';
+import { MicOff, Minimize2, Zap } from 'lucide-react';
 import { Button } from '../ui/button';
 import { AudioVisualizer } from './AudioVisualizer';
 import { haptics } from '@/lib/pwa/haptics';
+import type { RealtimeVoiceState } from '@/hooks/useRealtimeVoice';
 
 interface VoiceOverlayProps {
   isActive: boolean;
@@ -16,6 +17,10 @@ interface VoiceOverlayProps {
   transcript?: string;
   /** Currently active agent name */
   activeAgent?: string;
+  /** WebRTC realtime state (if using WebRTC mode) */
+  realtimeState?: RealtimeVoiceState;
+  /** Latency in ms (WebRTC mode) */
+  latencyMs?: number | null;
 }
 
 const SPRING = { type: 'spring' as const, stiffness: 400, damping: 35 };
@@ -26,11 +31,30 @@ export function VoiceOverlay({
   stream,
   transcript,
   activeAgent,
+  realtimeState,
+  latencyMs,
 }: VoiceOverlayProps) {
   const [isSpeaking, _setIsSpeaking] = useState(false);
   const [minimized, setMinimized] = useState(false);
 
   if (!isActive) return null;
+
+  const isWebRTC = !!realtimeState;
+  const isRtcConnected = realtimeState === 'connected' || realtimeState === 'speaking' || realtimeState === 'listening';
+
+  const getStatusLabel = () => {
+    if (isWebRTC) {
+      switch (realtimeState) {
+        case 'connecting': return 'Connecting...';
+        case 'connected': return 'Listening...';
+        case 'speaking': return 'Q8 is speaking...';
+        case 'listening': return 'Hearing you...';
+        case 'error': return 'Connection error';
+        default: return 'Initializing...';
+      }
+    }
+    return isSpeaking ? 'Q8 is speaking...' : 'Listening...';
+  };
 
   const handleMinimize = () => {
     haptics.light();
@@ -59,6 +83,9 @@ export function VoiceOverlay({
         onClick={handleExpand}
         className="fixed top-[max(env(safe-area-inset-top,12px),12px)] left-1/2 -translate-x-1/2 z-[60] flex items-center gap-2 px-4 py-2 rounded-full bg-[var(--surface-2)] border border-[var(--border-subtle)] shadow-lg"
       >
+        {isWebRTC && isRtcConnected && (
+          <Zap className="h-3 w-3 text-emerald-400" />
+        )}
         <div className="flex gap-0.5">
           {[...Array(4)].map((_, i) => (
             <motion.div
@@ -77,8 +104,11 @@ export function VoiceOverlay({
           ))}
         </div>
         <span className="text-xs font-medium text-text-secondary">
-          {isSpeaking ? 'Speaking...' : 'Listening...'}
+          {getStatusLabel()}
         </span>
+        {isWebRTC && latencyMs !== null && latencyMs !== undefined && (
+          <span className="text-[10px] text-text-muted">{latencyMs}ms</span>
+        )}
       </motion.button>
     );
   }
@@ -96,9 +126,13 @@ export function VoiceOverlay({
         <motion.div
           initial={{ y: -10, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          className="absolute top-[max(calc(env(safe-area-inset-top,12px)+12px),24px)] px-4 py-1.5 rounded-full bg-neon-primary/20 border border-neon-primary/30"
+          className="absolute top-[max(calc(env(safe-area-inset-top,12px)+12px),24px)] px-4 py-1.5 rounded-full bg-neon-primary/20 border border-neon-primary/30 flex items-center gap-2"
         >
+          {isWebRTC && <Zap className="h-3 w-3 text-emerald-400" />}
           <span className="text-xs font-medium text-neon-primary">{activeAgent}</span>
+          {isWebRTC && latencyMs !== null && latencyMs !== undefined && (
+            <span className="text-[10px] text-emerald-400">{latencyMs}ms</span>
+          )}
         </motion.div>
       )}
 
@@ -113,7 +147,7 @@ export function VoiceOverlay({
 
       <div className="flex flex-col items-center gap-8 w-full max-w-sm px-4">
         <h2 className="text-3xl font-light text-white tracking-tight">
-          {isSpeaking ? 'Q8 is speaking...' : 'Listening...'}
+          {getStatusLabel()}
         </h2>
 
         {/* Real Audio Visualizer */}

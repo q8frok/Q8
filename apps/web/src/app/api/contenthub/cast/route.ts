@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+// import { errorResponse } from '@/lib/api/error-responses';
 import { logger } from '@/lib/logger';
 
 const HA_URL = process.env.HASS_URL || 'http://homeassistant.local:8123';

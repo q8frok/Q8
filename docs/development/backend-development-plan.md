@@ -6,9 +6,9 @@
 
 apps/web/src/lib/  
 ├── agents/                  \# The "Swarm" Configuration  
-│   ├── index.ts             \# Orchestrator Entry Point (GPT-5.1)  
+│   ├── index.ts             \# Orchestrator Entry Point (GPT-5.2)  
 │   ├── sub-agents/  
-│   │   ├── coder.ts         \# Claude Sonnet 4.5 Agent  
+│   │   ├── coder.ts         \# Claude Opus 4.5 Agent  
 │   │   ├── researcher.ts    \# Perplexity Sonar Pro Agent  
 │   │   ├── secretary.ts     \# Gemini 3.0 Pro Agent  
 │   │   ├── personality.ts   \# Grok 4.1 Agent  
@@ -39,11 +39,11 @@ import { OpenAIChatModel } from 'ai-agents-sdk';
 export function getModel(agentType: 'orchestrator' | 'coder' | 'researcher' | 'secretary' | 'personality') {  
   switch (agentType) {  
     case 'orchestrator':  
-      return new OpenAIChatModel({ model: 'gpt-5.1-preview' });  
+      return new OpenAIChatModel({ model: 'gpt-5.2' });  
     case 'coder':  
       // Routes to Anthropic via LiteLLM  
       return new OpenAIChatModel({   
-        model: 'claude-sonnet-4.5',   
+        model: 'claude-opus-4-5-20251101',   
         baseURL: '\[https://api.anthropic.com/v1\](https://api.anthropic.com/v1)'   
       });  
     case 'researcher':  
@@ -112,7 +112,7 @@ const githubTools \= await GitHubMCPClient.getTools();
 
 export const coderAgent \= new Agent({  
   name: "DevBot",  
-  model: getModel('coder'), // Claude Sonnet 4.5  
+  model: getModel('coder'), // Claude Opus 4.5  
   instructions: "You are an expert software engineer. Use GitHub tools to manage the repo.",  
   tools: githubTools  
 });

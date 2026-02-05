@@ -13,6 +13,7 @@ import {
   processPendingFeedback,
 } from '@/lib/agents/orchestration/vector-router';
 import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { errorResponse } from '@/lib/api/error-responses';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
 import type { ExtendedAgentType } from '@/lib/agents/orchestration/types';
@@ -51,10 +52,7 @@ export async function POST(request: NextRequest) {
     // Validate input
     const parseResult = feedbackSchema.safeParse(body);
     if (!parseResult.success) {
-      return NextResponse.json(
-        { error: 'Invalid feedback data', details: parseResult.error.issues },
-        { status: 400 }
-      );
+      return errorResponse('Invalid feedback data', 400);
     }
 
     const feedback = parseResult.data;
@@ -64,10 +62,7 @@ export async function POST(request: NextRequest) {
       (feedback.feedbackType === 'incorrect' || feedback.feedbackType === 'improved') &&
       !feedback.correctAgent
     ) {
-      return NextResponse.json(
-        { error: 'correctAgent is required for incorrect/improved feedback' },
-        { status: 400 }
-      );
+      return errorResponse('correctAgent is required for incorrect/improved feedback', 400);
     }
 
     const feedbackId = await submitRoutingFeedback({
@@ -83,10 +78,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!feedbackId) {
-      return NextResponse.json(
-        { error: 'Failed to save feedback' },
-        { status: 500 }
-      );
+      return errorResponse('Failed to save feedback', 500);
     }
 
     logger.info('[Routing Feedback] Saved', {
@@ -103,10 +95,7 @@ export async function POST(request: NextRequest) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[Routing Feedback] Error', { error: errorMessage });
 
-    return NextResponse.json(
-      { success: false, error: errorMessage },
-      { status: 500 }
-    );
+    return errorResponse(errorMessage, 500);
   }
 }
 
@@ -126,7 +115,7 @@ export async function GET(request: NextRequest) {
     process.env.NODE_ENV === 'development';
 
   if (!isAuthorized) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return errorResponse('Unauthorized', 401);
   }
 
   try {
@@ -142,9 +131,6 @@ export async function GET(request: NextRequest) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[Routing Feedback] Processing error', { error: errorMessage });
 
-    return NextResponse.json(
-      { success: false, error: errorMessage },
-      { status: 500 }
-    );
+    return errorResponse(errorMessage, 500);
   }
 }

@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import type { AgentMemoryUpdate } from '@/lib/supabase/types';
 import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { errorResponse, notFoundResponse } from '@/lib/api/error-responses';
 import { logger } from '@/lib/logger';
 
 export const runtime = 'edge';
@@ -38,10 +39,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .single();
 
     if (error || !memory) {
-      return NextResponse.json(
-        { error: 'Memory not found' },
-        { status: 404 }
-      );
+      return notFoundResponse('Memory');
     }
 
     // Update access count
@@ -56,10 +54,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ memory });
   } catch (error) {
     logger.error('[Memory API] Error', { error: error });
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return errorResponse('Internal server error', 500);
   }
 }
 
@@ -101,19 +96,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     if (error) {
       logger.error('[Memory API] Error updating memory', { error: error });
-      return NextResponse.json(
-        { error: 'Failed to update memory' },
-        { status: 500 }
-      );
+      return errorResponse('Failed to update memory', 500);
     }
 
     return NextResponse.json({ memory });
   } catch (error) {
     logger.error('[Memory API] Error', { error: error });
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return errorResponse('Internal server error', 500);
   }
 }
 
@@ -138,18 +127,12 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     if (error) {
       logger.error('[Memory API] Error deleting memory', { error: error });
-      return NextResponse.json(
-        { error: 'Failed to delete memory' },
-        { status: 500 }
-      );
+      return errorResponse('Failed to delete memory', 500);
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
     logger.error('[Memory API] Error', { error: error });
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return errorResponse('Internal server error', 500);
   }
 }

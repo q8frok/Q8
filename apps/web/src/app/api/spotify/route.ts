@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
 import { spotifyControlSchema, validationErrorResponse } from '@/lib/validations';
+import { errorResponse } from '@/lib/api/error-responses';
 import { logger } from '@/lib/logger';
 
 /**
@@ -299,7 +300,7 @@ export async function POST(request: NextRequest) {
         break;
 
       default:
-        return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
+        return errorResponse('Unknown action', 400);
     }
 
     const response = await fetch(`${SPOTIFY_API_BASE}${endpoint}`, {
@@ -368,10 +369,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, action });
   } catch (error) {
     logger.error('Spotify control error', { error });
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Control failed' },
-      { status: 500 }
-    );
+    return errorResponse(error instanceof Error ? error.message : 'Control failed', 500);
   }
 }
 

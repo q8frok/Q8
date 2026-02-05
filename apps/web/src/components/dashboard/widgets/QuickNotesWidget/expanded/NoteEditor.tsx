@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Bold,
   Italic,
@@ -20,9 +20,18 @@ import {
   Quote,
   Minus,
   Sparkles,
+  Loader2,
+  ChevronDown,
+  Undo2,
+  FileText,
+  Expand,
+  PenLine,
+  MessageSquare,
+  ListChecks,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { useNoteAI, OPERATION_LABELS, type NoteAIOperation } from '@/hooks/useNoteAI';
 import type { Note } from '@/lib/supabase/types';
 
 interface NoteEditorProps {
@@ -75,8 +84,12 @@ export function NoteEditor({
   const [title, setTitle] = useState(note.title || '');
   const [wordCount, setWordCount] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
+  const [showAIMenu, setShowAIMenu] = useState(false);
+  const [contentBeforeAI, setContentBeforeAI] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const aiMenuRef = useRef<HTMLDivElement>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const { isProcessing, processNote, lastError } = useNoteAI();
 
   // Update local state when note changes
   useEffect(() => {
@@ -84,11 +97,18 @@ export function NoteEditor({
     setTitle(note.title || '');
   }, [note.id, note.content, note.title]);
 
-  // Calculate word count
+  // Close AI menu on outside click
   useEffect(() => {
-    const words = content.split(/\s+/).filter(Boolean).length;
-    setWordCount(words);
-  }, [content]);
+    const handleClick = (e: MouseEvent) => {
+      if (aiMenuRef.current && !aiMenuRef.current.contains(e.target as Node)) {
+        setShowAIMenu(false);
+      }
+    };
+    if (showAIMenu) {
+      document.addEventListener('mousedown', handleClick);
+      return () => document.removeEventListener('mousedown', handleClick);
+    }
+  }, [showAIMenu]);
 
   // Auto-save with debounce
   const handleContentChange = useCallback(
@@ -107,6 +127,32 @@ export function NoteEditor({
     },
     [onContentChange]
   );
+
+  // AI assist handler
+  const handleAIOperation = useCallback(
+    async (operation: NoteAIOperation) => {
+      setShowAIMenu(false);
+      setContentBeforeAI(content);
+      const result = await processNote(content, operation);
+      if (result) {
+        handleContentChange(result);
+      }
+    },
+    [content, processNote, handleContentChange]
+  );
+
+  const handleUndoAI = useCallback(() => {
+    if (contentBeforeAI !== null) {
+      handleContentChange(contentBeforeAI);
+      setContentBeforeAI(null);
+    }
+  }, [contentBeforeAI, handleContentChange]);
+
+  // Calculate word count
+  useEffect(() => {
+    const words = content.split(/\s+/).filter(Boolean).length;
+    setWordCount(words);
+  }, [content]);
 
   const handleTitleChange = useCallback(
     (newTitle: string) => {
@@ -256,15 +302,71 @@ export function NoteEditor({
         <div className="h-6 w-px bg-white/20 mx-2" />
         
         {/* AI Tools */}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 gap-1.5 text-neon-primary"
-          title="AI Assist (coming soon)"
-        >
-          <Sparkles className="h-3.5 w-3.5" />
-          <span className="text-xs">AI</span>
-        </Button>
+        <div className="relative" ref={aiMenuRef}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 gap-1.5 text-neon-primary"
+            onClick={() => setShowAIMenu(!showAIMenu)}
+            disabled={isProcessing || !content.trim()}
+            title="AI Assist"
+          >
+            {isProcessing ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="h-3.5 w-3.5" />
+            )}
+            <span className="text-xs">AI</span>
+            <ChevronDown className="h-3 w-3" />
+          </Button>
+
+          <AnimatePresence>
+            {showAIMenu && (
+              <motion.div
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                className="absolute top-full left-0 mt-1 z-50 w-48 rounded-lg border border-border-subtle bg-surface-2 shadow-lg py-1"
+              >
+                {([
+                  { op: 'summarize' as const, icon: FileText },
+                  { op: 'expand' as const, icon: Expand },
+                  { op: 'rewrite-formal' as const, icon: PenLine },
+                  { op: 'rewrite-casual' as const, icon: MessageSquare },
+                  { op: 'extract-tasks' as const, icon: ListChecks },
+                ]).map(({ op, icon: Icon }) => (
+                  <button
+                    key={op}
+                    onClick={() => handleAIOperation(op)}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-text-secondary hover:bg-surface-3 hover:text-text-primary transition-colors"
+                  >
+                    <Icon className="h-4 w-4" />
+                    {OPERATION_LABELS[op]}
+                  </button>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Undo AI */}
+        {contentBeforeAI !== null && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 gap-1.5 text-yellow-500"
+            onClick={handleUndoAI}
+            title="Undo AI change"
+          >
+            <Undo2 className="h-3.5 w-3.5" />
+            <span className="text-xs">Undo</span>
+          </Button>
+        )}
+
+        {/* AI Error */}
+        {lastError && (
+          <span className="text-xs text-red-400 ml-2">{lastError}</span>
+        )}
       </div>
 
       {/* Title Input */}

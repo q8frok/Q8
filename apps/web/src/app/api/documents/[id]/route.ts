@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { errorResponse, notFoundResponse } from '@/lib/api/error-responses';
 import { getDocumentWithChunks, deleteDocument } from '@/lib/documents';
 import { logger } from '@/lib/logger';
 
@@ -38,18 +39,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
     if (errorMessage === 'Document not found') {
-      return NextResponse.json(
-        { error: 'Document not found' },
-        { status: 404 }
-      );
+      return notFoundResponse('Document');
     }
 
     logger.error('[Documents] Get failed', { error: errorMessage });
-
-    return NextResponse.json(
-      { error: errorMessage },
-      { status: 500 }
-    );
+    return errorResponse(errorMessage, 500);
   }
 }
 
@@ -78,18 +72,14 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
-    if (errorMessage === 'Document not found' || errorMessage === 'Unauthorized') {
-      return NextResponse.json(
-        { error: errorMessage },
-        { status: errorMessage === 'Unauthorized' ? 403 : 404 }
-      );
+    if (errorMessage === 'Document not found') {
+      return notFoundResponse('Document');
+    }
+    if (errorMessage === 'Unauthorized') {
+      return errorResponse('Unauthorized', 403, 'FORBIDDEN');
     }
 
     logger.error('[Documents] Delete failed', { error: errorMessage });
-
-    return NextResponse.json(
-      { error: errorMessage },
-      { status: 500 }
-    );
+    return errorResponse(errorMessage, 500);
   }
 }

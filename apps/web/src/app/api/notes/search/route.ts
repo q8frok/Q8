@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import OpenAI from 'openai';
 import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { errorResponse } from '@/lib/api/error-responses';
 import { logger } from '@/lib/logger';
 
 export const runtime = 'edge';
@@ -45,10 +46,7 @@ export async function POST(request: NextRequest) {
     const userId = user.id; // Use authenticated user
 
     if (!query) {
-      return NextResponse.json(
-        { error: 'query is required' },
-        { status: 400 }
-      );
+      return errorResponse('query is required', 400);
     }
 
     // Semantic search using embeddings
@@ -62,10 +60,7 @@ export async function POST(request: NextRequest) {
       const queryEmbedding = embeddingResponse.data[0]?.embedding;
 
       if (!queryEmbedding) {
-        return NextResponse.json(
-          { error: 'Failed to generate embedding' },
-          { status: 500 }
-        );
+        return errorResponse('Failed to generate embedding', 500);
       }
 
       // Use the match_notes function for similarity search
@@ -78,10 +73,7 @@ export async function POST(request: NextRequest) {
 
       if (error) {
         logger.error('[Notes Search] Semantic search error', { error });
-        return NextResponse.json(
-          { error: 'Search failed' },
-          { status: 500 }
-        );
+        return errorResponse('Search failed', 500);
       }
 
       return NextResponse.json({ notes: results || [], semantic: true });
@@ -109,18 +101,12 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       logger.error('[Notes Search] Text search error', { error });
-      return NextResponse.json(
-        { error: 'Search failed' },
-        { status: 500 }
-      );
+      return errorResponse('Search failed', 500);
     }
 
     return NextResponse.json({ notes: notes || [], semantic: false });
   } catch (error) {
     logger.error('[Notes Search] Error', { error });
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return errorResponse('Internal server error', 500);
   }
 }

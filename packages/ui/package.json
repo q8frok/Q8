@@ -1,0 +1,17 @@
+{
+  "name": "@q8/ui",
+  "version": "1.0.0",
+  "description": "Q8 Design System - Tokens, primitives, and Tailwind configuration",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./tokens": "./src/tokens.ts",
+    "./tailwind": "./tailwind.config.ts"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "tailwindcss": "^3.4.0"
+  }
+}

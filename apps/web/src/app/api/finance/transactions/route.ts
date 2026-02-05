@@ -3,6 +3,7 @@ import {
   getAuthenticatedUser,
   unauthorizedResponse,
 } from '@/lib/auth/api-auth';
+import { errorResponse, notFoundResponse } from '@/lib/api/error-responses';
 import { supabaseAdmin as supabase } from '@/lib/supabase/server';
 import { logger } from '@/lib/logger';
 
@@ -47,7 +48,7 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       logger.error('Supabase error', { error });
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return errorResponse(error.message, 500);
     }
 
     // Transform snake_case to camelCase
@@ -114,10 +115,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     logger.error('Finance transactions error', { error });
-    return NextResponse.json(
-      { error: 'Failed to fetch transactions' },
-      { status: 500 }
-    );
+    return errorResponse('Failed to fetch transactions', 500);
   }
 }
 
@@ -148,10 +146,7 @@ export async function POST(request: NextRequest) {
     } = body;
 
     if (!accountId || amount === undefined || !date) {
-      return NextResponse.json(
-        { error: 'Missing required fields: accountId, amount, date' },
-        { status: 400 }
-      );
+      return errorResponse('Missing required fields: accountId, amount, date', 400);
     }
 
     // Verify user owns the account
@@ -162,10 +157,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (accountError || !account || account.user_id !== userId) {
-      return NextResponse.json(
-        { error: 'Account not found or access denied' },
-        { status: 403 }
-      );
+      return errorResponse('Account not found or access denied', 403, 'FORBIDDEN');
     }
 
     const { data, error } = await supabase
@@ -189,7 +181,7 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       logger.error('Supabase insert error', { error });
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return errorResponse(error.message, 500);
     }
 
     return NextResponse.json({
@@ -210,10 +202,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     logger.error('Create transaction error', { error });
-    return NextResponse.json(
-      { error: 'Failed to create transaction' },
-      { status: 500 }
-    );
+    return errorResponse('Failed to create transaction', 500);
   }
 }
 
@@ -233,7 +222,7 @@ export async function PUT(request: NextRequest) {
     const { id, ...updates } = body;
 
     if (!id) {
-      return NextResponse.json({ error: 'Transaction ID required' }, { status: 400 });
+      return errorResponse('Transaction ID required', 400);
     }
 
     // Verify ownership
@@ -244,11 +233,11 @@ export async function PUT(request: NextRequest) {
       .single();
 
     if (fetchError || !existing) {
-      return NextResponse.json({ error: 'Transaction not found' }, { status: 404 });
+      return notFoundResponse('Transaction');
     }
 
     if (existing.user_id !== user.id) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      return errorResponse('Access denied', 403, 'FORBIDDEN');
     }
 
     // Transform camelCase to snake_case for update
@@ -270,7 +259,7 @@ export async function PUT(request: NextRequest) {
 
     if (error) {
       logger.error('Supabase update error', { error });
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return errorResponse(error.message, 500);
     }
 
     return NextResponse.json({
@@ -289,10 +278,7 @@ export async function PUT(request: NextRequest) {
     });
   } catch (error) {
     logger.error('Update transaction error', { error });
-    return NextResponse.json(
-      { error: 'Failed to update transaction' },
-      { status: 500 }
-    );
+    return errorResponse('Failed to update transaction', 500);
   }
 }
 
@@ -312,7 +298,7 @@ export async function DELETE(request: NextRequest) {
     const id = searchParams.get('id');
 
     if (!id) {
-      return NextResponse.json({ error: 'Transaction ID required' }, { status: 400 });
+      return errorResponse('Transaction ID required', 400);
     }
 
     // Verify ownership
@@ -323,11 +309,11 @@ export async function DELETE(request: NextRequest) {
       .single();
 
     if (fetchError || !existing) {
-      return NextResponse.json({ error: 'Transaction not found' }, { status: 404 });
+      return notFoundResponse('Transaction');
     }
 
     if (existing.user_id !== user.id) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      return errorResponse('Access denied', 403, 'FORBIDDEN');
     }
 
     const { error } = await supabase
@@ -337,15 +323,12 @@ export async function DELETE(request: NextRequest) {
 
     if (error) {
       logger.error('Supabase delete error', { error });
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return errorResponse(error.message, 500);
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
     logger.error('Delete transaction error', { error });
-    return NextResponse.json(
-      { error: 'Failed to delete transaction' },
-      { status: 500 }
-    );
+    return errorResponse('Failed to delete transaction', 500);
   }
 }

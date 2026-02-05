@@ -87,10 +87,12 @@ function detectMode(widgets: DashboardWidgetId[]): DashboardMode {
 interface DashboardState {
   currentMode: DashboardMode;
   visibleWidgets: DashboardWidgetId[];
+  widgetOrder: DashboardWidgetId[];
 
   // Actions
   setMode: (mode: Exclude<DashboardMode, 'custom'>) => void;
   toggleWidget: (id: DashboardWidgetId) => void;
+  reorderWidgets: (orderedIds: DashboardWidgetId[]) => void;
   reset: () => void;
 }
 
@@ -103,6 +105,7 @@ export const useDashboardStore = create<DashboardState>()(
     (set) => ({
       currentMode: 'all',
       visibleWidgets: [...ALL_WIDGET_IDS],
+      widgetOrder: [...ALL_WIDGET_IDS],
 
       setMode: (mode) =>
         set({
@@ -122,10 +125,16 @@ export const useDashboardStore = create<DashboardState>()(
           };
         }),
 
+      reorderWidgets: (orderedIds) =>
+        set(() => ({
+          widgetOrder: orderedIds,
+        })),
+
       reset: () =>
         set({
           currentMode: 'all',
           visibleWidgets: [...ALL_WIDGET_IDS],
+          widgetOrder: [...ALL_WIDGET_IDS],
         }),
     }),
     {
@@ -133,6 +142,7 @@ export const useDashboardStore = create<DashboardState>()(
       partialize: (state) => ({
         currentMode: state.currentMode,
         visibleWidgets: state.visibleWidgets,
+        widgetOrder: state.widgetOrder,
       }),
     }
   )
@@ -147,11 +157,15 @@ export const useCurrentMode = () => useDashboardStore((s) => s.currentMode);
 export const useVisibleWidgets = () =>
   useDashboardStore(useShallow((s) => s.visibleWidgets));
 
+export const useWidgetOrder = () =>
+  useDashboardStore(useShallow((s) => s.widgetOrder));
+
 export const useDashboardActions = () =>
   useDashboardStore(
     useShallow((s) => ({
       setMode: s.setMode,
       toggleWidget: s.toggleWidget,
+      reorderWidgets: s.reorderWidgets,
       reset: s.reset,
     }))
   );

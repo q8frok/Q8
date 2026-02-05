@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { errorResponse } from '@/lib/api/error-responses';
 import { logger } from '@/lib/logger';
 
 /**
@@ -41,7 +42,7 @@ export async function GET(request: NextRequest) {
   const imageUrl = searchParams.get('url');
 
   if (!imageUrl) {
-    return NextResponse.json({ error: 'Missing url parameter' }, { status: 400 });
+    return errorResponse('Missing url parameter', 400);
   }
 
   try {
@@ -57,10 +58,7 @@ export async function GET(request: NextRequest) {
       if (process.env.NODE_ENV === 'development') {
         logger.warn('Image proxy: Allowing non-whitelisted host', { hostname: parsedUrl.hostname });
       } else {
-        return NextResponse.json(
-          { error: 'Host not allowed' },
-          { status: 403 }
-        );
+        return errorResponse('Host not allowed', 403, 'FORBIDDEN');
       }
     }
 
@@ -73,20 +71,14 @@ export async function GET(request: NextRequest) {
     });
 
     if (!response.ok) {
-      return NextResponse.json(
-        { error: `Failed to fetch image: ${response.status}` },
-        { status: response.status }
-      );
+      return errorResponse(`Failed to fetch image: ${response.status}`, response.status);
     }
 
     const contentType = response.headers.get('content-type');
 
     // Validate content type is an image
     if (!contentType?.startsWith('image/')) {
-      return NextResponse.json(
-        { error: 'URL does not point to an image' },
-        { status: 400 }
-      );
+      return errorResponse('URL does not point to an image', 400);
     }
 
     const imageBuffer = await response.arrayBuffer();
@@ -101,10 +93,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     logger.error('Image proxy error', { error: error });
-    return NextResponse.json(
-      { error: 'Failed to proxy image' },
-      { status: 500 }
-    );
+    return errorResponse('Failed to proxy image', 500);
   }
 }
 

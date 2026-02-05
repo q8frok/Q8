@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import OpenAI from 'openai';
 import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { errorResponse } from '@/lib/api/error-responses';
 import { logger } from '@/lib/logger';
 
 export const runtime = 'edge';
@@ -42,10 +43,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .limit(20);
 
     if (messagesError || !messages || messages.length === 0) {
-      return NextResponse.json(
-        { error: 'No messages found in thread' },
-        { status: 400 }
-      );
+      return errorResponse('No messages found in thread', 400);
     }
 
     // Build conversation summary for AI
@@ -109,18 +107,12 @@ Rules:
 
     if (updateError) {
       logger.error('[Summarize API] Error updating thread', { updateError: updateError });
-      return NextResponse.json(
-        { error: 'Failed to update thread' },
-        { status: 500 }
-      );
+      return errorResponse('Failed to update thread', 500);
     }
 
     return NextResponse.json({ thread, title, summary });
   } catch (error) {
     logger.error('[Summarize API] Error', { error: error });
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return errorResponse('Internal server error', 500);
   }
 }

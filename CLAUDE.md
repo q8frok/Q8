@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Q8** is a local-first, multi-model AI personal assistant dashboard that orchestrates specialized AI agents (GPT-5.1, Claude 3.5/4.5, Gemini 3.0, Perplexity, Grok 4.1) via a federated swarm architecture. Core philosophy: "Local Speed, Global Intelligence."
+**Q8** is a local-first, multi-model AI personal assistant dashboard that orchestrates specialized AI agents (GPT-5.2, Claude Opus 4.5 / Sonnet 4.5, Gemini 3, Perplexity, Grok 4.1 Fast) via a federated swarm architecture. Core philosophy: "Local Speed, Global Intelligence."
 
 **Key Principles:**
 - **Local-First:** UI reads from RxDB (IndexedDB), never waits for server responses
@@ -15,13 +15,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Tech Stack
 
 **Frontend:**
-- Next.js 15.5/16 (App Router, React Server Components)
-- React 19.2 (Server Actions, useOptimistic, React Compiler)
-- Tailwind CSS v4 (Glassmorphism design system)
+- Next.js 15.5.7 (App Router, React Server Components)
+- React 19.0.1 (Server Actions, useOptimistic, React Compiler)
+- Tailwind CSS 3.4 (Glassmorphism design system)
 - RxDB (IndexedDB) - Single source of truth for UI state
 
 **Backend & AI:**
-- OpenAI Agents SDK v2.0+ (orchestration layer)
+- openai 4.28.0 (orchestration layer)
 - LiteLLM (multi-provider routing)
 - Supabase (Postgres + Auth + pgvector + Realtime)
 - Model Context Protocol (MCP) for tool integrations
@@ -35,11 +35,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### The Swarm (Multi-Agent System)
 
-**Orchestrator (GPT-5.1):** Main router, handles voice (WebRTC), delegates to specialists
-- Routes coding tasks → Dev Agent (Claude Sonnet 4.5)
+**Orchestrator (GPT-5.2):** Main router, handles voice (WebRTC), delegates to specialists
+- Routes coding tasks → Dev Agent (Claude Opus 4.5)
 - Routes search/research → Research Agent (Perplexity Sonar Pro)
-- Routes docs/calendar/email → Secretary Agent (Gemini 3.0 Pro)
-- Routes casual chat → Personality Agent (Grok 4.1)
+- Routes docs/calendar/email → Secretary Agent (Gemini 3 Flash)
+- Routes home automation → Home Agent (GPT-5-mini)
+- Routes finance/budget → Finance Agent (Gemini 3 Flash)
+- Routes image generation → ImageGen Agent (gpt-image-1.5)
+- Routes casual chat → Personality Agent (Grok 4.1 Fast)
 
 **MCP Tool Layer:** GitHub, Supabase, Google Workspace, Spotify, Home Assistant, Square
 
@@ -60,7 +63,7 @@ Agents SDK → Sub-Agents → MCP Tools
 ```
 q8/
 ├── apps/
-│   ├── web/                      # Next.js 15/16 PWA
+│   ├── web/                      # Next.js 15 PWA
 │   │   ├── src/
 │   │   │   ├── app/              # App Router pages
 │   │   │   ├── components/       # React components
@@ -73,6 +76,7 @@ q8/
 │   │   │       ├── agents/       # Swarm configuration
 │   │   │       │   ├── index.ts  # Orchestrator entry point
 │   │   │       │   ├── sub-agents/  # Coder, researcher, secretary, etc.
+│   │   │       │   ├── orchestration/  # Router, handoffs, speculative execution
 │   │   │       │   └── model_factory.ts  # LiteLLM adapter
 │   │   │       ├── mcp/          # MCP client logic
 │   │   │       ├── db/           # RxDB schema & Supabase admin
@@ -156,7 +160,7 @@ Before marking any task complete, you **MUST** run:
 - RxDB schemas in `lib/db/` must match Supabase tables in `infra/supabase/schema.sql`
 
 ### Documentation-First for Bleeding-Edge APIs
-Before implementing with React 19, Next.js 15/16, OpenAI Agents SDK, or other cutting-edge libraries:
+Before implementing with React 19, Next.js 15, openai SDK, or other cutting-edge libraries:
 1. Search for latest API documentation
 2. Verify syntax/patterns (don't guess based on older versions)
 3. Check compatibility with current stack versions
@@ -169,13 +173,13 @@ import { getModel } from '@/lib/agents/model_factory';
 // Agent definitions in lib/agents/sub-agents/
 export const coderAgent = new Agent({
   name: "DevBot",
-  model: getModel('coder'),  // Routes to Claude Sonnet 4.5 via LiteLLM
+  model: getModel('coder'),  // Routes to Claude Opus 4.5 via LiteLLM
   instructions: "Expert software engineer...",
   tools: githubTools
 });
 
 // Orchestrator delegates via handoffs
-orchestrator.handoffs = [coderAgent, researcherAgent, secretaryAgent];
+orchestrator.handoffs = [coderAgent, researcherAgent, secretaryAgent, homeAgent, financeAgent, imagegenAgent, personalityAgent];
 ```
 
 ### MCP Tool Integration
@@ -198,11 +202,11 @@ Required API keys in `apps/web/.env.local`:
 
 **AI Providers:**
 ```bash
-OPENAI_API_KEY=""           # GPT-5.1 & Realtime API
-ANTHROPIC_API_KEY=""        # Claude 4.5 (Dev Agent)
-GOOGLE_GENERATIVE_AI_KEY="" # Gemini 3.0 (Secretary)
+OPENAI_API_KEY=""           # GPT-5.2 & Realtime API
+ANTHROPIC_API_KEY=""        # Claude Opus 4.5 (Dev Agent)
+GOOGLE_GENERATIVE_AI_KEY="" # Gemini 3 (Secretary & Finance)
 PERPLEXITY_API_KEY=""       # Sonar Pro (Research)
-XAI_API_KEY=""              # Grok 4.1 (Personality)
+XAI_API_KEY=""              # Grok 4.1 Fast (Personality)
 ```
 
 **Infrastructure:**
@@ -229,7 +233,7 @@ OPENWEATHER_API_KEY=""
 
 ## Design System
 
-**Glassmorphism Theme (Tailwind v4):**
+**Glassmorphism Theme (Tailwind 3.4):**
 - Glass panels: `backdrop-blur-[24px]`, semi-transparent backgrounds
 - Custom tokens: `--color-glass-bg`, `--color-glass-border`, `--blur-glass`
 - Neon accents: Electric purple (`--color-neon-primary`), Cyber green (`--color-neon-accent`)
@@ -262,15 +266,15 @@ const { isConnected, isSpeaking, audioStream } = useRealtimeAgent();
 ## Success Criteria
 
 1. **Instant UI:** Dashboard loads from RxDB in <100ms, even offline
-2. **Intelligent Routing:** "Check my latest PR" → Claude 4.5 → GitHub MCP → accurate response
+2. **Intelligent Routing:** "Check my latest PR" → Claude Opus 4.5 → GitHub MCP → accurate response
 3. **Multi-Model Coordination:** Single user query can trigger multiple sub-agents transparently
-4. **Voice Integration:** Natural conversation via WebRTC with GPT-5.1
-5. **Unified Personality:** Despite 5 different models, user perceives one consistent "Q8" persona
+4. **Voice Integration:** Natural conversation via WebRTC with GPT-5.2
+5. **Unified Personality:** Despite 8 different models, user perceives one consistent "Q8" persona
 
 ## Phase Roadmap
 
 - [ ] **Phase 1:** RxDB + Supabase sync foundation
-- [ ] **Phase 2:** Glass/Bento UI system with Tailwind v4
+- [ ] **Phase 2:** Glass/Bento UI system with Tailwind 3.4
 - [ ] **Phase 3:** Agent swarm logic (Orchestrator + Sub-agents)
 - [ ] **Phase 4:** MCP tool integrations (GitHub, Google, Spotify, etc.)
 - [ ] **Phase 5:** Real-time voice (WebRTC) & RAG (pgvector)
@@ -281,4 +285,4 @@ const { isConnected, isSpeaking, audioStream } = useRealtimeAgent();
 - All MCP servers can run as microservices or imported directly (Node.js compatible)
 - Use `framer-motion` for animations, `lucide-react` for icons
 - Supabase Realtime enabled for live data sync
-- pgvector extension for RAG/embeddings (1536 dimensions for GPT-4/5 embeddings)
+- pgvector extension for RAG/embeddings (1536 dimensions for GPT-5 embeddings)

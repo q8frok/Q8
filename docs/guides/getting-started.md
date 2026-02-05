@@ -267,12 +267,9 @@ Choose your path:
 → Review [Development Protocols](../development/constitution-and-protocols.md)
 
 **🔧 I want to add integrations:**
-→ See [Creating MCP Servers](./creating-mcp-servers.md)
+→ See the [Agent Template](../templates/agent-template.md) for adding new agents
 
 **🎨 I want to customize the UI:**
-→ Check [UI/UX Specifications](../specifications/ui-ux-specs.md)
+→ Check [Component Designs](../designs/components/00-component-design-index.md)
 
-**🚀 I want to deploy:**
-→ Follow [Deployment Guide](./deployment.md)
-
-Welcome to Q8! 🎉
+Welcome to Q8!

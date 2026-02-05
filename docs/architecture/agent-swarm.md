@@ -10,7 +10,7 @@ Q8's intelligence comes from a **federated swarm** of specialized AI agents, eac
 
 ```
 User perception: One unified "Q8" assistant
-Reality: 5+ specialized models working together
+Reality: 8 specialized models working together
 ```
 
 **Benefits:**
@@ -21,7 +21,7 @@ Reality: 5+ specialized models working together
 
 ## Agent Hierarchy
 
-### Orchestrator (GPT-5.1)
+### Orchestrator (GPT-5.2)
 
 **Role:** Primary router and conversation manager
 
@@ -38,16 +38,18 @@ if (task involves code/github/database) → Dev Agent
 if (task needs web search/facts) → Research Agent
 if (task is email/calendar/docs) → Secretary Agent
 if (task is home automation) → Home Agent
+if (task is finance/budget/transactions) → Finance Agent
+if (task needs image generation) → ImageGen Agent
 if (task is casual chat) → Personality Agent
 ```
 
 **Configuration:**
-- Model: `gpt-5.1-preview`
+- Model: `gpt-5.2`
 - Temperature: 0.7
 - Max tokens: 4096
 - Tools: Agent transfer functions
 
-### Dev Agent (Claude Sonnet 4.5)
+### Dev Agent (Claude Opus 4.5)
 
 **Role:** Software development and technical operations
 
@@ -67,10 +69,11 @@ if (task is casual chat) → Personality Agent
 - `supabase_get_schema`
 
 **Configuration:**
-- Model: `claude-sonnet-4.5`
+- Model: `claude-opus-4-5-20251101`
 - Context: 200K tokens
 - Temperature: 0.3 (precise)
 - System prompt: "Expert software engineer..."
+- Fallback: Sonnet 4.5 → GPT-5.2 → GPT-5-mini
 
 ### Research Agent (Perplexity Sonar Pro)
 
@@ -89,12 +92,13 @@ if (task is casual chat) → Personality Agent
 - `verify_facts`
 
 **Configuration:**
-- Model: `sonar-pro`
+- Model: `sonar-reasoning-pro`
 - Search depth: Deep
 - Citation required: true
 - Recency bias: 30 days
+- Fallback: sonar-pro → sonar → GPT-5-mini
 
-### Secretary Agent (Gemini 3.0 Pro)
+### Secretary Agent (Gemini 3 Flash)
 
 **Role:** Personal productivity and organization
 
@@ -114,12 +118,13 @@ if (task is casual chat) → Personality Agent
 - `youtube_search`
 
 **Configuration:**
-- Model: `gemini-3.0-pro-preview`
+- Model: `gemini-3-flash`
 - Context: 2M tokens (massive)
 - Temperature: 0.5
 - System prompt: "Professional secretary..."
+- Fallback: Gemini 3 Pro → GPT-5-mini
 
-### Personality Agent (Grok 4.1)
+### Personality Agent (Grok 4.1 Fast)
 
 **Role:** Engaging conversation and creative tasks
 
@@ -131,12 +136,13 @@ if (task is casual chat) → Personality Agent
 - Cultural references
 
 **Configuration:**
-- Model: `grok-4.1-fast`
+- Model: `grok-4-1-fast`
 - Temperature: 0.9 (creative)
 - Personality: Witty, helpful
 - Tone: Friendly but professional
+- Fallback: GPT-5.2 → GPT-5-mini → GPT-5-nano
 
-### Home Agent (GPT-4 Turbo)
+### Home Agent (GPT-5-mini)
 
 **Role:** Smart home and IoT control
 
@@ -152,20 +158,58 @@ if (task is casual chat) → Personality Agent
 - `hass_get_state`
 
 **Configuration:**
-- Model: `gpt-4-turbo-preview`
+- Model: `gpt-5-mini`
 - Temperature: 0.2 (precise)
 - System prompt: "Home automation expert..."
+- Fallback: GPT-5.2 → GPT-5-nano
+
+### Finance Agent (Gemini 3 Flash)
+
+**Role:** Financial tracking and advisory
+
+**Capabilities:**
+- Transaction analysis (Square)
+- Budget tracking
+- Investment insights
+- Daily sales summaries
+- Spending categorization
+
+**Tools:**
+- `square_list_transactions`
+- `square_get_daily_sales`
+
+**Configuration:**
+- Model: `gemini-3-flash`
+- Temperature: 0.3 (precise)
+- System prompt: "Financial advisor..."
+- Fallback: Gemini 3 Pro → GPT-5-mini
+
+**Implementation:** `apps/web/src/lib/agents/sub-agents/finance-advisor.ts`
+
+### ImageGen Agent (gpt-image-1.5)
+
+**Role:** Image generation and visual content creation
+
+**Capabilities:**
+- Image generation from text prompts
+- Style-specific image creation
+- Visual content for dashboards
+
+**Configuration:**
+- Orchestration model: `gpt-5-mini`
+- Image generation model: `gpt-image-1.5`
+- Fallback (orchestration): GPT-5.2 → GPT-5-nano
 
 ## Agent Communication Protocol
 
 ### Handoff Mechanism
 
-**OpenAI Agents SDK Pattern:**
+**OpenAI SDK Pattern:**
 ```typescript
 // Orchestrator definition
 const orchestrator = new Agent({
   name: "Q8",
-  model: "gpt-5.1-preview",
+  model: "gpt-5.2",
   instructions: "Route tasks to specialists...",
   handoffs: [devAgent, researchAgent, secretaryAgent, ...]
 });
@@ -189,7 +233,7 @@ When transferring between agents:
   originalRequest: "Check my latest PR",
   conversationHistory: [...],
   userPreferences: {...},
-  currentTime: "2024-01-15T10:30:00Z",
+  currentTime: "2026-01-15T10:30:00Z",
   location: { lat, long },
   weather: { temp, condition }
 }
@@ -209,6 +253,19 @@ Orchestrator synthesizes: "Your PR #123 adds authentication middleware.
 All tests passed, and the code review is positive. Ready to merge."
 ```
 
+## Orchestration Engine
+
+The orchestration engine (`lib/agents/orchestration/`) provides the intelligent routing and execution pipeline. See [Orchestration Engine](./orchestration-engine.md) for full documentation.
+
+**Key components:**
+- **Router** (`router.ts`) - LLM + heuristic intent classification
+- **Context Builder** (`context-builder.ts`) - Assembles agent context
+- **Agent Runner** (`agent-runner.ts`) - Executes agent tasks
+- **Quality Scorer** (`quality-scorer.ts`) - Evaluates response quality
+- **Speculative Execution** (`speculative-router.ts`, `speculative-executor.ts`) - Pre-routes likely requests
+- **Response Cache** (`response-cache.ts`) - Caches common responses
+- **Handoff Protocol** (`handoff.ts`) - Manages agent transfers
+
 ## Agent Selection Strategy
 
 ### Intent Classification
@@ -218,8 +275,10 @@ function classifyIntent(message: string): AgentType {
   const codeKeywords = ['code', 'bug', 'github', 'pr', 'commit'];
   const searchKeywords = ['search', 'find', 'what is', 'research'];
   const productivityKeywords = ['email', 'calendar', 'schedule', 'meeting'];
+  const financeKeywords = ['budget', 'transaction', 'sales', 'spending'];
+  const homeKeywords = ['light', 'temperature', 'device', 'automation'];
 
-  // Use GPT-5.1 for complex classification
+  // Use GPT-5.2 for complex classification
   // Fall back to keyword matching for speed
 }
 ```
@@ -251,27 +310,26 @@ in your Drive. Here's the link: [url]"
 **Implementation:** `apps/web/src/lib/agents/model_factory.ts`
 
 ```typescript
+export type AgentType =
+  | 'orchestrator'
+  | 'coder'
+  | 'researcher'
+  | 'secretary'
+  | 'personality'
+  | 'home'
+  | 'finance'
+  | 'imagegen';
+
 export function getModel(agentType: AgentType): ModelConfig {
-  switch (agentType) {
-    case 'orchestrator':
-      return { model: 'gpt-5.1-preview', apiKey: process.env.OPENAI_API_KEY };
-
-    case 'coder':
-      return {
-        model: 'claude-sonnet-4.5',
-        baseURL: 'https://api.anthropic.com/v1',
-        apiKey: process.env.ANTHROPIC_API_KEY
-      };
-
-    // ... other agents
-  }
+  // Returns model config with automatic fallback chains
+  // Supports environment overrides (Q8_ROUTER_MODEL, Q8_CODER_MODEL, etc.)
 }
 ```
 
 **Benefits:**
 - Centralized model configuration
-- Easy to swap models
-- Environment-based configuration
+- Automatic fallback chains
+- Environment-based overrides
 - Type-safe model selection
 
 ## Personality Consistency
@@ -355,7 +413,7 @@ for await (const chunk of agent.stream(message)) {
 
 ### Caching
 
-- Common queries cached
+- Common queries cached via `response-cache.ts`
 - Tool results cached (with TTL)
 - Context reused within session
 
@@ -382,15 +440,14 @@ Track per-agent:
 ### Adding New Agents
 
 1. Create agent config in `sub-agents/`
-2. Add to `model_factory.ts`
+2. Add type to `AgentType` in `model_factory.ts`
 3. Register in orchestrator handoffs
-4. Define routing logic
+4. Define routing logic in `orchestration/router.ts`
 5. Add monitoring
 
 ### Planned Agents
 
-- **Financial Agent:** Banking, investments, budgeting
-- **Health Agent:** Fitness tracking, nutrition
+- **Health Agent:** Fitness tracking, nutrition, Oura ring integration
 - **Learning Agent:** Educational content, skill development
 - **Travel Agent:** Trip planning, booking
 
@@ -405,5 +462,5 @@ Track per-agent:
 ## See Also
 
 - [System Architecture](./system-architecture.md)
-- [MCP Integration](./mcp-integration.md)
-- [Agent Specifications](../specifications/agent-specs.md)
+- [Orchestration Engine](./orchestration-engine.md)
+- [Agent Template](../templates/agent-template.md)

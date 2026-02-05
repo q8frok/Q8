@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/api-auth';
+import { errorResponse } from '@/lib/api/error-responses';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { logger } from '@/lib/logger';
 
@@ -25,25 +26,19 @@ const COLLECTION_TABLE_MAP: Record<string, string> = {
 
 export async function POST(request: NextRequest) {
   try {
-    const [user, errorResponse] = await requireAuth(request);
-    if (errorResponse) return errorResponse;
+    const [user, authError] = await requireAuth(request);
+    if (authError) return authError;
 
     const { searchParams } = new URL(request.url);
     const collection = searchParams.get('collection');
 
     if (!collection) {
-      return NextResponse.json(
-        { error: 'Collection parameter is required' },
-        { status: 400 }
-      );
+      return errorResponse('Collection parameter is required', 400);
     }
 
     const tableName = COLLECTION_TABLE_MAP[collection];
     if (!tableName) {
-      return NextResponse.json(
-        { error: `Unknown collection: ${collection}` },
-        { status: 400 }
-      );
+      return errorResponse(`Unknown collection: ${collection}`, 400);
     }
 
     const body = await request.json();
@@ -78,10 +73,7 @@ export async function POST(request: NextRequest) {
       }
 
       logger.error('[Sync Pull] Error fetching collection', { collection, error });
-      return NextResponse.json(
-        { error: `Failed to fetch ${collection}: ${error.message}` },
-        { status: 500 }
-      );
+      return errorResponse(`Failed to fetch ${collection}: ${error.message}`, 500);
     }
 
     // Transform Supabase snake_case to RxDB camelCase
@@ -99,10 +91,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     logger.error('[Sync Pull] Unexpected error', { error: error });
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return errorResponse('Internal server error', 500);
   }
 }
 

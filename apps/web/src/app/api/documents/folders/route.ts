@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { errorResponse } from '@/lib/api/error-responses';
 import { createFolder, getFolderTree } from '@/lib/documents';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
@@ -34,10 +35,7 @@ export async function POST(request: NextRequest) {
     const parseResult = createFolderSchema.safeParse(body);
 
     if (!parseResult.success) {
-      return NextResponse.json(
-        { error: 'Invalid request', details: parseResult.error.issues },
-        { status: 400 }
-      );
+      return errorResponse('Invalid request', 400);
     }
 
     const { name, parentId, color } = parseResult.data;
@@ -56,10 +54,7 @@ export async function POST(request: NextRequest) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[Folders] Create failed', { error: errorMessage });
 
-    return NextResponse.json(
-      { error: errorMessage },
-      { status: 500 }
-    );
+    return errorResponse(errorMessage, 500);
   }
 }
 
@@ -84,9 +79,6 @@ export async function GET(request: NextRequest) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[Folders] Tree fetch failed', { error: errorMessage });
 
-    return NextResponse.json(
-      { error: errorMessage },
-      { status: 500 }
-    );
+    return errorResponse(errorMessage, 500);
   }
 }

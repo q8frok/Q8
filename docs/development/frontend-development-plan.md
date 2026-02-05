@@ -1,6 +1,6 @@
 # **Q8 Frontend Development Plan (The "Glass Console")**
 
-**Focus:** Visual fidelity, Local-First performance (RxDB), and Reactive Components (React 19.2).
+**Focus:** Visual fidelity, Local-First performance (RxDB), and Reactive Components (React 19.0.1).
 
 ## **1\. Directory Structure (apps/web)**
 
@@ -14,7 +14,7 @@ apps/web/
 │   │   │   ├── media/page.tsx       \# Media Center  
 │   │   │   └── settings/page.tsx    \# App Settings  
 │   │   ├── layout.tsx               \# Root Layout (Providers)  
-│   │   └── globals.css              \# Tailwind v4 Base Styles  
+│   │   └── globals.css              \# Tailwind CSS 3.4 Base Styles  
 │   ├── components/  
 │   │   ├── ui/                      \# Shadcn Primitives (Button, Input, etc.)  
 │   │   ├── dashboard/               \# Bento Grid Components  
@@ -33,7 +33,7 @@ apps/web/
 │       ├── db/                      \# RxDB Schema & Init  
 │       └── utils/                   \# Helper functions
 
-## **2\. Design System (Tailwind v4)**
+## **2\. Design System (Tailwind CSS 3.4)**
 
 **Theme:** "Glassmorphism 2.0" \- Deep, rich backgrounds with frosted glass overlays.
 

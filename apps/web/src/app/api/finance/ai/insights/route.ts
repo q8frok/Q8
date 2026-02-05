@@ -8,6 +8,7 @@ import {
   getAuthenticatedUser,
   unauthorizedResponse,
 } from '@/lib/auth/api-auth';
+import { errorResponse } from '@/lib/api/error-responses';
 import { logger } from '@/lib/logger';
 
 /**
@@ -41,10 +42,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     logger.error('Finance insights error', { error });
-    return NextResponse.json(
-      { error: 'Failed to generate insights' },
-      { status: 500 }
-    );
+    return errorResponse('Failed to generate insights', 500);
   }
 }
 
@@ -89,9 +87,6 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     logger.error('Finance insights POST error', { error });
-    return NextResponse.json(
-      { error: 'Failed to generate insights' },
-      { status: 500 }
-    );
+    return errorResponse('Failed to generate insights', 500);
   }
 }

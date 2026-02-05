@@ -144,7 +144,7 @@ Orchestrator speaks: "[Example response]"
 
 | Parameter | Value | Description |
 |-----------|-------|-------------|
-| Model | [model-id] | AI model used |
+| Model | [model-id] (see model_factory.ts for 8 agent types) | AI model used |
 | Temperature | [0.0-2.0] | Creativity level |
 | Max Tokens | [number] | Response length limit |
 | Context Window | [number] | Input size limit |
@@ -188,7 +188,7 @@ Metrics to track:
 
 - [System Architecture](../architecture/system-architecture.md)
 - [Agent Swarm](../architecture/agent-swarm.md)
-- [MCP Integration](../architecture/mcp-integration.md)
+- [Orchestration Engine](../architecture/orchestration-engine.md)
 
 ---
 

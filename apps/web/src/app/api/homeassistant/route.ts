@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { errorResponse } from '@/lib/api/error-responses';
 import { logger } from '@/lib/logger';
 
 const HA_URL = process.env.HASS_URL || 'http://homeassistant.local:8123';
@@ -85,10 +86,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ states });
   } catch (error) {
     logger.error('Home Assistant fetch error', { error: error });
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to fetch Home Assistant states' },
-      { status: 500 }
-    );
+    return errorResponse(error instanceof Error ? error.message : 'Failed to fetch Home Assistant states', 500);
   }
 }
 
@@ -117,10 +115,7 @@ export async function POST(request: NextRequest) {
     const { domain, service, entity_id, data = {} } = body;
 
     if (!domain || !service) {
-      return NextResponse.json(
-        { error: 'Domain and service are required' },
-        { status: 400 }
-      );
+      return errorResponse('Domain and service are required', 400);
     }
 
     // Build service data - support both entity_id at top level and in data
@@ -136,9 +131,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, result });
   } catch (error) {
     logger.error('Home Assistant service call error', { error: error });
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to call Home Assistant service' },
-      { status: 500 }
-    );
+    return errorResponse(error instanceof Error ? error.message : 'Failed to call Home Assistant service', 500);
   }
 }
