@@ -1,17 +1,24 @@
 /**
  * Streaming Chat API Route
  * Server-sent events (SSE) for real-time response streaming
- * Uses unified orchestration service
+ * Uses unified orchestration service with optional new SDK support via feature flag
  */
 
 import { NextRequest } from 'next/server';
-import { streamMessage, type OrchestrationEvent, type ExtendedAgentType } from '@/lib/agents/orchestration';
+import { streamMessage as streamMessageLegacy, type OrchestrationEvent, type ExtendedAgentType } from '@/lib/agents/orchestration';
+import { streamMessage as streamMessageSDK, type AgentType } from '@/lib/agents/sdk';
 import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
 import { logger } from '@/lib/logger';
 
 // Use Node.js runtime for full compatibility with OpenAI and Supabase SDKs
 export const runtime = 'nodejs';
 export const maxDuration = 60; // Allow longer streaming responses
+
+/**
+ * Feature flag for new Agents SDK
+ * Can be enabled via environment variable or per-request override
+ */
+const USE_AGENTS_SDK = process.env.USE_AGENTS_SDK === 'true';
 
 interface StreamRequest {
   message: string;
@@ -26,6 +33,8 @@ interface StreamRequest {
   forceAgent?: ExtendedAgentType;
   /** Show tool execution events (default: true) */
   showToolExecutions?: boolean;
+  /** Override feature flag to use new Agents SDK (for testing) */
+  useNewSdk?: boolean;
 }
 
 /**
@@ -149,6 +158,13 @@ function toStreamEvent(event: OrchestrationEvent): StreamEvent {
         type: 'memory_extracted',
         count: event.count,
       };
+    case 'widget_action':
+      return {
+        type: 'widget_action',
+        widgetId: event.widgetId,
+        action: event.action,
+        data: event.data,
+      };
     case 'error':
       return {
         type: 'error',
@@ -182,7 +198,7 @@ export async function POST(request: NextRequest) {
   (async () => {
     try {
       const body = (await request.json()) as StreamRequest;
-      const { message, threadId, userProfile, forceAgent, showToolExecutions = true } = body;
+      const { message, threadId, userProfile, forceAgent, showToolExecutions = true, useNewSdk } = body;
       const userId = user.id; // Use authenticated user ID
 
       if (!message) {
@@ -194,15 +210,37 @@ export async function POST(request: NextRequest) {
         return;
       }
 
-      // Use unified orchestration streaming
-      const eventStream = streamMessage({
-        message,
+      // Determine which orchestration system to use
+      // Request body override takes precedence over environment variable
+      const useSDK = useNewSdk ?? USE_AGENTS_SDK;
+
+      logger.debug('[Stream API] Processing message', {
         userId,
         threadId,
-        userProfile,
+        useSDK,
         forceAgent,
-        showToolExecutions,
       });
+
+      // Get the event stream from the appropriate orchestration system
+      // Both systems produce OrchestrationEvent streams with the same format
+      const eventStream: AsyncGenerator<OrchestrationEvent> = useSDK
+        ? streamMessageSDK({
+            message,
+            userId,
+            threadId,
+            userProfile,
+            // SDK uses AgentType which is a subset of ExtendedAgentType
+            forceAgent: forceAgent as AgentType | undefined,
+            showToolExecutions,
+          })
+        : streamMessageLegacy({
+            message,
+            userId,
+            threadId,
+            userProfile,
+            forceAgent,
+            showToolExecutions,
+          });
 
       for await (const event of eventStream) {
         const streamEvent = toStreamEvent(event);
@@ -211,9 +249,17 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       logger.error('[Stream API] Error', { error: error });
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      await writer.write(encoder.encode(encodeSSE({ type: 'error', message: errorMessage })));
+      try {
+        await writer.write(encoder.encode(encodeSSE({ type: 'error', message: errorMessage })));
+      } catch {
+        // Writer may already be closed if client disconnected
+      }
     } finally {
-      await writer.close();
+      try {
+        await writer.close();
+      } catch {
+        // Writer may already be closed
+      }
     }
   })();
 

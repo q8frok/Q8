@@ -10,6 +10,7 @@ import {
   Sun,
   ChevronDown,
   Crown,
+  Shield,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
@@ -243,6 +244,21 @@ export function UserProfile({
                 >
                   <Settings className="h-4 w-4" aria-hidden="true" />
                   <span className="text-sm">Settings</span>
+                </button>
+              )}
+
+              {/* Admin Dashboard - only for admins */}
+              {user.user_metadata?.role === 'admin' && (
+                <button
+                  onClick={() => {
+                    router.push('/admin');
+                    setIsOpen(false);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2 hover:bg-surface-3 transition-colors"
+                  role="menuitem"
+                >
+                  <Shield className="h-4 w-4" aria-hidden="true" />
+                  <span className="text-sm">Admin Dashboard</span>
                 </button>
               )}
 

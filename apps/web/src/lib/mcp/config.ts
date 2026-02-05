@@ -73,6 +73,11 @@ export const MCP_CONFIG = {
       return undefined;
     },
   },
+  spotify: {
+    url: getMcpUrl('SPOTIFY_MCP_URL', 'http://localhost:3005'),
+    timeout: 10000,
+    description: 'Spotify music playback and search',
+  },
 } as const;
 
 export type MCPServerName = keyof typeof MCP_CONFIG;
@@ -101,6 +106,8 @@ export function isMCPServerConfigured(server: MCPServerName): boolean {
       return Boolean(serverEnv.SUPABASE_MCP_URL || serverEnv.SUPABASE_SERVICE_ROLE_KEY);
     case 'homeAssistant':
       return Boolean(serverEnv.HOME_ASSISTANT_MCP_URL || serverEnv.HASS_TOKEN);
+    case 'spotify':
+      return Boolean(serverEnv.SPOTIFY_MCP_URL || serverEnv.SPOTIFY_CLIENT_ID);
     default:
       return false;
   }

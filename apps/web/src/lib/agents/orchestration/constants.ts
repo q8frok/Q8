@@ -41,6 +41,15 @@ export const TOOL_TIMEOUTS: Record<string, number> = {
   create_chart: 45000,
   analyze_image: 30000,
   compare_images: 30000,
+
+  // Spotify tools - external API
+  spotify_search: 10000,
+  spotify_now_playing: 5000,
+  spotify_play_pause: 5000,
+  spotify_next_previous: 5000,
+  spotify_add_to_queue: 5000,
+  spotify_get_devices: 5000,
+  spotify_set_volume: 5000,
 };
 
 export const DEFAULT_TOOL_TIMEOUT = 10000; // 10 seconds default

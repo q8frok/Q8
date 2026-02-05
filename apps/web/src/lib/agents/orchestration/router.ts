@@ -58,20 +58,24 @@ export const AGENT_CAPABILITIES: AgentCapability[] = [
   {
     agent: 'secretary',
     name: 'SecretaryBot',
-    description: 'Personal productivity assistant with Google Workspace access',
+    description: 'Personal productivity assistant with Google Workspace and YouTube access',
     capabilities: [
       'Email management (Gmail)',
       'Calendar scheduling',
       'Google Drive file access',
       'Meeting coordination',
       'Task reminders',
+      'YouTube video search',
     ],
     keywords: [
       'calendar', 'schedule', 'email', 'meeting', 'appointment', 'gmail',
       'drive', 'remind', 'task', 'event', 'invite', 'reschedule', 'cancel',
       'book', 'agenda', 'availability', 'send email', 'check email',
+      // YouTube keywords
+      'youtube', 'video', 'videos', 'watch', 'tutorial', 'search youtube',
+      'find video', 'youtube search',
     ],
-    tools: ['gmail_send', 'gmail_search', 'calendar_create', 'calendar_list', 'drive_search'],
+    tools: ['gmail_send', 'gmail_search', 'calendar_create', 'calendar_list', 'drive_search', 'youtube_search'],
   },
   {
     agent: 'home',
@@ -117,20 +121,30 @@ export const AGENT_CAPABILITIES: AgentCapability[] = [
   {
     agent: 'personality',
     name: 'Q8',
-    description: 'Friendly conversational AI for general chat and assistance',
+    description: 'Friendly conversational AI for general chat, music control, and assistance',
     capabilities: [
       'General conversation',
       'Creative writing',
       'Brainstorming',
       'Emotional support',
       'Fun interactions',
+      'Music playback control via Spotify',
     ],
     keywords: [
       'hello', 'hi', 'hey', 'thanks', 'thank you', 'how are you', 'joke',
       'story', 'chat', 'talk', 'help', 'advice', 'opinion', 'think',
       'feel', 'recommend', 'suggest', 'idea', 'creative', 'write',
+      // Music keywords
+      'music', 'song', 'play', 'spotify', 'playlist', 'album', 'artist',
+      'queue', 'volume', 'skip', 'pause', 'playing', 'track', 'listen',
+      'next song', 'previous song', 'play music', 'stop music', 'what is playing',
+      'now playing', 'turn up', 'turn down', 'louder', 'quieter',
     ],
-    tools: [],
+    tools: [
+      'spotify_search', 'spotify_now_playing', 'spotify_play_pause',
+      'spotify_next_previous', 'spotify_add_to_queue', 'spotify_get_devices',
+      'spotify_set_volume',
+    ],
   },
   {
     agent: 'imagegen',

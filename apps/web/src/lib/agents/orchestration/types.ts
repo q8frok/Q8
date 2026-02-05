@@ -57,6 +57,11 @@ export interface ToolEvent {
 }
 
 /**
+ * Widget identifiers for widget_action events
+ */
+export type WidgetId = 'tasks' | 'calendar' | 'finance' | 'home' | 'weather' | 'github' | 'daily-brief';
+
+/**
  * Streaming event types for unified output
  */
 export type OrchestrationEvent =
@@ -74,6 +79,7 @@ export type OrchestrationEvent =
   | { type: 'done'; fullContent: string; agent: ExtendedAgentType; threadId: string; images?: Array<{ data: string; mimeType: string; caption?: string }> }
   | { type: 'thread_created'; threadId: string }
   | { type: 'memory_extracted'; count: number }
+  | { type: 'widget_action'; widgetId: WidgetId; action: 'refresh' | 'update'; data?: Record<string, unknown> }
   | { type: 'error'; message: string; recoverable?: boolean };
 
 /**

@@ -52,8 +52,7 @@ import { UserProfile } from '@/components/auth/UserProfile';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useAuth } from '@/hooks/useAuth';
 import { CommandPalette } from '@/components/CommandPalette';
-import { SettingsPanel } from '@/components/settings';
-import { ToastProvider, toast } from '@/components/ui/toast';
+import { ToastProvider } from '@/components/ui/toast';
 import { AnimatedBackground } from '@/components/shared/AnimatedBackground';
 import { VoiceFAB } from '@/components/shared/VoiceFAB';
 import { BottomSheet, type SnapPoint } from '@/components/ui/BottomSheet';
@@ -70,7 +69,6 @@ function DashboardContent() {
   const visibleWidgets = useVisibleWidgets();
   const widgetOrder = useWidgetOrder();
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [chatSheetSnap, setChatSheetSnap] = useState<SnapPoint>('closed');
   const chatRef = useRef<UnifiedChatWithThreadsRef>(null);
 
@@ -82,16 +80,16 @@ function DashboardContent() {
         e.preventDefault();
         setIsCommandPaletteOpen(true);
       }
-      // Cmd+. or Ctrl+. for settings
+      // Cmd+. or Ctrl+. for settings - navigate to settings page
       if ((e.metaKey || e.ctrlKey) && e.key === '.') {
         e.preventDefault();
-        setIsSettingsOpen(true);
+        router.push('/settings');
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [router]);
 
   // Handle sending messages from command palette
   const handleSendMessage = (message: string) => {
@@ -157,13 +155,13 @@ function DashboardContent() {
             </button>
 
             {/* Settings Button - hidden on mobile (available in FAB) */}
-            <button
-              onClick={() => setIsSettingsOpen(true)}
+            <Link
+              href="/settings"
               className="hidden md:flex p-2.5 rounded-xl hover:bg-surface-3 transition-colors"
               title="Settings (⌘.)"
             >
               <Settings className="h-5 w-5" />
-            </button>
+            </Link>
 
             <UserProfile />
           </div>
@@ -313,24 +311,14 @@ function DashboardContent() {
         isOpen={isCommandPaletteOpen}
         onClose={() => setIsCommandPaletteOpen(false)}
         onSendMessage={handleSendMessage}
-        onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenSettings={() => router.push('/settings')}
         onOpenVoice={() => chatRef.current?.switchMode('voice')}
-      />
-
-      {/* Settings Panel */}
-      <SettingsPanel
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        userId={userId}
-        onPreferencesChange={(_prefs) => {
-          toast.success('Settings saved', 'Your preferences have been updated');
-        }}
       />
 
       {/* Mobile Voice FAB */}
       <VoiceFAB
         onVoice={() => chatRef.current?.switchMode('voice')}
-        onSettings={() => setIsSettingsOpen(true)}
+        onSettings={() => router.push('/settings')}
         onKnowledge={() => router.push('/knowledge')}
         onChat={openMobileChat}
       />

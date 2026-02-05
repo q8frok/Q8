@@ -41,7 +41,12 @@
       "Bash(do basename \"$hook\" .ts)",
       "Bash(done)",
       "Bash(for test in tests/hooks/*.test.ts)",
-      "Bash(do basename \"$test\" .test.ts)"
+      "Bash(do basename \"$test\" .test.ts)",
+      "WebFetch(domain:openai.github.io)",
+      "Bash(cmd //c \"taskkill /PID 3308 /F\")",
+      "Bash(cmd //c \"taskkill /PID 41844 /F\")",
+      "Bash(cmd //c \"tasklist | findstr /i node\")",
+      "Bash(cmd //c \"taskkill /IM node.exe /F\")"
     ],
     "deny": []
   },

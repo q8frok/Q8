@@ -979,21 +979,58 @@ export async function* streamMessage(
     let _usedModelConfig2: ModelConfig = modelChain[0]!; // Non-null: checked modelChain.length above
 
     if (tools.length > 0) {
+      // Log tools being passed for debugging
+      logger.debug('[Orchestration] Tools available for agent', {
+        agent: routingDecision.agent,
+        toolCount: tools.length,
+        toolNames: tools.map(t => t.function.name),
+      });
+
       // Tool-using agent - use model chain with fallback on rate limits
       const { result: completion, usedModel } = await executeWithFallback(
         modelChain,
         async (client, model) => {
+          // Check if this is xAI (Grok) - model name contains 'grok'
+          const isXai = model.toLowerCase().includes('grok');
+
+          logger.debug('[Orchestration] Making tool completion request', {
+            model,
+            isXai,
+            toolCount: tools.length,
+          });
+
+          // xAI uses max_tokens, OpenAI uses max_completion_tokens
+          // Explicitly set stream: false for proper typing
+          if (isXai) {
+            return client.chat.completions.create({
+              model,
+              messages,
+              tools,
+              tool_choice: 'auto',
+              max_tokens: 1000,
+              stream: false,
+            });
+          }
           return client.chat.completions.create({
             model,
             messages,
             tools,
             tool_choice: 'auto',
             max_completion_tokens: 1000,
+            stream: false,
           });
         },
         `tool-completion/${targetAgent}`
       );
       _usedModelConfig2 = usedModel;
+
+      logger.debug('[Orchestration] Tool completion response', {
+        model: usedModel.model,
+        provider: usedModel.provider,
+        hasToolCalls: !!completion.choices[0]?.message?.tool_calls?.length,
+        toolCallCount: completion.choices[0]?.message?.tool_calls?.length || 0,
+        hasContent: !!completion.choices[0]?.message?.content,
+      });
 
       const assistantMessage = completion.choices[0]?.message;
       const toolCalls = assistantMessage?.tool_calls;
@@ -1067,6 +1104,31 @@ export async function* streamMessage(
         const IMAGE_GEN_TOOLS = ['generate_image', 'edit_image', 'create_diagram', 'create_chart'];
         const IMAGE_ANALYSIS_TOOLS = ['analyze_image', 'compare_images'];
 
+        // Map tools to widgets they affect (for refresh events)
+        const WIDGET_TOOL_MAP: Record<string, 'tasks' | 'calendar' | 'finance' | 'home' | 'weather' | 'github' | 'daily-brief'> = {
+          // Task tools
+          'create_task': 'tasks',
+          'update_task': 'tasks',
+          'delete_task': 'tasks',
+          'complete_task': 'tasks',
+          // Calendar tools
+          'calendar_create_event': 'calendar',
+          'calendar_update_event': 'calendar',
+          'calendar_delete_event': 'calendar',
+          // Home tools
+          'control_device': 'home',
+          'set_climate': 'home',
+          'activate_scene': 'home',
+          // Finance tools
+          'get_balance_sheet': 'finance',
+          'get_spending_summary': 'finance',
+          'get_upcoming_bills': 'finance',
+          // GitHub tools
+          'github_create_issue': 'github',
+          'github_create_pr': 'github',
+          'github_merge_pr': 'github',
+        };
+
         // Emit tool_end events and build messages after parallel execution
         for (const { id, functionName, functionArgs, toolCall, result, duration } of toolResults) {
           toolExecutions.push({
@@ -1127,6 +1189,17 @@ export async function* streamMessage(
             };
           }
 
+          // Emit widget_action for tools that affect dashboard widgets
+          const widgetId = WIDGET_TOOL_MAP[functionName];
+          if (widgetId && result.success) {
+            yield {
+              type: 'widget_action',
+              widgetId,
+              action: 'refresh' as const,
+              data: { tool: functionName, args: functionArgs },
+            };
+          }
+
           toolMessages.push({
             role: 'tool',
             tool_call_id: toolCall.id,
@@ -1134,11 +1207,11 @@ export async function* streamMessage(
           });
         }
 
-        const streamingCacheHits = toolResults.filter(r => r.fromCache).length;
+        const streamingCacheHits = toolResults.filter((r: { fromCache: boolean }) => r.fromCache).length;
         logger.debug('Parallel streaming tool execution completed', {
           toolCount: toolCalls.length,
           totalDuration: Date.now() - parallelStartTime,
-          individualDurations: toolResults.map(r => r.duration),
+          individualDurations: toolResults.map((r: { duration: number }) => r.duration),
           speculativeCacheHits: streamingCacheHits,
           speculativeCacheHitRate: streamingCacheHits / toolCalls.length,
         });

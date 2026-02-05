@@ -82,6 +82,7 @@ const serverOnlyEnvSchema = z.object({
   GOOGLE_MCP_URL: z.string().url().optional(),
   SUPABASE_MCP_URL: z.string().url().optional(),
   HOME_ASSISTANT_MCP_URL: z.string().url().optional(),
+  SPOTIFY_MCP_URL: z.string().url().optional(),
 
   // Vercel (Auto-populated in deployment)
   VERCEL_URL: z.string().optional(),

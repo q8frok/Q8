@@ -45,7 +45,7 @@ export function AgentMetricsPanel({ lastRefreshed }: AgentMetricsPanelProps) {
     const fetchMetrics = async () => {
       setIsLoading(true);
       try {
-        const response = await fetch('/api/routing/feedback');
+        const response = await fetch('/api/admin/metrics');
         if (response.ok) {
           const data = await response.json();
           if (data.agentMetrics) {

@@ -128,7 +128,7 @@ function OverviewPanel({ lastRefreshed }: PanelProps) {
     // Fetch overview stats
     const fetchStats = async () => {
       try {
-        const response = await fetch('/api/routing/feedback');
+        const response = await fetch('/api/admin/metrics');
         if (response.ok) {
           const data = await response.json();
           setStats({

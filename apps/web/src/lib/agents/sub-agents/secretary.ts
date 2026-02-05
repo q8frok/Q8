@@ -293,6 +293,29 @@ export const googleWorkspaceTools: OpenAITool[] = [
       },
     },
   },
+
+  // YouTube Tools
+  {
+    type: 'function',
+    function: {
+      name: 'youtube_search',
+      description: 'Search for videos on YouTube',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: {
+            type: 'string',
+            description: 'Search query for videos',
+          },
+          maxResults: {
+            type: 'number',
+            description: 'Maximum number of results (1-50, default: 10)',
+          },
+        },
+        required: ['query'],
+      },
+    },
+  },
 ];
 
 export const secretaryAgentConfig = {

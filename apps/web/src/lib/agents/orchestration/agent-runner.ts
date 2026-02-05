@@ -4,12 +4,123 @@ import { financeAdvisorConfig, executeFinanceAdvisorTool } from '../sub-agents/f
 import { coderAgentConfig, executeCoderTool } from '../sub-agents/coder';
 import { secretaryAgentConfig, executeGoogleTool } from '../sub-agents/secretary';
 import { researcherAgentConfig } from '../sub-agents/researcher';
+import { personalityAgentConfig } from '../sub-agents/personality';
 import { executeDefaultTool, defaultTools } from '../tools/default-tools';
 import { imageTools, executeImageTool } from '../tools';
 import { knowledgeTools, executeKnowledgeTool } from '../tools/knowledge';
+import {
+  searchSpotify,
+  getNowPlaying,
+  controlPlayback,
+  skipTrack,
+  addToQueue,
+  getDevices,
+  setVolume,
+} from '@/lib/mcp/tools/spotify';
 import { logger } from '@/lib/logger';
 import type { ToolResult } from '../types';
 import { TOOL_TIMEOUTS, DEFAULT_TOOL_TIMEOUT, CONFIRMATION_REQUIRED_TOOLS } from './constants';
+
+/**
+ * List of Spotify tool names
+ */
+const SPOTIFY_TOOLS = [
+  'spotify_search',
+  'spotify_now_playing',
+  'spotify_play_pause',
+  'spotify_next_previous',
+  'spotify_add_to_queue',
+  'spotify_get_devices',
+  'spotify_set_volume',
+];
+
+/**
+ * Execute a Spotify tool
+ */
+async function executeSpotifyTool(
+  toolName: string,
+  args: Record<string, unknown>
+): Promise<ToolResult> {
+  try {
+    let result: unknown;
+
+    switch (toolName) {
+      case 'spotify_search':
+        result = await searchSpotify(
+          args.query as string,
+          args.type as 'track' | 'album' | 'artist' | 'playlist' | undefined,
+          args.limit as number | undefined
+        );
+        break;
+
+      case 'spotify_now_playing':
+        result = await getNowPlaying();
+        break;
+
+      case 'spotify_play_pause':
+        result = await controlPlayback(
+          args.action as 'play' | 'pause' | 'toggle' | undefined,
+          args.uri as string | undefined,
+          args.deviceId as string | undefined
+        );
+        break;
+
+      case 'spotify_next_previous':
+        result = await skipTrack(
+          args.direction as 'next' | 'previous',
+          args.deviceId as string | undefined
+        );
+        break;
+
+      case 'spotify_add_to_queue':
+        result = await addToQueue(
+          args.uri as string,
+          args.deviceId as string | undefined
+        );
+        break;
+
+      case 'spotify_get_devices':
+        result = await getDevices();
+        break;
+
+      case 'spotify_set_volume':
+        result = await setVolume(
+          args.volume as number,
+          args.deviceId as string | undefined
+        );
+        break;
+
+      default:
+        return {
+          success: false,
+          message: `Unknown Spotify tool: ${toolName}`,
+        };
+    }
+
+    return {
+      success: true,
+      message: `Successfully executed ${toolName}`,
+      data: result,
+    };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+    // Check if it's an MCP connection error
+    if (errorMessage.includes('Failed to fetch') || errorMessage.includes('not found in any registered server')) {
+      return {
+        success: false,
+        message: `Spotify MCP server not available. Please ensure the MCP server is running at ${process.env.SPOTIFY_MCP_URL || 'http://localhost:3005'}.`,
+        error: { code: 'CONNECTION_ERROR', details: errorMessage },
+      };
+    }
+
+    return {
+      success: false,
+      message: `Failed to execute ${toolName}: ${errorMessage}`,
+      error: { code: 'EXECUTION_ERROR', details: errorMessage },
+    };
+  }
+}
 
 /**
  * Get tools for an agent
@@ -34,7 +145,7 @@ export function getAgentTools(agent: ExtendedAgentType): Array<{
     case 'imagegen':
       return imageTools;
     case 'personality':
-      return defaultTools;
+      return personalityAgentConfig.openaiTools;
     default:
       return defaultTools;
   }
@@ -149,6 +260,11 @@ export async function executeAgentTool(
           }
           return executeDefaultTool(toolName, args);
         case 'personality':
+          // Check if it's a Spotify tool
+          if (SPOTIFY_TOOLS.includes(toolName)) {
+            return executeSpotifyTool(toolName, args);
+          }
+          return executeDefaultTool(toolName, args);
         default:
           return executeDefaultTool(toolName, args);
       }
