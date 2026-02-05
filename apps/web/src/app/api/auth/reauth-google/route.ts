@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
         set(name: string, value: string, options) {
           cookieStore.set(name, value, options);
         },
-        remove(name: string, options) {
+        remove(name: string, _options?: Record<string, unknown>) {
           cookieStore.delete(name);
         },
       },

@@ -65,7 +65,7 @@ export function FinanceSettings({
   const accounts = useFinanceAccounts();
   const dailyBudget = useDailyBudget();
   const privacyMode = usePrivacyMode();
-  const { setDailyBudget, setAccounts, updateAccount, removeAccount } = useFinanceHubStore();
+  const { setDailyBudget, setAccounts, updateAccount, removeAccount: _removeAccount } = useFinanceHubStore();
 
   // Find existing cash account
   const cashAccount = accounts.find(
@@ -217,7 +217,7 @@ export function FinanceSettings({
       } else {
         setSaveMessage('Some settings failed to save');
       }
-    } catch (error) {
+    } catch (_error) {
       setSaveMessage('Failed to save settings');
     } finally {
       setIsSaving(false);

@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bot, Loader2, PanelLeft, MessageSquare } from 'lucide-react';
+import { Loader2, PanelLeft, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useChat, type AgentType } from '@/hooks/useChat';
 import { StreamingMessage } from './StreamingMessage';
@@ -151,7 +151,7 @@ export const StreamingChatPanel = forwardRef<StreamingChatPanelRef, StreamingCha
   }, []);
 
   // Handle message action
-  const handleMessageAction = (action: string, messageId: string) => {
+  const handleMessageAction = (action: string, _messageId: string) => {
     if (action === 'regenerate') {
       retryLast();
     }

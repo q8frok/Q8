@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, MicOff, Loader2, AlertCircle, Volume2, Square } from 'lucide-react';
+import { Mic, Loader2, AlertCircle, Volume2, Square } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useVoice, type Voice } from '@/hooks/useVoice';
 import { logger } from '@/lib/logger';
@@ -75,14 +75,14 @@ export function VoiceButtonEnhanced({
   const {
     status,
     isRecording,
-    isTranscribing,
+    isTranscribing: _isTranscribing,
     isSpeaking,
     transcript,
     error,
     audioLevel,
     startRecording,
     stopRecording,
-    cancelRecording,
+    cancelRecording: _cancelRecording,
     speak,
     stopSpeaking,
   } = useVoice({

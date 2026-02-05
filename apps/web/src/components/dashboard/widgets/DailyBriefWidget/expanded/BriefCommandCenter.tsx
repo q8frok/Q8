@@ -16,13 +16,10 @@ import {
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
-  SummarySection,
   QuickActionsBar,
   InsightsList,
   CalendarPreview,
   TasksPreview,
-  WeatherCard,
-  QuoteFooter,
 } from '../components';
 import { GREETING_ICONS, getTimeOfDay } from '../constants';
 import { useBriefData, useBriefTasks, useQuickActions, getDefaultQuickActions, useDismissedInsights } from '../hooks';

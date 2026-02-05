@@ -7,16 +7,14 @@
 // Imports updated to use new modules
 import { getModel, getModelChain, type AgentType, type ModelConfig } from '../model_factory';
 import { buildEnrichedContext } from '../context-provider';
-import { addMessage, getConversationHistory } from '../conversation-store';
+import { addMessage } from '../conversation-store';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { logger } from '@/lib/logger';
 import type { ChatMessageInsert } from '@/lib/supabase/types';
-import type { EnrichedContext } from '../types';
 
 import {
   buildSystemPrompt,
   fetchMemoryContext,
-  getDocumentContext,
 } from './context-builder';
 import { ORCHESTRATOR_WRAPPER_PROMPT } from './constants';
 import { getRoutingContext, updateTopicContext } from './topic-tracker';
@@ -35,14 +33,12 @@ import type {
 import { route } from './router';
 import { logRoutingTelemetry, recordImplicitFeedback } from './metrics';
 import { getConversationContext } from '@/lib/documents/processor';
-import { detectHandoffSignal, stripHandoffMarkers, processHandoff } from './handoff';
+import { detectHandoffSignal, stripHandoffMarkers } from './handoff';
 import { getResponseCache, isCacheable, calculateTTL } from './response-cache';
-import { maybeCompress, needsCompression } from './context-compressor';
-import { getQualityScorer, getFeedbackTracker, scoreResponse } from './quality-scorer';
-import { generateSuggestions, getTimeOfDay, type Suggestion } from './proactive-suggestions';
+import { maybeCompress } from './context-compressor';
+import { getFeedbackTracker, scoreResponse } from './quality-scorer';
 import {
   startSpeculativeExecution,
-  getSpeculativeResult,
   waitForSpeculativeResult,
 } from './speculative-executor';
 
@@ -60,7 +56,7 @@ const RETRY_CONFIG = {
  * Fallback model chain for rate limit resilience
  * When primary model hits rate limit, try these in order
  */
-const FALLBACK_MODELS: Record<string, string[]> = {
+const _FALLBACK_MODELS: Record<string, string[]> = {
   'gpt-4o': ['gpt-4o-mini', 'gpt-4-turbo'],
   'gpt-5.1': ['gpt-4o', 'gpt-4o-mini'],
   'gpt-5-nano': ['gpt-4o-mini', 'gpt-3.5-turbo'],
@@ -110,7 +106,7 @@ interface RetryOptions {
  * Retry wrapper with exponential backoff for API calls
  * Specifically handles 429 rate limit errors with longer delays
  */
-async function withRetry<T>(
+async function _withRetry<T>(
   fn: () => Promise<T>,
   context: string,
   options: RetryOptions = {}
@@ -274,7 +270,7 @@ function generateMessageId(): string {
 /**
  * Execute a promise with timeout
  */
-async function withTimeout<T>(
+async function _withTimeout<T>(
   promise: Promise<T>,
   timeoutMs: number,
   toolName: string
@@ -300,7 +296,7 @@ async function withTimeout<T>(
 /**
  * Classify error type for better error handling
  */
-function classifyError(error: unknown): { code: string; recoverable: boolean } {
+function _classifyError(error: unknown): { code: string; recoverable: boolean } {
   const message = error instanceof Error ? error.message : String(error);
 
   if (message.includes('timed out')) {
@@ -807,7 +803,7 @@ export async function processMessage(
     };
   } catch (error) {
     logger.error('Orchestration error', { userId, threadId: providedThreadId, error });
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const _errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
     // Log failure
     if (providedThreadId) {
@@ -905,7 +901,7 @@ export async function* streamMessage(
 
     // Start speculative data fetching in background while LLM processes
     // This pre-warms likely tool results based on the routing decision
-    const cancelSpeculative = startSpeculativeExecution(routingDecision, userId);
+    const _cancelSpeculative = startSpeculativeExecution(routingDecision, userId);
 
     yield { type: 'agent_start', agent: routingDecision.agent };
 
@@ -980,7 +976,7 @@ export async function* streamMessage(
     const toolExecutions: ToolEvent[] = [];
     const collectedImages: Array<{ data: string; mimeType: string; caption?: string }> = [];
     let fullContent = '';
-    let usedModelConfig: ModelConfig = modelChain[0]!; // Non-null: checked modelChain.length above
+    let _usedModelConfig2: ModelConfig = modelChain[0]!; // Non-null: checked modelChain.length above
 
     if (tools.length > 0) {
       // Tool-using agent - use model chain with fallback on rate limits
@@ -997,7 +993,7 @@ export async function* streamMessage(
         },
         `tool-completion/${targetAgent}`
       );
-      usedModelConfig = usedModel;
+      _usedModelConfig2 = usedModel;
 
       const assistantMessage = completion.choices[0]?.message;
       const toolCalls = assistantMessage?.tool_calls;
@@ -1182,7 +1178,7 @@ export async function* streamMessage(
         },
         `completion/${targetAgent}`
       );
-      usedModelConfig = usedModel;
+      _usedModelConfig2 = usedModel;
 
       fullContent = completion.choices[0]?.message?.content || '';
     }

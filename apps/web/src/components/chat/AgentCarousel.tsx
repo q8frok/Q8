@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, AtSign } from 'lucide-react';
+import { AtSign } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AgentCard, AgentCardMini, AGENT_INFO, type AgentInfo } from './AgentCard';
 import { usePresetSuggestions } from '@/hooks/usePresetSuggestions';
@@ -56,6 +56,7 @@ export function AgentCarousel({
     (prompt: string) => {
       // Find the preset ID for tracking
       const preset = selectedAgent
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
         ? require('@/lib/presets/preset-config').getPresetsByAgent(selectedAgent.id)
             .find((p: { prompt: string }) => p.prompt === prompt)
         : null;
@@ -143,8 +144,9 @@ export function AgentList({
   const { services, recordUsage } = usePresetSuggestions();
   const availableAgents = filterAgentsByServices(AGENT_INFO, services);
 
-  const handleSelect = useCallback(
+  const _handleSelect = useCallback(
     (agent: AgentInfo) => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const presets = require('@/lib/presets/preset-config').getPresetsByAgent(agent.id);
       if (presets[0]) {
         recordUsage(presets[0].id);

@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Minimize2,
-  Cloud,
   RefreshCw,
   MapPin,
   Thermometer,
@@ -13,7 +12,6 @@ import {
   Eye,
   Gauge,
   Sun,
-  Moon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';

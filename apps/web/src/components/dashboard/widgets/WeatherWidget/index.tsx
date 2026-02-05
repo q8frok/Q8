@@ -15,7 +15,6 @@ import {
 } from './components';
 import { WeatherCommandCenter } from './expanded';
 import { isDay } from '@/lib/utils/weather';
-import { CONDITION_GRADIENTS } from './constants';
 import type { WeatherWidgetProps, TemperatureUnit } from './types';
 
 export function WeatherWidget({

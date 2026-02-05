@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ToolExecutionList } from './ToolExecutionChip';
-import { CitationList, InlineCitation, parseCitations, type CitationSource } from './Citation';
+import { CitationList, type CitationSource } from './Citation';
 import { MemoryContextBadge, type MemoryContextData } from './MemoryContextBadge';
 import { GeneratedImageDisplay, type GeneratedImageData } from './GeneratedImageDisplay';
 import ReactMarkdown from 'react-markdown';

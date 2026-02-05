@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Bell, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ALARM_SOUNDS, DAY_NAMES } from '../constants';
-import type { SetAlarmModalProps, Alarm, AlarmRepeat } from '../types';
+import type { SetAlarmModalProps, AlarmRepeat } from '../types';
 
 const REPEAT_OPTIONS: { id: AlarmRepeat; label: string }[] = [
   { id: 'once', label: 'Once' },

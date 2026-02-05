@@ -1,0 +1,49 @@
+{
+  "project": {
+    "name": "Q8",
+    "root": "C:\\Users\\Minki\\Q8"
+  },
+  "quality": {
+    "alwaysTypecheck": true,
+    "alwaysBuild": false,
+    "testOnChange": false
+  },
+  "mcp": {
+    "priority": ["serena", "supabase", "github"],
+    "lazyLoad": ["playwright", "magic"],
+    "disabled": ["mcp-docker"]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '[Q8] Remember: run /test or /commit before marking task complete'"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -Command \"[console]::beep(800,200)\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '[Q8] Verify: Did you run quality gates (typecheck + build)?'"
+          }
+        ]
+      }
+    ]
+  }
+}

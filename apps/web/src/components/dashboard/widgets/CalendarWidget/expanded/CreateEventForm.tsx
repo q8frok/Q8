@@ -2,12 +2,11 @@
 
 import { memo, useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Calendar, Clock, MapPin, Plus, Bell, Repeat } from 'lucide-react';
+import { X, Calendar, Clock, MapPin, Plus, Bell } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { CalendarBadge } from '../components/CalendarBadge';
-import { QUICK_DURATIONS, DEFAULT_REMINDERS, REMINDER_PRESETS, toLocalDateStr } from '../constants';
-import type { CreateEventFormProps, CalendarEventInput, GoogleCalendar } from '../types';
+import { QUICK_DURATIONS, REMINDER_PRESETS, toLocalDateStr } from '../constants';
+import type { CreateEventFormProps, CalendarEventInput } from '../types';
 
 /**
  * CreateEventForm - Full event creation form
@@ -131,7 +130,7 @@ export const CreateEventForm = memo(function CreateEventForm({
     setEndTime(`${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`);
   };
 
-  const selectedCalendar = calendars.find((c) => c.id === calendarId);
+  const _selectedCalendar = calendars.find((c) => c.id === calendarId);
 
   return (
     <AnimatePresence>

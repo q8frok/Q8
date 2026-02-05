@@ -47,7 +47,7 @@ const TAB_ICONS: Record<ClockTabType, LucideIcon> = {
 export function ClockWidget({
   defaultTab = 'clock',
   timezones: initialTimezones,
-  showAnalytics = true,
+  showAnalytics: _showAnalytics = true,
   enableAlarms = true,
   enableStopwatch = true,
   colSpan = 2,

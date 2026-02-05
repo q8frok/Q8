@@ -46,7 +46,7 @@ export function useLongPress(
     }
   }, [onClick]);
 
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+  const handleTouchStart = useCallback((_e: React.TouchEvent) => {
     touchStarted.current = true;
     start();
   }, [start]);

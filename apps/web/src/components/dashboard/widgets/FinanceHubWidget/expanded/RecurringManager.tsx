@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState } from 'react';
+import { motion } from 'framer-motion';
 import {
   Plus,
   Edit2,
@@ -23,7 +23,7 @@ import {
 } from '@/lib/stores/financehub';
 import { AmountDisplay } from '../shared/AmountDisplay';
 import type { RecurringItem, RecurringFrequency } from '@/types/finance';
-import { getDaysUntilDue, formatCurrency } from '@/types/finance';
+import { getDaysUntilDue } from '@/types/finance';
 
 interface RecurringManagerProps {
   className?: string;

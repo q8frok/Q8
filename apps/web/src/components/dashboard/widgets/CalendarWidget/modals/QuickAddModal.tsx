@@ -2,11 +2,10 @@
 
 import { memo, useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Calendar, Clock, Plus } from 'lucide-react';
+import { X, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useCalendarStore } from '@/lib/stores/calendar';
-import { CalendarBadge } from '../components/CalendarBadge';
 import { QUICK_DURATIONS, DEFAULT_REMINDERS } from '../constants';
 import type { QuickAddModalProps, CalendarEventInput } from '../types';
 
@@ -97,7 +96,7 @@ export const QuickAddModal = memo(function QuickAddModal({
     }
   }, [title, calendarId, startTime, duration, allDay, onSave, onClose]);
 
-  const selectedCalendar = calendars.find((c) => c.id === calendarId);
+  const _selectedCalendar = calendars.find((c) => c.id === calendarId);
 
   return (
     <AnimatePresence>

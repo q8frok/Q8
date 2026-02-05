@@ -3,7 +3,6 @@
 import { memo, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Calendar, Sun, Sunset, Moon } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { EventCard } from '../components/EventCard';
 import type { TodayOverviewProps } from '../types';
 

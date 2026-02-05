@@ -1,6 +1,5 @@
-import { type AgentType } from '../model_factory';
 import { type ExtendedAgentType } from './types';
-import { buildEnrichedContext, buildContextSummary, getGreeting } from '../context-provider';
+import { buildContextSummary, getGreeting } from '../context-provider';
 import { buildDeviceSummary } from '../home-context';
 import { getFinancialContext } from '../sub-agents/finance-advisor';
 import { getHomeBioRhythmContext } from '../sub-agents/home';

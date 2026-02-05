@@ -7,7 +7,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { clientEnv } from '@/lib/env';
 
 // Type definitions for database records
-interface FinanceAccount {
+interface _FinanceAccount {
   id: string;
   user_id: string;
   name: string;
@@ -40,7 +40,7 @@ interface FinanceRecurring {
   is_income: boolean;
 }
 
-interface FinanceSnapshot {
+interface _FinanceSnapshot {
   id: string;
   user_id: string;
   date: string;
@@ -204,7 +204,7 @@ async function getSpendingSummary(
 
   const startDate = getStartDate(period);
 
-  let query = supabase
+  const query = supabase
     .from('finance_transactions')
     .select('amount, category, merchant_name')
     .eq('user_id', userId)
@@ -327,12 +327,12 @@ async function getUpcomingBills(
   args: Record<string, unknown>
 ) {
   const daysAhead = (args.days_ahead as number) || 30;
-  const includePaid = args.include_paid === true;
+  const _includePaid = args.include_paid === true;
 
   const futureDate = new Date();
   futureDate.setDate(futureDate.getDate() + daysAhead);
 
-  let query = supabase
+  const query = supabase
     .from('finance_recurring')
     .select('*')
     .eq('user_id', userId)
@@ -613,7 +613,7 @@ async function getNetWorthHistory(
 async function findSubscriptions(
   supabase: SupabaseClient,
   userId: string,
-  args: Record<string, unknown>
+  _args: Record<string, unknown>
 ) {
   // Get last 90 days of transactions
   const startDate = getStartDate('90d');

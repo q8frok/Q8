@@ -12,7 +12,6 @@ import Placeholder from '@tiptap/extension-placeholder';
 import Link from '@tiptap/extension-link';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
-import { motion } from 'framer-motion';
 import {
   Bold,
   Italic,
@@ -285,7 +284,7 @@ export function RichTextEditor({
 function convertMarkdownToHTML(markdown: string): string {
   if (!markdown) return '<p></p>';
   
-  let html = markdown
+  const html = markdown
     // Headers
     .replace(/^### (.+)$/gm, '<h3>$1</h3>')
     .replace(/^## (.+)$/gm, '<h2>$1</h2>')

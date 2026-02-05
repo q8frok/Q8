@@ -19,7 +19,7 @@ export interface ClockAlarm {
   deleted_at?: string;
 }
 
-type AlarmDocument = RxDocument<ClockAlarm>;
+type _AlarmDocument = RxDocument<ClockAlarm>;
 
 export function useClockAlarms(userId: string) {
   const collection = useRxCollection<ClockAlarm>('clock_alarms');

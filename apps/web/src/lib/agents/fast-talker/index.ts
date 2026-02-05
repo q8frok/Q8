@@ -13,7 +13,6 @@
  * to generate quick responses, then queues a Deep Thinker job for the full answer.
  */
 
-import { getModel } from '../model_factory';
 import { route } from '../orchestration/router';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { logger } from '@/lib/logger';
@@ -164,7 +163,7 @@ async function generateFastResponse(
   routing: RoutingDecision,
   userName?: string
 ): Promise<string> {
-  const greeting = userName ? `${userName}, ` : '';
+  const _greeting = userName ? `${userName}, ` : '';
   const agent = routing.agent;
 
   // No deep processing needed - respond directly

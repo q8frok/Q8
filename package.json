@@ -12,7 +12,12 @@
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "storybook": "turbo storybook",
     "validate-schemas": "tsx scripts/validate-schema-sync.ts",
-    "generate-migration": "tsx scripts/generate-migration.ts"
+    "generate-migration": "tsx scripts/generate-migration.ts",
+    "quality": "powershell -ExecutionPolicy Bypass -File scripts/quality-check.ps1",
+    "quality:verbose": "powershell -ExecutionPolicy Bypass -File scripts/quality-check.ps1 -Verbose",
+    "quality:fast": "powershell -ExecutionPolicy Bypass -File scripts/quality-check.ps1 -SkipTests -SkipBuild",
+    "optimize:claude": "powershell -ExecutionPolicy Bypass -File scripts/optimize-claude.ps1",
+    "precommit": "pnpm typecheck && pnpm build --filter=@q8/web"
   },
   "devDependencies": {
     "@turbo/gen": "^2.0.0",

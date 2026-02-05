@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, type ReactNode } from 'react';
-import { motion, useMotionValue, useTransform } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { RefreshCw } from 'lucide-react';
 import { haptics } from '@/lib/pwa/haptics';
 

@@ -6,9 +6,8 @@
 import type {
   ProactiveSuggestion,
   SuggestionContext,
-  MemoryEntry,
 } from './types';
-import { searchMemories, getUserPreferences, getShortTermMemory } from './memory-store';
+import { searchMemories } from './memory-store';
 import { logger } from '@/lib/logger';
 
 /**
@@ -119,7 +118,7 @@ export function generateSuggestions(
  */
 function getTimeSuggestions(context: SuggestionContext): ProactiveSuggestion[] {
   const suggestions: ProactiveSuggestion[] = [];
-  const hour = context.currentTime.getHours();
+  const _hour = context.currentTime.getHours();
 
   // Morning suggestions
   if (context.timeOfDay === 'morning') {

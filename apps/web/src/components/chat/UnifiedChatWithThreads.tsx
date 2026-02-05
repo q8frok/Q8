@@ -99,7 +99,7 @@ export const UnifiedChatWithThreads = forwardRef<UnifiedChatWithThreadsRef, Unif
       }
     }, [chatContext]);
 
-    const { threads, selectThread, updateThread, archiveThread, deleteThread, refreshThreads } = useThreads({
+    const { threads: _threads, selectThread, updateThread, archiveThread, deleteThread, refreshThreads } = useThreads({
       userId,
     });
 
@@ -127,7 +127,7 @@ export const UnifiedChatWithThreads = forwardRef<UnifiedChatWithThreadsRef, Unif
     );
 
     // Handle thread title update
-    const handleUpdateTitle = useCallback(
+    const _handleUpdateTitle = useCallback(
       async (title: string) => {
         if (currentThreadId) {
           await updateThread(currentThreadId, { title });
@@ -137,7 +137,7 @@ export const UnifiedChatWithThreads = forwardRef<UnifiedChatWithThreadsRef, Unif
     );
 
     // Handle thread archive
-    const handleArchive = useCallback(async () => {
+    const _handleArchive = useCallback(async () => {
       if (currentThreadId) {
         await archiveThread(currentThreadId);
         setCurrentThreadId(null);
@@ -145,7 +145,7 @@ export const UnifiedChatWithThreads = forwardRef<UnifiedChatWithThreadsRef, Unif
     }, [currentThreadId, archiveThread]);
 
     // Handle thread delete
-    const handleDelete = useCallback(async () => {
+    const _handleDelete = useCallback(async () => {
       if (currentThreadId) {
         await deleteThread(currentThreadId);
         setCurrentThreadId(null);
@@ -153,7 +153,7 @@ export const UnifiedChatWithThreads = forwardRef<UnifiedChatWithThreadsRef, Unif
     }, [currentThreadId, deleteThread]);
 
     // Handle regenerate title
-    const handleRegenerateTitle = useCallback(async () => {
+    const _handleRegenerateTitle = useCallback(async () => {
       if (!currentThreadId) return;
       try {
         await fetch(`/api/threads/${currentThreadId}/summarize`, { method: 'POST' });

@@ -183,7 +183,7 @@ export async function GET(request: NextRequest) {
 async function fetchLikedVideos(
   accessToken: string,
   limit: number,
-  apiKey?: string
+  _apiKey?: string
 ): Promise<ContentItem[]> {
   // Get the user's liked videos playlist
   const response = await fetch(

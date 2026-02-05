@@ -12,14 +12,13 @@ import {
   Trash2,
   Save,
   ExternalLink,
-  Bell,
 } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { CalendarBadge } from '../components/CalendarBadge';
 import { useCalendarStore } from '@/lib/stores/calendar';
-import { QUICK_DURATIONS, DEFAULT_REMINDERS } from '../constants';
+import { DEFAULT_REMINDERS } from '../constants';
 import type { EventDetailPanelProps, CalendarEventInput } from '../types';
 
 /**

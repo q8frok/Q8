@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import type {
   TimerSession,
   TimerState,
-  TimerStatus,
   FocusPreset,
   DailyTimerStats,
 } from '../types';

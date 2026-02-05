@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useRef, KeyboardEvent, useCallback, forwardRef, useImperativeHandle } from 'react';
-import { motion } from 'framer-motion';
 import {
   Send,
   Mic,
@@ -125,7 +124,7 @@ interface ChatInputProps {
 export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(function ChatInput({
   onSend,
   onVoiceToggle,
-  onFileUpload,
+  onFileUpload: _onFileUpload,
   onDocumentUpload,
   threadId,
   placeholder = 'Message Q8...',

@@ -4,7 +4,6 @@ import { useEffect, useCallback, useRef } from 'react';
 import { useContentHubStore } from '@/lib/stores/contenthub';
 import { useSpotifyControls } from '@/hooks/useContentHub';
 import { logger } from '@/lib/logger';
-import type { ContentMode } from '@/types/contenthub';
 
 interface KeyboardShortcutOptions {
   onSearch?: () => void;
@@ -36,7 +35,7 @@ export function useKeyboardShortcuts(options: KeyboardShortcutOptions = {}) {
     isPlaying,
     isExpanded,
     volume,
-    activeMode,
+    activeMode: _activeMode,
     setVolume,
     setMode,
     toggleExpanded,

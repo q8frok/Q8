@@ -66,7 +66,7 @@ interface UseFastChatOptions {
 
 export function useFastChat(options: UseFastChatOptions) {
   const {
-    userId,
+    userId: _userId,
     threadId: initialThreadId,
     userProfile,
     onMessage,

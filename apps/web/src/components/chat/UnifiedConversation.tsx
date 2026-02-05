@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Mic,
   MicOff,
-  MessageSquare,
   Volume2,
   VolumeX,
   Keyboard,
@@ -111,7 +110,7 @@ export const UnifiedConversation = forwardRef<UnifiedConversationRef, UnifiedCon
 
       // Mode state
       mode,
-      inputMethod,
+      inputMethod: _inputMethod,
 
       // Voice state
       isRecording,

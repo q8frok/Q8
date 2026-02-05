@@ -205,7 +205,7 @@ export class ProactiveSuggestionsEngine {
   /**
    * Get agent-specific follow-up suggestions
    */
-  private getAgentSpecificFollowUps(agent: ExtendedAgentType, lastMessage: string): Suggestion[] {
+  private getAgentSpecificFollowUps(agent: ExtendedAgentType, _lastMessage: string): Suggestion[] {
     const suggestions: Suggestion[] = [];
 
     switch (agent) {

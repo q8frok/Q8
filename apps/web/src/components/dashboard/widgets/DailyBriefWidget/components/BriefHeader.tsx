@@ -51,6 +51,7 @@ export function BriefHeader({
         <button
           onClick={(e) => {
             e.stopPropagation();
+            // eslint-disable-next-line @typescript-eslint/no-unused-expressions
             needsRegeneration ? onRegenerate() : onRefresh();
           }}
           className="p-1 hover:bg-white/10 rounded transition-colors"

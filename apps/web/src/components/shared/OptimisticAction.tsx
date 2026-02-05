@@ -83,7 +83,7 @@ export function OptimisticAction<T>({
   showStatus = true,
   statusPosition = 'bottom-right',
 }: OptimisticActionProps<T>) {
-  const [isPending, startTransition] = useTransition();
+  const [_isPending, startTransition] = useTransition();
   const [optimisticData, setOptimisticData] = useOptimistic(data);
   const [actionState, setActionState] = useState<ActionState>('idle');
 

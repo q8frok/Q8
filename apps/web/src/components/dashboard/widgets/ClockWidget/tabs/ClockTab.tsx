@@ -17,7 +17,7 @@ export function ClockTab({
 }: ClockTabProps) {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
 
-  const localTimezone = timezones.find((tz) => tz.id === 'local') || timezones[0];
+  const _localTimezone = timezones.find((tz) => tz.id === 'local') || timezones[0];
   const otherTimezones = timezones.filter((tz) => tz.id !== 'local');
 
   return (

@@ -148,7 +148,7 @@ export async function addGoogleAccount(input: AddGoogleAccountInput): Promise<Go
     }
 
     // Strip tokens from returned account
-    const { access_token, refresh_token, token_expires_at, ...account } = result.data;
+    const { _access_token, _refresh_token, _token_expires_at, ...account } = result.data;
     return { success: true, account: account as GoogleAccount };
   } catch (error) {
     logger.error('[Google Accounts] Error adding account', { error });
@@ -207,7 +207,7 @@ export async function getGoogleAccountById(
     }
 
     return data as GoogleAccount;
-  } catch (error) {
+  } catch (_error) {
     return null;
   }
 }

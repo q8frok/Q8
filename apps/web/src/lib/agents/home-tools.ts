@@ -748,7 +748,7 @@ export async function executeHomeAssistantTool(
           fan_speed?: 'low' | 'medium' | 'high' | 'turbo';
         };
 
-        let service = action;
+        const service = action;
         const serviceData: Record<string, unknown> = { entity_id };
 
         if (action === 'set_fan_speed' && fan_speed) {
@@ -829,16 +829,16 @@ export async function executeHomeAssistantTool(
         }
 
         // Determine notification service based on target
-        let service = 'notify';
+        let _service = 'notify';
         switch (target) {
           case 'mobile':
-            service = 'mobile_app';
+            _service = 'mobile_app';
             break;
           case 'tv':
-            service = 'notify'; // Usually notify.{tv_name}
+            _service = 'notify'; // Usually notify.{tv_name}
             break;
           default:
-            service = 'notify';
+            _service = 'notify';
         }
 
         // Try persistent_notification as fallback

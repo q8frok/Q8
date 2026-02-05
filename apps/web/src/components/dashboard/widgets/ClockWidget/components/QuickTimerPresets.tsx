@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import type { FocusPresetConfig, FocusPreset } from '../types';
+import type { FocusPreset } from '../types';
 import { FOCUS_PRESETS, QUICK_TIMER_PRESETS } from '../constants';
 
 interface QuickTimerPresetsProps {

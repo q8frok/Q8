@@ -1,7 +1,6 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { cn } from '@/lib/utils';
 import { MOON_PHASE_ICONS, MOON_PHASE_LABELS } from '../constants';
 import type { MoonPhaseName } from '../types';
 

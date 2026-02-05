@@ -6,7 +6,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { logger } from '@/lib/logger';
 import type { PresetSuggestion } from '@/lib/presets/preset-config';
-import { PRESET_SUGGESTIONS } from '@/lib/presets/preset-config';
 import {
   getTimeOfDay,
   getContextualPresets,

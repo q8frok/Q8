@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   RefreshCw,
@@ -12,7 +12,6 @@ import {
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useFinanceAccounts } from '@/lib/stores/financehub';
 import type { FinanceAccount } from '@/types/finance';

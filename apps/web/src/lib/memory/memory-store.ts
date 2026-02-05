@@ -25,7 +25,7 @@ const preferencesStore = new Map<string, UserPreferences>();
 
 // Constants
 const SHORT_TERM_MAX_ENTRIES = 50;
-const SHORT_TERM_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
+const _SHORT_TERM_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 /**
  * Generate a unique ID

@@ -15,7 +15,7 @@ interface HourlyForecastProps {
 
 export function HourlyForecast({
   hourly,
-  unit,
+  unit: _unit,
   convertTemp,
   compact = false,
 }: HourlyForecastProps) {

@@ -1530,7 +1530,7 @@ export function getNextDueDate(
   frequency: RecurringFrequency,
   lastDate: string,
   dayOfMonth?: number,
-  dayOfWeek?: number
+  _dayOfWeek?: number
 ): string {
   const date = new Date(lastDate);
   

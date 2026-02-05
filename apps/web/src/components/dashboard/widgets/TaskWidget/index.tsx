@@ -30,7 +30,7 @@ export function TaskWidget({
 
   const { refreshKey } = useWidgetSubscription('tasks');
 
-  const { tasks, isLoading: isFetching, taskCounts, refetch } = useTaskData({
+  const { tasks, isLoading: isFetching, taskCounts: _taskCounts, refetch } = useTaskData({
     filters: showCompleted ? undefined : { status: ['backlog', 'todo', 'in_progress', 'review'] },
     limit: maxItems,
     parentTaskId: null,

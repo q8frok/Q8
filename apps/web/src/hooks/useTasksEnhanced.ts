@@ -13,6 +13,7 @@ export function useTasksEnhanced(userId: string, parentTaskId?: string | null) {
   useEffect(() => {
     if (!collection) return;
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const selector: Record<string, any> = {
       user_id: userId,
       deleted_at: { $exists: false },

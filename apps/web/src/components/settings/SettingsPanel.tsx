@@ -42,14 +42,12 @@ import { MemoriesSettings } from './MemoriesSettings';
 import { logger } from '@/lib/logger';
 import type { UserPreferences } from '@/lib/memory/types';
 import {
-  useDashboardStore,
   useCurrentMode,
   useVisibleWidgets,
   useDashboardActions,
   ALL_WIDGET_IDS,
   WIDGET_META,
   type DashboardWidgetId,
-  type DashboardMode,
 } from '@/lib/stores/dashboard';
 
 interface SettingsPanelProps {

@@ -32,7 +32,7 @@ import {
   useSearchState,
   useCastState,
 } from './hooks';
-import { VoiceControlButton, LyricsDisplay, OnboardingCard, NowPlayingSkeleton, MiniWaveform } from './components';
+import { LyricsDisplay, MiniWaveform } from './components';
 import { getSafeImageUrl } from './utils/urlValidation';
 import type { ContentHubWidgetProps, ContentItem } from './types';
 

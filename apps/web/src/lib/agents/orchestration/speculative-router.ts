@@ -11,7 +11,7 @@
  */
 
 import OpenAI from 'openai';
-import { getModel, type AgentType } from '../model_factory';
+import { getModel } from '../model_factory';
 import { logger } from '@/lib/logger';
 import type { ExtendedAgentType, RoutingDecision } from './types';
 import { AGENT_CAPABILITIES } from './router';
@@ -58,7 +58,7 @@ const DEFAULT_CONFIG: SpeculativeConfig = {
 };
 
 // Agent pairs that can validate each other
-const VALIDATION_PAIRS: Record<ExtendedAgentType, ExtendedAgentType[]> = {
+const _VALIDATION_PAIRS: Record<ExtendedAgentType, ExtendedAgentType[]> = {
   coder: ['researcher'],
   researcher: ['coder', 'personality'],
   secretary: ['personality'],

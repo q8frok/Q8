@@ -138,7 +138,7 @@ export async function GET(request: NextRequest) {
                 else if (allSuccess) checksStatus = 'success';
               }
             }
-          } catch (e) {
+          } catch (_e) {
             // Ignore check status errors
           }
 

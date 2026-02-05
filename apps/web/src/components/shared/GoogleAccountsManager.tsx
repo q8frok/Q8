@@ -13,7 +13,6 @@ import {
   Plus,
   Trash2,
   Star,
-  StarOff,
   Edit2,
   Check,
   X,

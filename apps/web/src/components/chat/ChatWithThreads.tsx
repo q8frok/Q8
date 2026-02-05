@@ -1,10 +1,8 @@
 'use client';
 
-import { useState, useCallback, forwardRef, useImperativeHandle, useRef, useEffect, useContext } from 'react';
+import { useState, useCallback, forwardRef, useImperativeHandle, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { PanelLeftClose, PanelLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 import { ThreadSidebar } from './ThreadSidebar';
 import { StreamingChatPanel, StreamingChatPanelRef } from './StreamingChatPanel';
 import { useThreads } from '@/hooks/useThreads';
@@ -57,7 +55,7 @@ export const ChatWithThreads = forwardRef<ChatWithThreadsRef, ChatWithThreadsPro
     }
   }, [chatContext]);
 
-  const { threads, currentThread, selectThread, updateThread, archiveThread, deleteThread, refreshThreads } = useThreads({
+  const { threads: _threads, currentThread: _currentThread, selectThread, updateThread, archiveThread, deleteThread, refreshThreads } = useThreads({
     userId,
   });
 
@@ -79,14 +77,14 @@ export const ChatWithThreads = forwardRef<ChatWithThreadsRef, ChatWithThreadsPro
   }, [refreshThreads]);
 
   // Handle thread title update
-  const handleUpdateTitle = useCallback(async (title: string) => {
+  const _handleUpdateTitle = useCallback(async (title: string) => {
     if (currentThreadId) {
       await updateThread(currentThreadId, { title });
     }
   }, [currentThreadId, updateThread]);
 
   // Handle thread archive
-  const handleArchive = useCallback(async () => {
+  const _handleArchive = useCallback(async () => {
     if (currentThreadId) {
       await archiveThread(currentThreadId);
       setCurrentThreadId(null);
@@ -94,7 +92,7 @@ export const ChatWithThreads = forwardRef<ChatWithThreadsRef, ChatWithThreadsPro
   }, [currentThreadId, archiveThread]);
 
   // Handle thread delete
-  const handleDelete = useCallback(async () => {
+  const _handleDelete = useCallback(async () => {
     if (currentThreadId) {
       await deleteThread(currentThreadId);
       setCurrentThreadId(null);
@@ -102,7 +100,7 @@ export const ChatWithThreads = forwardRef<ChatWithThreadsRef, ChatWithThreadsPro
   }, [currentThreadId, deleteThread]);
 
   // Handle regenerate title
-  const handleRegenerateTitle = useCallback(async () => {
+  const _handleRegenerateTitle = useCallback(async () => {
     if (!currentThreadId) return;
     try {
       await fetch(`/api/threads/${currentThreadId}/summarize`, { method: 'POST' });

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
@@ -19,7 +19,7 @@ export function WaveformVisualizer({
   className,
   variant = 'bars',
 }: WaveformVisualizerProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const _canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number | null>(null);
   const [heights, setHeights] = useState<number[]>(() =>
     Array.from({ length: barCount }, () => Math.random() * 0.5 + 0.1)

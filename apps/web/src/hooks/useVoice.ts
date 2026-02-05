@@ -90,7 +90,7 @@ export function useVoice(options: UseVoiceOptions = {}): UseVoiceReturn {
     voice: initialVoice = 'nova',
     speed: initialSpeed = 1.0,
     language = 'en',
-    autoSpeak = false,
+    autoSpeak: _autoSpeak = false,
     onTranscription,
     onError,
     onRecordingStart,

@@ -1,10 +1,9 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Droplets, Wind } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Droplets } from 'lucide-react';
 import { WeatherIcon } from '../components/WeatherIcon';
-import { getFullDayName, getDayName } from '../utils';
+import { getDayName } from '../utils';
 import type { ForecastDay, TemperatureUnit } from '../types';
 
 interface ExtendedForecastProps {
@@ -16,7 +15,7 @@ interface ExtendedForecastProps {
 
 export function ExtendedForecast({
   forecast,
-  unit,
+  unit: _unit,
   convertTemp,
   compact = false,
 }: ExtendedForecastProps) {

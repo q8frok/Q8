@@ -7,7 +7,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   storeLongTermMemory,
   searchMemories,
-  getRelevantMemories,
   deleteMemory,
   getUserPreferences,
   updateUserPreferences,

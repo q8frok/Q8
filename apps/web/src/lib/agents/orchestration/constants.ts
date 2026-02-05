@@ -1,4 +1,3 @@
-import type { AgentRole } from "@/lib/agents/display-config";
 
 /**
  * Per-tool timeout configuration (in milliseconds)

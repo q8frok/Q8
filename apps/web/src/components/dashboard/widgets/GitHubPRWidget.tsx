@@ -9,7 +9,6 @@ import {
   XCircle,
   Clock,
   ExternalLink,
-  Sparkles,
   RefreshCw,
   GitMerge,
   AlertCircle,

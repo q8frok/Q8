@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body: CastRequest = await request.json();
-    const { mediaUrl, title, source, entityId } = body;
+    const { mediaUrl, title: _title, source, entityId } = body;
     
     const targetEntity = entityId || DEFAULT_MEDIA_PLAYER;
     const remoteEntity = targetEntity.replace('media_player.', 'remote.');
@@ -257,7 +257,7 @@ export async function GET(request: NextRequest) {
  * Convert Spotify URL to Spotify URI
  * https://open.spotify.com/track/xxx -> spotify:track:xxx
  */
-function convertSpotifyUrlToUri(url: string): string | null {
+function _convertSpotifyUrlToUri(url: string): string | null {
   // Already a URI
   if (url.startsWith('spotify:')) {
     return url;

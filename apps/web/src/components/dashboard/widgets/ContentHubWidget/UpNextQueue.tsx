@@ -1,6 +1,5 @@
 'use client';
 
-import { memo } from 'react';
 import { motion } from 'framer-motion';
 import { Play, Plus, X, GripVertical } from 'lucide-react';
 import { cn } from '@/lib/utils';

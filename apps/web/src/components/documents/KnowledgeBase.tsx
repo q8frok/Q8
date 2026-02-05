@@ -25,7 +25,6 @@ import {
   Image,
   Download,
   GripVertical,
-  ArrowUpDown,
   Archive,
   RotateCcw,
   Upload,

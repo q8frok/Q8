@@ -6,7 +6,6 @@ import {
   Minimize2,
   Plus,
   Search,
-  Filter,
   LayoutGrid,
   List,
   Calendar as CalendarIcon,

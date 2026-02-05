@@ -4,7 +4,7 @@
  * Uses unified orchestration service
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { streamMessage, type OrchestrationEvent, type ExtendedAgentType } from '@/lib/agents/orchestration';
 import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
 import { logger } from '@/lib/logger';

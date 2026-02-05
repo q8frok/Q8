@@ -24,10 +24,10 @@ export async function GET(request: NextRequest) {
         get(name: string) {
           return cookieStore.get(name)?.value;
         },
-        set(name: string, value: string, options) {
+        set(name: string, value: string, options: Record<string, unknown>) {
           cookieStore.set(name, value, options);
         },
-        remove(name: string, options) {
+        remove(name: string, _options?: Record<string, unknown>) {
           cookieStore.delete(name);
         },
       },

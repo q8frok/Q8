@@ -1,11 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, MicOff, Minimize2 } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { MicOff, Minimize2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { AudioVisualizer } from './AudioVisualizer';
-import { cn } from '@/lib/utils';
 import { haptics } from '@/lib/pwa/haptics';
 
 interface VoiceOverlayProps {
@@ -28,7 +27,7 @@ export function VoiceOverlay({
   transcript,
   activeAgent,
 }: VoiceOverlayProps) {
-  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isSpeaking, _setIsSpeaking] = useState(false);
   const [minimized, setMinimized] = useState(false);
 
   if (!isActive) return null;

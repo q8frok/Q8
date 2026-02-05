@@ -3,7 +3,6 @@
  * In-memory conversation history for agent context
  */
 
-import type { AgentMessage } from './types';
 
 interface ConversationMessage {
   role: 'user' | 'assistant' | 'system';

@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
               // user sessions.
             }
           },
-          remove(name: string, options: CookieOptions) {
+          remove(name: string, _options: CookieOptions) {
             try {
               cookieStore.delete(name);
             } catch {

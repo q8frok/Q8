@@ -4,7 +4,7 @@
  */
 
 import { searchDocuments, getConversationContext } from '@/lib/documents/processor';
-import type { DocumentChunk, FileType } from '@/lib/documents/types';
+import type { FileType } from '@/lib/documents/types';
 import { logger } from '@/lib/logger';
 import type { OpenAITool } from '../types';
 

@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
     }
   );
 
-  const { data: { session }, error } = await supabase.auth.getSession();
+  const { data: { session }, error: _error } = await supabase.auth.getSession();
 
   // Test YouTube API if we have a token
   let youtubeApiTest = null;

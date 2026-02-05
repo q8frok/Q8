@@ -24,7 +24,7 @@ export function WeatherBackground({
   try {
     background = getWeatherBackground(condition, isDay);
     emoji = getWeatherEmoji(condition);
-  } catch (error) {
+  } catch (_error) {
     // Fallback to default
     background = { gradient: 'from-gray-400 via-gray-300 to-gray-200', particles: 'none' as const, intensity: 'medium' as const };
     emoji = '☁️';

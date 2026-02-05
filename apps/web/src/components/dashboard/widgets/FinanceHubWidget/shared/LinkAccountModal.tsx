@@ -102,7 +102,7 @@ export function LinkAccountModal({
       } else {
         setErrorMessage('Plaid is not configured. Please add API keys or use manual entry.');
       }
-    } catch (err) {
+    } catch (_err) {
       setErrorMessage('Failed to initialize Plaid Link');
     } finally {
       setIsLoading(false);
@@ -128,7 +128,7 @@ export function LinkAccountModal({
           setStep('error');
           setErrorMessage('Failed to link account');
         }
-      } catch (err) {
+      } catch (_err) {
         setStep('error');
         setErrorMessage('Failed to link account');
       } finally {
@@ -179,7 +179,7 @@ export function LinkAccountModal({
       } else {
         setErrorMessage('SnapTrade is not configured. Please add API keys or use manual entry.');
       }
-    } catch (err) {
+    } catch (_err) {
       setErrorMessage('Failed to connect to SnapTrade');
     } finally {
       setIsLoading(false);
@@ -216,7 +216,7 @@ export function LinkAccountModal({
       } else {
         setErrorMessage('Failed to add account');
       }
-    } catch (err) {
+    } catch (_err) {
       setErrorMessage('Failed to add account');
     } finally {
       setIsLoading(false);

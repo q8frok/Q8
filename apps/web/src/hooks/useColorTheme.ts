@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useContentHubStore } from '@/lib/stores/contenthub';
 import { logger } from '@/lib/logger';
 

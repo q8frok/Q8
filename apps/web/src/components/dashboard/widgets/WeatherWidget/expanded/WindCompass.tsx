@@ -2,7 +2,6 @@
 
 import { motion } from 'framer-motion';
 import { Navigation } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { getWindDirection, getBeaufortScale, formatWindSpeed } from '../utils';
 import type { TemperatureUnit } from '../types';
 

@@ -2,15 +2,14 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Link2, Tag, X, Edit2, Check } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Link2, Check } from 'lucide-react';
 import { TimerRing, SessionStats, QuickTimerPresets } from '../components';
 import { FOCUS_PRESETS } from '../constants';
 import type { TimerTabProps, FocusPreset } from '../types';
 
 export function TimerTab({
   timerState,
-  presets,
+  presets: _presets,
   currentTask,
   onTaskChange,
   onStartSession,
@@ -18,7 +17,7 @@ export function TimerTab({
   onResume,
   onReset,
   onSkipBreak,
-  onLinkTask,
+  onLinkTask: _onLinkTask,
 }: TimerTabProps) {
   const [selectedPreset, setSelectedPreset] = useState<FocusPreset>('sprint');
   const [customMinutes, setCustomMinutes] = useState(25);
@@ -46,7 +45,7 @@ export function TimerTab({
     }
   };
 
-  const { session, isRunning, progress, currentPhase, todayStats } = timerState;
+  const { session, isRunning: _isRunning, progress, currentPhase: _currentPhase, todayStats } = timerState;
   const hasActiveSession = session !== null;
 
   const currentPresetConfig = FOCUS_PRESETS.find((p) => p.id === (session?.preset || selectedPreset));

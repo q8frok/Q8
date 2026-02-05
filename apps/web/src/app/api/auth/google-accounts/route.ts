@@ -13,7 +13,6 @@ import {
   removeGoogleAccount,
   updateAccountLabel,
   setPrimaryAccount,
-  type GoogleAccount,
 } from '@/lib/auth/google-accounts';
 import { logger } from '@/lib/logger';
 

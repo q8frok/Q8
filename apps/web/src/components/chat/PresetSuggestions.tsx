@@ -27,7 +27,7 @@ export function PresetSuggestions({ onSelect, className }: PresetSuggestionsProp
   const {
     presets: contextualPresets,
     allPresets,
-    timeOfDay,
+    timeOfDay: _timeOfDay,
     subtitle,
     services,
     isLoading,

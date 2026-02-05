@@ -14,7 +14,6 @@ import type {
   FolderContents,
   FileType,
   DocumentScope,
-  ParsedChunk,
 } from './types';
 import { validateMagicBytes, getValidationErrorMessage } from './validation';
 import { logger } from '@/lib/logger';

@@ -9,7 +9,6 @@ import {
   ChevronUp,
   Edit2,
   Trash2,
-  ExternalLink,
   ArrowUpRight,
   ArrowDownRight,
 } from 'lucide-react';
@@ -27,7 +26,7 @@ import { AmountDisplay } from '../shared/AmountDisplay';
 import { AddTransactionForm } from './AddTransactionForm';
 import { TransactionCategoryModal } from './TransactionCategoryModal';
 import type { FinanceTransaction, TransactionFilters } from '@/types/finance';
-import { getCategoryIcon, formatCurrency } from '@/types/finance';
+import { getCategoryIcon } from '@/types/finance';
 
 interface UnifiedLedgerProps {
   className?: string;
@@ -51,7 +50,7 @@ const PAGE_SIZE = 20;
 export function UnifiedLedger({ className }: UnifiedLedgerProps) {
   const transactions = useFilteredTransactions();
   const accounts = useFinanceAccounts();
-  const privacyMode = usePrivacyMode();
+  const _privacyMode = usePrivacyMode();
   const { setTransactionFilters, deleteTransaction } = useFinanceHubStore();
   const { userId } = useAuth();
 

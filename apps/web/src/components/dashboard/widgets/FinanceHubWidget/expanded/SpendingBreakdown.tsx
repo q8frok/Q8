@@ -28,7 +28,6 @@ import {
   Store,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 import { useFilteredTransactions, usePrivacyMode } from '@/lib/stores/financehub';
 import { formatCurrency, formatCompactCurrency, getCategoryIcon } from '@/types/finance';
 import type { FinanceTransaction } from '@/types/finance';
@@ -221,7 +220,7 @@ export function SpendingBreakdown({ className }: SpendingBreakdownProps) {
   }, [merchantData, selectedMerchant]);
 
   // Calculate totals
-  const { totalSpending, previousTotalSpending, spendingChange } = useMemo(() => {
+  const { totalSpending, previousTotalSpending: _previousTotalSpending, spendingChange } = useMemo(() => {
     const total = categoryData.reduce((sum, cat) => sum + cat.value, 0);
     const prevTotal = categoryData.reduce(
       (sum, cat) => sum + (cat.previousValue || 0),

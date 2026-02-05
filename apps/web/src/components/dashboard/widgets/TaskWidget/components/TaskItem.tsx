@@ -16,7 +16,7 @@ interface TaskItemProps {
 }
 
 export const TaskItem = memo(function TaskItem({ task, index, onToggle, onDelete }: TaskItemProps) {
-  const isCompleted = task.status === 'done';
+  const _isCompleted = task.status === 'done';
 
   return (
     <OptimisticAction

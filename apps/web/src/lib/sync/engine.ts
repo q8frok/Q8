@@ -138,7 +138,7 @@ export class SyncEngine {
     }
 
     // Unsubscribe from realtime
-    for (const [name, channel] of this.realtimeChannels) {
+    for (const [_name, channel] of this.realtimeChannels) {
       await this.supabase.removeChannel(channel);
     }
     this.realtimeChannels.clear();

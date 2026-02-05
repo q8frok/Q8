@@ -31,7 +31,7 @@ const SCOPES = [
 /**
  * GET /api/spotify/auth - Redirect to Spotify authorization
  */
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   if (!CLIENT_ID) {
     return NextResponse.json(
       { error: 'Spotify client ID not configured' },

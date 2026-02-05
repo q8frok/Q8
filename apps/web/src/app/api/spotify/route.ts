@@ -316,7 +316,7 @@ export async function POST(request: NextRequest) {
       
       // Parse Spotify error for better messages
       let errorMessage = `Spotify API error: ${response.status}`;
-      let errorCode = 'UNKNOWN';
+      const _errorCode = 'UNKNOWN';
       try {
         const errorJson = JSON.parse(errorText);
         if (errorJson.error?.message) {

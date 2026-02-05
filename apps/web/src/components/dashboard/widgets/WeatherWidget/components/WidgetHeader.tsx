@@ -1,6 +1,6 @@
 'use client';
 
-import { MapPin, RefreshCw, Maximize2, Settings } from 'lucide-react';
+import { MapPin, RefreshCw, Maximize2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface WidgetHeaderProps {

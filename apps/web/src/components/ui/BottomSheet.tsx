@@ -184,7 +184,7 @@ export function BottomSheet({
     lastSnapRef.current = snap;
   }, [snap]);
 
-  const backdropOpacity = useTransform(
+  const _backdropOpacity = useTransform(
     dragY,
     [0, 1],
     [0, 1]

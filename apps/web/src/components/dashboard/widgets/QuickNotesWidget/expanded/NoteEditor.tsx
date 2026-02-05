@@ -20,9 +20,6 @@ import {
   Quote,
   Minus,
   Sparkles,
-  Wand2,
-  ListTodo,
-  Type,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';

@@ -7,12 +7,9 @@ import type {
   SyncMetadata,
   ConflictResolution,
   ConflictStrategy,
-  SyncPushResult,
-  SyncPullResult,
-  SyncError,
   CollectionSyncConfig,
 } from './types';
-import { createSyncError, getOrCreateDeviceId } from './types';
+import { getOrCreateDeviceId } from './types';
 import { logger } from '@/lib/logger';
 
 // =============================================================================
@@ -211,7 +208,7 @@ export class ServerWinsStrategy<T extends SyncMetadata> implements SyncStrategy<
     };
   }
 
-  prepareForPush(item: T): T {
+  prepareForPush(_item: T): T {
     // Pull-only collections shouldn't push, but just in case
     throw new Error('ServerWinsStrategy does not support push operations');
   }
@@ -248,7 +245,7 @@ export class ClientWinsStrategy<T extends SyncMetadata> implements SyncStrategy<
     };
   }
 
-  processFromPull(item: T): T {
+  processFromPull(_item: T): T {
     // Push-only collections shouldn't pull, but just in case
     throw new Error('ClientWinsStrategy does not support pull operations');
   }

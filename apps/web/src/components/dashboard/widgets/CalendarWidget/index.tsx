@@ -70,7 +70,7 @@ export const CalendarWidget = memo(function CalendarWidget({
   const {
     syncEvents,
     createEvent,
-    updateEvent,
+    updateEvent: _updateEvent,
     deleteEvent,
     linkCalendar,
   } = useCalendarSync();
@@ -177,7 +177,7 @@ export const CalendarWidget = memo(function CalendarWidget({
   }, [createEvent]);
 
   // Handle event edit from modal
-  const handleEventEdit = useCallback((event: CalendarEventDisplay) => {
+  const handleEventEdit = useCallback((_event: CalendarEventDisplay) => {
     // Open expanded view with event selected for editing
     toggleExpanded();
     setSelectedEventForModal(null);

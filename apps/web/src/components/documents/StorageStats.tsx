@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { ChevronDown, ChevronRight, HardDrive, FileText, Hash, Loader2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, HardDrive, Loader2 } from 'lucide-react';
 
 interface StorageData {
   totalStorageBytes: number;

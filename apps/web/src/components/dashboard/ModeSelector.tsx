@@ -6,7 +6,6 @@ import { cn } from '@/lib/utils';
 import {
   useCurrentMode,
   useDashboardActions,
-  type DashboardMode,
 } from '@/lib/stores/dashboard';
 
 const modes = [

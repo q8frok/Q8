@@ -3,7 +3,6 @@
 import { memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronRight } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { EventCard } from '../components/EventCard';
 import type { UpcomingEventsListProps } from '../types';

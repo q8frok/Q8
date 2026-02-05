@@ -120,7 +120,7 @@ export async function GET(request: NextRequest) {
             0
           );
         }
-      } catch (e) {
+      } catch (_e) {
         logger.warn('Failed to fetch holdings for account', { accountId: account.id });
       }
 

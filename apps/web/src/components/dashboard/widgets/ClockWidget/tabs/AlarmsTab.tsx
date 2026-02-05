@@ -3,7 +3,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bell, BellOff, Plus, Trash2, Edit2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { AlarmBadge } from '../components';
 import type { AlarmsTabProps, Alarm } from '../types';
 
 export function AlarmsTab({

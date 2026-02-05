@@ -24,7 +24,6 @@ import { Button } from '@/components/ui/button';
 import {
   useFinanceHubStore,
   useFinanceAccounts,
-  useVisibleAccounts,
   usePrivacyMode,
 } from '@/lib/stores/financehub';
 import { AmountDisplay } from '../shared/AmountDisplay';

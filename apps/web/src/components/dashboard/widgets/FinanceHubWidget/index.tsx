@@ -56,15 +56,15 @@ export function FinanceHubWidget({ className }: FinanceHubWidgetProps) {
     toggleExpanded,
     setError,
     setSyncing,
-    setAccounts,
-    setTransactions,
-    setRecurring,
-    setSnapshots,
+    setAccounts: _setAccounts,
+    setTransactions: _setTransactions,
+    setRecurring: _setRecurring,
+    setSnapshots: _setSnapshots,
   } = useFinanceHubStore();
 
   const {
     syncAccounts,
-    fetchFinanceData,
+    fetchFinanceData: _fetchFinanceData,
     cleanupAndRefresh,
   } = useFinanceHub();
 
@@ -76,7 +76,7 @@ export function FinanceHubWidget({ className }: FinanceHubWidgetProps) {
   const [accountSyncStates, setAccountSyncStates] = useState<Map<string, AccountSyncState>>(new Map());
 
   // Get authenticated user from session
-  const { user, isAuthenticated } = useSession();
+  const { user, isAuthenticated: _isAuthenticated } = useSession();
   const userId = user?.id;
 
   // Fetch finance data on mount - cleanup duplicates and fetch fresh data
@@ -130,7 +130,7 @@ export function FinanceHubWidget({ className }: FinanceHubWidgetProps) {
         setShowSyncProgress(false);
         setSyncProgressStatus('idle');
       }, 3000);
-    } catch (err) {
+    } catch (_err) {
       setSyncProgressStatus('error');
       setError('Sync failed');
     } finally {

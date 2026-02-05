@@ -1,6 +1,6 @@
 'use client';
 
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   Brain,
   Coffee,
@@ -11,8 +11,6 @@ import {
   Cast,
   Mic,
   Loader2,
-  Play,
-  Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { logger } from '@/lib/logger';

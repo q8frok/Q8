@@ -3,7 +3,6 @@
 import { memo } from 'react';
 import { motion } from 'framer-motion';
 import { Calendar, Link, ExternalLink, Shield } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import type { LinkCalendarPromptProps } from '../types';
 

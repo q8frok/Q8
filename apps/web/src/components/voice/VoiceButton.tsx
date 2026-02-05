@@ -131,7 +131,7 @@ export function VoiceButton({
       result.addEventListener('change', () => {
         setPermissionGranted(result.state === 'granted');
       });
-    } catch (error) {
+    } catch (_error) {
       // Fallback: permission API not supported
       setPermissionGranted(null);
     }

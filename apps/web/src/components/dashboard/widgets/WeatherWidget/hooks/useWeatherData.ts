@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { logger } from '@/lib/logger';
 import type { WeatherResponse, TemperatureUnit } from '../types';
-import { REFRESH_INTERVAL, DEFAULT_LOCATION } from '../constants';
+import { REFRESH_INTERVAL } from '../constants';
 import { convertTemperature } from '../utils';
 
 interface UseWeatherDataOptions {

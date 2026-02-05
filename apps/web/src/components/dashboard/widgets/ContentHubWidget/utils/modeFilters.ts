@@ -1,4 +1,4 @@
-import type { ContentItem, ContentMode, ModeFilter } from '@/types/contenthub';
+import type { ContentItem, ContentMode } from '@/types/contenthub';
 import { PRESET_MODES } from '@/types/contenthub';
 
 /**

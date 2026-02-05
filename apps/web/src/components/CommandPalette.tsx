@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from 'next-themes';
 import {
   Search,
-  MessageSquare,
   Settings,
   Mic,
   Home,
@@ -14,10 +13,8 @@ import {
   Code2,
   Sun,
   Moon,
-  Volume2,
   Lightbulb,
   Thermometer,
-  FileText,
   Command,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';

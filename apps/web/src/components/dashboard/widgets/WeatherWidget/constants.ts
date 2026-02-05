@@ -12,13 +12,10 @@ import {
   CloudLightning,
   CloudFog,
   CloudDrizzle,
-  Cloudy,
-  CloudSun,
-  Snowflake,
   Tornado,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import type { WeatherCondition, AQICategory, UVCategory, AlertSeverity, MoonPhaseName } from './types';
+import type { AQICategory, UVCategory, AlertSeverity, MoonPhaseName } from './types';
 
 export const WEATHER_ICONS: Record<string, LucideIcon> = {
   Clear: Sun,

@@ -4,7 +4,7 @@
  */
 
 import type { PresetSuggestion, PresetCategory, ExtendedAgentType } from './preset-config';
-import { PRESET_SUGGESTIONS, getPresetsByCategory } from './preset-config';
+import { PRESET_SUGGESTIONS } from './preset-config';
 
 export type TimeOfDay = 'morning' | 'afternoon' | 'evening' | 'night';
 

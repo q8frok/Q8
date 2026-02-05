@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useEffect, useRef } from 'react';
+import { motion } from 'framer-motion';
 import { X, Maximize2, Minimize2, Music2, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -29,7 +29,7 @@ export function LyricsDisplay({
   trackTitle,
   trackArtist,
   progress,
-  isPlaying,
+  isPlaying: _isPlaying,
   onClose,
   className,
   variant = 'inline',

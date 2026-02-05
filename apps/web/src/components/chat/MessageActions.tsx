@@ -78,7 +78,7 @@ interface MessageActionsProps {
  * ```
  */
 export function MessageActions({
-  messageId,
+  messageId: _messageId,
   visible,
   onCopy,
   isCopied,

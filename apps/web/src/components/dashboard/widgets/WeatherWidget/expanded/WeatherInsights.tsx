@@ -2,7 +2,6 @@
 
 import { motion } from 'framer-motion';
 import { Lightbulb, Shirt, Umbrella, Sun, Thermometer } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { getWeatherInsight, getOutfitRecommendation } from '../utils';
 import type { WeatherCurrent, ForecastDay } from '../types';
 

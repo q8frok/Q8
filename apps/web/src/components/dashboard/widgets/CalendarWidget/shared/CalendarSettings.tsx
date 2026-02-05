@@ -24,7 +24,7 @@ export const CalendarSettings = memo(function CalendarSettings({
   const {
     calendars,
     selectedCalendarIds,
-    isAuthenticated,
+    isAuthenticated: _isAuthenticated,
     isSyncing,
     lastSyncAt,
     error,

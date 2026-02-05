@@ -65,7 +65,7 @@ export function safeEvaluate(expression: string): number {
   }
 
   // Normalize common patterns
-  let normalizedExpr = expression
+  const normalizedExpr = expression
     .trim()
     // Handle "X% of Y" pattern
     .replace(/(\d+(?:\.\d+)?)\s*%\s*of\s*(\d+(?:\.\d+)?)/gi, '($1 / 100) * $2')

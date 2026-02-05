@@ -2,8 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Search, Globe, Clock, Check } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { X, Search, Globe, Clock } from 'lucide-react';
 import { POPULAR_TIMEZONES } from '../constants';
 import type { AddTimezoneModalProps, TimeZoneConfig } from '../types';
 

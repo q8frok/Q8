@@ -3,7 +3,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import {
-  Bot,
   Code2,
   Search,
   Calendar,
@@ -14,7 +13,6 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { PresetSuggestion } from '@/lib/presets/preset-config';
 import { getPresetsByAgent, AGENT_COLORS, type ExtendedAgentType } from '@/lib/presets/preset-config';
 
 export interface AgentInfo {

@@ -24,7 +24,7 @@ import type { Task, TaskDetailPanelProps, TaskStatus, TaskPriority } from '../ty
 export function TaskDetailPanel({
   taskId,
   onClose,
-  onUpdate,
+  onUpdate: _onUpdate,
   onDelete,
 }: TaskDetailPanelProps) {
   const { db } = useRxDB();

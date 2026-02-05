@@ -328,7 +328,7 @@ export async function getUpcomingBills(
 
   for (const rec of recurring || []) {
     // Calculate next due date based on frequency
-    let nextDue = new Date(rec.next_date || rec.start_date);
+    const nextDue = new Date(rec.next_date || rec.start_date);
 
     // If next due is in the past, calculate the next occurrence
     while (nextDue < now) {

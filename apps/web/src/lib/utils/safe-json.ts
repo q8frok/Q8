@@ -3,7 +3,7 @@
  * Provides type-safe JSON parsing with error handling
  */
 
-import { z, ZodSchema } from 'zod';
+import { ZodSchema } from 'zod';
 
 /**
  * Result type for parse operations

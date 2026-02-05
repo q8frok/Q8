@@ -19,7 +19,6 @@ import { useFinanceHubStore } from '@/lib/stores/financehub';
 import type { FinanceTransaction, CategoryRuleMatchType } from '@/types/finance';
 import { getAllCategories, getCategoryIcon, formatCurrency } from '@/types/finance';
 import {
-  normalizeMerchantName,
   generateMerchantPattern,
   suggestMatchType,
 } from '@/lib/finance/categoryMatcher';
@@ -61,7 +60,7 @@ export function TransactionCategoryModal({
   transaction,
   userId,
 }: TransactionCategoryModalProps) {
-  const { updateTransaction, transactions } = useFinanceHubStore();
+  const { updateTransaction, transactions: _transactions } = useFinanceHubStore();
 
   // State
   const [selectedCategory, setSelectedCategory] = useState<string>('');

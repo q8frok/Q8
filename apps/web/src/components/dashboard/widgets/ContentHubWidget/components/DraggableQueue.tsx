@@ -4,7 +4,6 @@ import { useState, useCallback } from 'react';
 import { motion, Reorder, AnimatePresence } from 'framer-motion';
 import { GripVertical, Play, X, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useContentHubStore } from '@/lib/stores/contenthub';
 import type { ContentItem } from '@/types/contenthub';
 
 interface DraggableQueueProps {

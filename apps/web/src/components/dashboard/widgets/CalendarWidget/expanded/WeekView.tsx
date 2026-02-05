@@ -79,8 +79,8 @@ function layoutOverlappingEvents(events: CalendarEventDisplay[]): LayoutEvent[] 
 export const WeekView = memo(function WeekView({
   currentDate,
   events,
-  selectedDate,
-  onDateSelect,
+  selectedDate: _selectedDate,
+  onDateSelect: _onDateSelect,
   onEventClick,
   onCreateEvent,
 }: WeekViewProps) {

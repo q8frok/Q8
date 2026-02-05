@@ -213,7 +213,7 @@ interface YouTubeVideo {
   };
 }
 
-interface YouTubePlaylistSearchResult {
+interface _YouTubePlaylistSearchResult {
   id: { playlistId: string };
   snippet: {
     title: string;

@@ -15,7 +15,6 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { usePrivacyMode, useUpcomingBillsRaw, computeUpcomingBills, useActiveAlerts } from '@/lib/stores/financehub';
 import { formatCurrency } from '@/types/finance';
-import type { FinanceAlert, RecurringItem } from '@/types/finance';
 
 interface AlertCarouselProps {
   className?: string;

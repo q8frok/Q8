@@ -57,7 +57,7 @@ export function EnhancedContentCard({
   item,
   onPlay,
   onAddToQueue,
-  onSaveForLater,
+  onSaveForLater: _onSaveForLater,
   onShare,
   onViewArtist,
   size = 'md',

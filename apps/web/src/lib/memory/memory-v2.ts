@@ -6,7 +6,7 @@
 
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { logger } from '@/lib/logger';
-import type { MemoryType, MemoryImportance, LongTermMemory } from './types';
+import type { MemoryType, MemoryImportance } from './types';
 
 /**
  * Memory with provenance and hybrid search metadata

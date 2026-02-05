@@ -100,7 +100,7 @@ export function AuthForm({
       try {
         if (mode === 'login') {
           // Email/password login
-          const { data, error } = await supabase.auth.signInWithPassword({
+          const { data: _loginData, error } = await supabase.auth.signInWithPassword({
             email,
             password,
           });
@@ -111,7 +111,7 @@ export function AuthForm({
           router.push(redirectTo);
         } else if (mode === 'signup') {
           // Email/password signup
-          const { data, error } = await supabase.auth.signUp({
+          const { data: _signupData, error } = await supabase.auth.signUp({
             email,
             password,
             options: {

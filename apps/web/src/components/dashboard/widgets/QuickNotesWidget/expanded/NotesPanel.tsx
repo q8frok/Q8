@@ -21,7 +21,6 @@ import {
   FileText,
   Folder,
   Clock,
-  Hash,
   StickyNote,
   ChevronLeft,
   PanelLeftClose,

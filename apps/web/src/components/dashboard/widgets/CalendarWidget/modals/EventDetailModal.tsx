@@ -11,10 +11,8 @@ import {
   Edit2,
   Trash2,
   ExternalLink,
-  Calendar,
   Bell,
   Copy,
-  Check,
 } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import { cn } from '@/lib/utils';

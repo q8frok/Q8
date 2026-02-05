@@ -10,7 +10,6 @@
  * - Emotion-aware voice modulation hints
  */
 
-import { logger } from '@/lib/logger';
 
 // =============================================================================
 // TYPES

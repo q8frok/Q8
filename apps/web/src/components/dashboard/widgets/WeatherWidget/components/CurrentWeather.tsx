@@ -1,7 +1,6 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { cn } from '@/lib/utils';
 import { WeatherIcon } from './WeatherIcon';
 import type { CurrentWeatherProps } from '../types';
 

@@ -188,7 +188,7 @@ export function useUnifiedChat(options: UseUnifiedChatOptions): UseUnifiedChatRe
       }
     },
     onToolExecution,
-    onRouting: (agent, reason, confidence) => {
+    onRouting: (agent, reason, _confidence) => {
       // Track agent hand-offs
       const previousAgent = previousAgentRef.current;
 

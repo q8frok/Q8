@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import type { Alarm, AlarmRepeat } from '../types';
+import type { Alarm } from '../types';
 
 interface UseAlarmsOptions {
   onAlarmTrigger?: (alarm: Alarm) => void;

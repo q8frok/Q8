@@ -12,7 +12,7 @@ import {
   getAuthenticatedUser,
   unauthorizedResponse,
 } from '@/lib/auth/api-auth';
-import type { Note, NoteInsert } from '@/lib/supabase/types';
+import type { NoteInsert } from '@/lib/supabase/types';
 import { logger } from '@/lib/logger';
 
 // Changed from 'edge' to 'nodejs' for cookie-based auth support

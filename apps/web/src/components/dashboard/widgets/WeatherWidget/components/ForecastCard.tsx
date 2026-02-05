@@ -1,7 +1,6 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { cn } from '@/lib/utils';
 import { WeatherIcon } from './WeatherIcon';
 import { getDayName } from '../utils';
 import type { ForecastCardProps } from '../types';
@@ -9,7 +8,7 @@ import type { ForecastCardProps } from '../types';
 export function ForecastCard({
   day,
   index,
-  unit,
+  unit: _unit,
   convertTemp,
 }: ForecastCardProps) {
   return (

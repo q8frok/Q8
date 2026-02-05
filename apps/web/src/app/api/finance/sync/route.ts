@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
             accessToken,
             accountIds: [account.id],
           });
-        } catch (e) {
+        } catch (_e) {
           results.errors.push(`Failed to decrypt token for item ${account.plaid_item_id}`);
           continue;
         }
@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Sync each Plaid item
-    for (const [itemId, { accessToken, accountIds }] of itemMap) {
+    for (const [itemId, { accessToken, accountIds: _accountIds }] of itemMap) {
       try {
         // Update account balances
         const balanceResponse = await plaidClient.accountsGet({

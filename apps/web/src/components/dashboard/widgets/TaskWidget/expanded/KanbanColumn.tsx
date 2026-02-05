@@ -13,7 +13,7 @@ import { Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { KANBAN_COLUMNS } from '../constants';
 import { TaskCard } from './TaskCard';
-import type { Task, TaskStatus, KanbanColumnProps } from '../types';
+import type { Task, KanbanColumnProps } from '../types';
 
 interface SortableTaskCardProps {
   task: Task;

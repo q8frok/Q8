@@ -75,7 +75,9 @@ export function startSync(
   } = config;
 
   // Fall back to legacy behavior
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { pullAllCollections } = require('./pull');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { pushAllCollections } = require('./push');
 
   if (pullOnStart) {

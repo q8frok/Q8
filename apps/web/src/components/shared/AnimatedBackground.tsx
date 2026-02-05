@@ -59,11 +59,11 @@ export const AnimatedBackground = memo(function AnimatedBackground() {
     }
 
     let animationId: number;
-    let time = 0;
+    let _time = 0;
 
     const animate = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      time += 0.002;
+      _time += 0.002;
 
       // Draw and update particles
       particles.forEach((particle) => {

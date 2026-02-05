@@ -1,9 +1,8 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
-  LineChart,
   Line,
   XAxis,
   YAxis,
@@ -51,8 +50,8 @@ interface MajorPurchase {
  */
 export function WealthSimulator({ className }: WealthSimulatorProps) {
   const currentNetWorth = useNetWorth();
-  const liquidAssets = useLiquidAssets();
-  const investments = useInvestments();
+  const _liquidAssets = useLiquidAssets();
+  const _investments = useInvestments();
 
   // Simulation parameters
   const [years, setYears] = useState(20);

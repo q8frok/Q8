@@ -40,7 +40,7 @@ function SingleImage({ image, onZoom }: SingleImageProps) {
     document.body.removeChild(link);
   };
 
-  const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle');
+  const [_shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle');
 
   const handleShare = async () => {
     try {

@@ -9,7 +9,6 @@ import { BentoGrid, BentoItem } from '@/components/dashboard/BentoGrid';
 import { ModeSelector } from '@/components/dashboard/ModeSelector';
 import { useVisibleWidgets } from '@/lib/stores/dashboard';
 import {
-  StatusWidget,
   WeatherWidget,
   ContentHubWidget,
   GitHubPRWidget,
@@ -34,7 +33,6 @@ import { BottomSheet, type SnapPoint } from '@/components/ui/BottomSheet';
 import { ChatProvider } from '@/contexts/ChatContext';
 import { WidgetUpdateProvider } from '@/contexts/WidgetUpdateContext';
 import { haptics } from '@/lib/pwa/haptics';
-import { logger } from '@/lib/logger';
 
 
 function DashboardContent() {
@@ -291,7 +289,7 @@ function DashboardContent() {
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         userId={userId}
-        onPreferencesChange={(prefs) => {
+        onPreferencesChange={(_prefs) => {
           toast.success('Settings saved', 'Your preferences have been updated');
         }}
       />

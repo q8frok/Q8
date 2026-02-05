@@ -94,7 +94,7 @@ export function VoiceConversation({
   });
 
   const {
-    messages,
+    messages: _messages,
     isLoading,
     isStreaming,
     currentAgent,

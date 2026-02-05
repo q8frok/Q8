@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Sparkles, Loader2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { haptics } from '@/lib/pwa/haptics';
@@ -29,7 +29,7 @@ export function AITaskGenerator({ onGenerate, parentTaskId, onClose }: AITaskGen
       setPrompt('');
       haptics.success();
       onClose?.();
-    } catch (err) {
+    } catch (_err) {
       setError('Failed to generate tasks. Please try again.');
       haptics.error();
     } finally {

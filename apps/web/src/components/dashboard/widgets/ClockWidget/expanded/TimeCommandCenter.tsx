@@ -13,7 +13,6 @@ import {
   Play,
   Pause,
   RotateCcw,
-  SkipForward,
   Flag,
   Trash2,
   BellOff,
@@ -53,7 +52,7 @@ export function TimeCommandCenter({
   onStopwatchStop,
   onStopwatchReset,
   onStopwatchLap,
-  onStopwatchLabelLap,
+  onStopwatchLabelLap: _onStopwatchLabelLap,
   onStopwatchClearLaps,
   alarms,
   onToggleAlarm,
@@ -159,7 +158,7 @@ export function TimeCommandCenter({
                   <h2 className="text-lg font-semibold text-white mb-4">World Clocks</h2>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     {timezones.map((tz) => {
-                      const tzTime = new Date(
+                      const _tzTime = new Date(
                         currentTime.toLocaleString('en-US', { timeZone: tz.timezone })
                       );
                       return (

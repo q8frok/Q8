@@ -11,7 +11,6 @@
  */
 
 import { getModel } from '../model_factory';
-import { defaultTools } from '../tools/default-tools';
 import { logger } from '@/lib/logger';
 import type { Tool, OpenAITool } from '../types';
 

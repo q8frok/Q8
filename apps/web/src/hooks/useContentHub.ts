@@ -9,7 +9,7 @@ import { logger } from '@/lib/logger';
 /**
  * Apply mode-specific filters to content items
  */
-function applyModeFilter(content: ContentItem[], mode: ContentMode): ContentItem[] {
+function _applyModeFilter(content: ContentItem[], mode: ContentMode): ContentItem[] {
   const modeConfig = PRESET_MODES[mode];
   if (!modeConfig || !modeConfig.filter) {
     return content;
@@ -32,7 +32,7 @@ function applyModeFilter(content: ContentItem[], mode: ContentMode): ContentItem
 /**
  * Get mode-specific AI prompt context
  */
-function getModePromptContext(mode: ContentMode): string {
+function _getModePromptContext(mode: ContentMode): string {
   const prompts: Record<ContentMode, string> = {
     focus: 'Recommend calm, instrumental music for concentration.',
     break: 'Recommend light, enjoyable content for relaxation.',
