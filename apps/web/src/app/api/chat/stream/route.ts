@@ -8,7 +8,7 @@ import { type OrchestrationEvent, type ExtendedAgentType } from '@/lib/agents/or
 import { streamMessage as streamMessageSDK, type AgentType } from '@/lib/agents/sdk';
 import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
 import { logger } from '@/lib/logger';
-import { supabaseAdmin } from '@/lib/supabase/server';
+import { fetchCanonicalConversationHistory } from '@/lib/server/chat-history';
 
 // Use Node.js runtime for full compatibility with OpenAI and Supabase SDKs
 export const runtime = 'nodejs';
@@ -172,32 +172,6 @@ function encodeSSE(event: StreamEvent): string {
   return `data: ${JSON.stringify(event)}\n\n`;
 }
 
-
-async function fetchCanonicalConversationHistory(threadId: string): Promise<Array<{ role: 'user' | 'assistant'; content: string }>> {
-  const { data: messages, error } = await supabaseAdmin
-    .from('chat_messages')
-    .select('role, content, created_at')
-    .eq('thread_id', threadId)
-    .order('created_at', { ascending: true })
-    .limit(100);
-
-  if (error) {
-    logger.error('[Stream API] Failed to fetch canonical conversation history', {
-      threadId,
-      error,
-    });
-    return [];
-  }
-
-  return (messages ?? [])
-    .filter((m): m is { role: 'user' | 'assistant'; content: string; created_at: string } =>
-      (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string'
-    )
-    .map(m => ({
-      role: m.role,
-      content: m.content,
-    }));
-}
 
 export async function POST(request: NextRequest) {
   // Authenticate user before starting stream
