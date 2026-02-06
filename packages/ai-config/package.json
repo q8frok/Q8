@@ -7,7 +7,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./models": "./src/models.ts",
-    "./prompts": "./src/prompts.ts"
+    "./prompts": "./src/prompts.ts",
+    "./realtime": "./src/realtime.ts"
   },
   "dependencies": {},
   "devDependencies": {

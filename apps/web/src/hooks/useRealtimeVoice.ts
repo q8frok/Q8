@@ -95,7 +95,7 @@ export function useRealtimeVoice(config: RealtimeVoiceConfig = {}): UseRealtimeV
         throw new Error(data?.error?.message || 'Failed to get voice session token');
       }
 
-      const { clientSecret } = await tokenRes.json();
+      const { clientSecret, negotiated } = await tokenRes.json();
       if (!clientSecret) {
         throw new Error('No client secret received');
       }
@@ -153,8 +153,10 @@ export function useRealtimeVoice(config: RealtimeVoiceConfig = {}): UseRealtimeV
       await pc.setLocalDescription(offer);
 
       // 7. Send offer to OpenAI Realtime API
+      const realtimeModel = negotiated?.model || 'gpt-4o-realtime-preview-2024-12-17';
+
       const sdpResponse = await fetch(
-        'https://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17',
+        `https://api.openai.com/v1/realtime?model=${encodeURIComponent(realtimeModel)}`,
         {
           method: 'POST',
           headers: {
