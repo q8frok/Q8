@@ -4,8 +4,7 @@
  * Tests for POST /api/chat/stream covering:
  * - Authentication checks (401 for unauthenticated)
  * - Validation (error event for missing message)
- * - Feature flag functionality (USE_LEGACY_ORCHESTRATION)
- * - Request body override for SDK/legacy selection
+ * - SDK orchestration invocation
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -15,11 +14,9 @@ import type { OrchestrationEvent } from '@/lib/agents/orchestration/types';
 // Hoisted mock functions that persist across module resets
 const {
   mockGetAuthenticatedUser,
-  mockStreamMessageLegacy,
   mockStreamMessageSDK,
 } = vi.hoisted(() => ({
   mockGetAuthenticatedUser: vi.fn(),
-  mockStreamMessageLegacy: vi.fn(),
   mockStreamMessageSDK: vi.fn(),
 }));
 
@@ -32,11 +29,6 @@ vi.mock('@/lib/auth/api-auth', () => ({
       { status: 401 }
     );
   },
-}));
-
-// Mock legacy orchestration service
-vi.mock('@/lib/agents/orchestration', () => ({
-  streamMessage: mockStreamMessageLegacy,
 }));
 
 // Mock new SDK
@@ -131,7 +123,6 @@ describe('POST /api/chat/stream', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetAuthenticatedUser.mockResolvedValue(mockUser);
-    mockStreamMessageLegacy.mockImplementation(() => createEventStream(mockEvents));
     mockStreamMessageSDK.mockImplementation(() => createEventStream(mockEvents));
   });
 
@@ -170,7 +161,7 @@ describe('POST /api/chat/stream', () => {
     });
   });
 
-  it('uses SDK by default (useLegacy not set)', async () => {
+  it('uses SDK orchestration', async () => {
     const request = new NextRequest('http://localhost:3000/api/chat/stream', {
       method: 'POST',
       body: JSON.stringify({ message: 'Hello Q8' }),
@@ -183,50 +174,25 @@ describe('POST /api/chat/stream', () => {
     // Wait for the stream to complete
     await parseSSEResponse(response);
 
-    // SDK should be called by default, legacy should not
+    // SDK should be called
     expect(mockStreamMessageSDK).toHaveBeenCalledTimes(1);
-    expect(mockStreamMessageLegacy).not.toHaveBeenCalled();
   });
 
-  it('uses SDK when useLegacy is explicitly false', async () => {
+  it('passes request signal to SDK streamMessage for cancellation', async () => {
     const request = new NextRequest('http://localhost:3000/api/chat/stream', {
       method: 'POST',
-      body: JSON.stringify({
-        message: 'Hello Q8',
-        useLegacy: false,
-      }),
+      body: JSON.stringify({ message: 'Hello Q8' }),
       headers: { 'Content-Type': 'application/json' },
     });
 
     const response = await POST(request);
-    expect(response.status).toBe(200);
-
-    // Wait for the stream to complete
     await parseSSEResponse(response);
 
-    // SDK should be called when useLegacy is false
-    expect(mockStreamMessageSDK).toHaveBeenCalledTimes(1);
-    expect(mockStreamMessageLegacy).not.toHaveBeenCalled();
-  });
-
-  it('uses legacy when useLegacy is true', async () => {
-    const request = new NextRequest('http://localhost:3000/api/chat/stream', {
-      method: 'POST',
-      body: JSON.stringify({
-        message: 'Hello Q8',
-        useLegacy: true,
-      }),
-      headers: { 'Content-Type': 'application/json' },
-    });
-
-    const response = await POST(request);
-    expect(response.status).toBe(200);
-
-    await parseSSEResponse(response);
-
-    // Legacy should be called when useLegacy is true
-    expect(mockStreamMessageLegacy).toHaveBeenCalledTimes(1);
-    expect(mockStreamMessageSDK).not.toHaveBeenCalled();
+    expect(mockStreamMessageSDK).toHaveBeenCalledWith(
+      expect.objectContaining({
+        signal: request.signal,
+      })
+    );
   });
 
   it('streams events in SSE format', async () => {

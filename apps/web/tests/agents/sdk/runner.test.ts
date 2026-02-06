@@ -195,7 +195,24 @@ describe('Agent Runner (SDK)', () => {
       expect(mockRun).toHaveBeenCalledWith(
         expect.anything(),
         'Test msg',
-        expect.objectContaining({ stream: true, maxTurns: 5, signal: expect.any(AbortSignal) })
+        expect.objectContaining({ stream: true, maxTurns: 5, signal: undefined })
+      );
+    });
+
+    it('forwards external abort signal when provided', async () => {
+      const controller = new AbortController();
+
+      for await (const _e of streamMessage({
+        message: 'Test msg',
+        userId: 'u',
+        threadId: 't',
+        signal: controller.signal,
+      })) { /* drain */ }
+
+      expect(mockRun).toHaveBeenCalledWith(
+        expect.anything(),
+        'Test msg',
+        expect.objectContaining({ signal: controller.signal })
       );
     });
 

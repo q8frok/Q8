@@ -56,6 +56,7 @@ export interface StreamMessageOptions {
   showToolExecutions?: boolean;
   maxTurns?: number;
   conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>;
+  signal?: AbortSignal;
 }
 
 // =============================================================================
@@ -135,6 +136,7 @@ export async function* streamMessage(
     showToolExecutions = true,
     maxTurns = DEFAULT_MAX_TURNS,
     conversationHistory = [],
+    signal,
   } = options;
 
   const threadId = providedThreadId ?? crypto.randomUUID();
@@ -182,7 +184,6 @@ export async function* streamMessage(
     yield { type: 'agent_start', agent: selectedType };
 
     // Step 3: Run with streaming
-    const abortController = new AbortController();
     const input = conversationHistory.length > 0
       ? buildInput(conversationHistory, message)
       : message;
@@ -196,7 +197,7 @@ export async function* streamMessage(
     const streamResult = await run(agent, input, {
       stream: true,
       maxTurns,
-      signal: abortController.signal,
+      signal,
       context: runContext,
     });
 
