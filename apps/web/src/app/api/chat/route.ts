@@ -8,7 +8,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { processMessage, type ExtendedAgentType } from '@/lib/agents/orchestration';
+import { type ExtendedAgentType } from '@/lib/agents/orchestration';
+import { executeChat, ChatServiceError } from '@/lib/agents/sdk/chat-service';
 import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
 import { chatMessageSchema, validationErrorResponse } from '@/lib/validations';
 import { errorResponse } from '@/lib/api/error-responses';
@@ -50,8 +51,7 @@ export async function POST(request: NextRequest) {
       threadId: conversationId,
     });
 
-    // Process through unified orchestration service
-    const response = await processMessage({
+    const response = await executeChat({
       message,
       userId,
       threadId: conversationId,
@@ -77,17 +77,26 @@ export async function POST(request: NextRequest) {
         confidence: response.routing.confidence,
         rationale: response.routing.rationale,
       },
+      agentSelection: response.agentSelection,
       toolExecutions: response.toolExecutions?.map(t => ({
         tool: t.tool,
         success: t.success,
         duration: t.duration,
       })),
+      toolSummary: response.toolSummary,
+      failure: response.failure,
       memoriesUsed: response.memoriesUsed,
       citations: response.citations,
       metadata: response.metadata,
     });
   } catch (error) {
     logger.error('[Chat API] Error', { error });
+    if (error instanceof ChatServiceError) {
+      return NextResponse.json({
+        content: '',
+        failure: error.failure,
+      }, { status: error.failure.recoverable ? 429 : 500 });
+    }
     const message = error instanceof Error ? error.message : 'Failed to process message';
     return errorResponse(message, 500);
   }

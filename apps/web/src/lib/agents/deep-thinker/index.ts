@@ -13,7 +13,7 @@
  * - Realtime notifications via Supabase
  */
 
-import { processMessage } from '../orchestration/service';
+import { executeChat } from '../sdk/chat-service';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { logger } from '@/lib/logger';
 import type { ExtendedAgentType, RoutingDecision } from '../orchestration/types';
@@ -231,7 +231,7 @@ async function processJob(job: AgentJob): Promise<{
     }
 
     // Process through orchestration service
-    const response = await processMessage({
+    const response = await executeChat({
       message: job.input_message,
       userId: job.user_id,
       threadId: threadId ?? undefined, // Convert null to undefined
