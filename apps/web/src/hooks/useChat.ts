@@ -120,7 +120,6 @@ interface UseChatOptions {
 
 export function useChat(options: UseChatOptions) {
   const {
-    userId,
     threadId: initialThreadId,
     userProfile,
     onMessage,
@@ -275,24 +274,22 @@ export function useChat(options: UseChatOptions) {
     abortControllerRef.current = new AbortController();
 
     try {
-      // Build conversation history from recent messages (last 20)
-      const conversationHistory = state.messages
-        .slice(-20)
-        .map(m => ({
-          role: m.role as 'user' | 'assistant',
-          content: m.content,
-        }));
+      /**
+       * Deterministic retry/reconnect behavior:
+       * - Local in-flight UI messages are treated as optimistic only.
+       * - The server reconstructs canonical thread history from persisted chat_messages.
+       * - Retries therefore resend only the user intent (`message`) + thread identity,
+       *   never an ad-hoc local transcript that might include unsynced duplicates.
+       */
 
       const response = await fetch('/api/chat/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: content,
-          userId,
-        threadId: state.threadId,
-        userProfile,
-        conversationHistory,
-      }),
+          threadId: state.threadId,
+          userProfile,
+        }),
         signal: abortControllerRef.current.signal,
       });
 
@@ -346,7 +343,7 @@ export function useChat(options: UseChatOptions) {
     }
   // Note: processStreamEvent is intentionally not in deps to avoid re-creating sendMessage
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, state.threadId, userProfile, onError]);
+  }, [state.threadId, userProfile, onError]);
 
   /**
    * Process a stream event

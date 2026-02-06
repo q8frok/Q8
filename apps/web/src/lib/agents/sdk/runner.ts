@@ -55,6 +55,12 @@ export interface StreamMessageOptions {
   forceAgent?: AgentType;
   showToolExecutions?: boolean;
   maxTurns?: number;
+  /**
+   * Optional INTERNAL override used by tests/dev tooling.
+   * Production path should pass canonical server-assembled history.
+   */
+  historyOverride?: Array<{ role: 'user' | 'assistant'; content: string }>;
+  /** @deprecated use historyOverride */
   conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>;
   signal?: AbortSignal;
 }
@@ -135,7 +141,8 @@ export async function* streamMessage(
     forceAgent,
     showToolExecutions = true,
     maxTurns = DEFAULT_MAX_TURNS,
-    conversationHistory = [],
+    historyOverride,
+    conversationHistory,
     signal,
   } = options;
 
@@ -184,8 +191,10 @@ export async function* streamMessage(
     yield { type: 'agent_start', agent: selectedType };
 
     // Step 3: Run with streaming
-    const input = conversationHistory.length > 0
-      ? buildInput(conversationHistory, message)
+    const prebuiltHistory = historyOverride ?? conversationHistory ?? [];
+
+    const input = prebuiltHistory.length > 0
+      ? buildInput(prebuiltHistory, message)
       : message;
 
     const runContext: RunContext = {

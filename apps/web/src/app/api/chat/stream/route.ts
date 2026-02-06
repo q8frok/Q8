@@ -8,6 +8,7 @@ import { type OrchestrationEvent, type ExtendedAgentType } from '@/lib/agents/or
 import { streamMessage as streamMessageSDK, type AgentType } from '@/lib/agents/sdk';
 import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
 import { logger } from '@/lib/logger';
+import { supabaseAdmin } from '@/lib/supabase/server';
 
 // Use Node.js runtime for full compatibility with OpenAI and Supabase SDKs
 export const runtime = 'nodejs';
@@ -15,7 +16,6 @@ export const maxDuration = 60; // Allow longer streaming responses
 
 interface StreamRequest {
   message: string;
-  userId: string;
   threadId?: string;
   userProfile?: {
     name?: string;
@@ -26,8 +26,6 @@ interface StreamRequest {
   forceAgent?: ExtendedAgentType;
   /** Show tool execution events (default: true) */
   showToolExecutions?: boolean;
-  /** Recent conversation history for context */
-  conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>;
 }
 
 /**
@@ -174,6 +172,33 @@ function encodeSSE(event: StreamEvent): string {
   return `data: ${JSON.stringify(event)}\n\n`;
 }
 
+
+async function fetchCanonicalConversationHistory(threadId: string): Promise<Array<{ role: 'user' | 'assistant'; content: string }>> {
+  const { data: messages, error } = await supabaseAdmin
+    .from('chat_messages')
+    .select('role, content, created_at')
+    .eq('thread_id', threadId)
+    .order('created_at', { ascending: true })
+    .limit(100);
+
+  if (error) {
+    logger.error('[Stream API] Failed to fetch canonical conversation history', {
+      threadId,
+      error,
+    });
+    return [];
+  }
+
+  return (messages ?? [])
+    .filter((m): m is { role: 'user' | 'assistant'; content: string; created_at: string } =>
+      (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string'
+    )
+    .map(m => ({
+      role: m.role,
+      content: m.content,
+    }));
+}
+
 export async function POST(request: NextRequest) {
   // Authenticate user before starting stream
   const user = await getAuthenticatedUser(request);
@@ -191,7 +216,7 @@ export async function POST(request: NextRequest) {
   (async () => {
     try {
       const body = (await request.json()) as StreamRequest;
-      const { message, threadId, userProfile, forceAgent, showToolExecutions = true, conversationHistory } = body;
+      const { message, threadId, userProfile, forceAgent, showToolExecutions = true } = body;
       const userId = user.id; // Use authenticated user ID
 
       if (!message) {
@@ -209,6 +234,10 @@ export async function POST(request: NextRequest) {
         forceAgent,
       });
 
+      const canonicalConversationHistory = threadId
+        ? await fetchCanonicalConversationHistory(threadId)
+        : [];
+
       const eventStream: AsyncGenerator<OrchestrationEvent> = streamMessageSDK({
         message,
         userId,
@@ -216,7 +245,7 @@ export async function POST(request: NextRequest) {
         userProfile,
         forceAgent: forceAgent as AgentType | undefined,
         showToolExecutions,
-        conversationHistory,
+        historyOverride: canonicalConversationHistory,
         signal: request.signal,
       });
 
