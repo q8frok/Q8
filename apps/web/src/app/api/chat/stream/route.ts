@@ -1,13 +1,10 @@
 /**
  * Streaming Chat API Route
  * Server-sent events (SSE) for real-time response streaming
- *
- * Uses @openai/agents SDK by default for streaming orchestration.
- * Legacy orchestration available as opt-in fallback via USE_LEGACY_ORCHESTRATION=true.
  */
 
 import { NextRequest } from 'next/server';
-import { streamMessage as streamMessageLegacy, type OrchestrationEvent, type ExtendedAgentType } from '@/lib/agents/orchestration';
+import { type OrchestrationEvent, type ExtendedAgentType } from '@/lib/agents/orchestration';
 import { streamMessage as streamMessageSDK, type AgentType } from '@/lib/agents/sdk';
 import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
 import { logger } from '@/lib/logger';
@@ -15,11 +12,6 @@ import { logger } from '@/lib/logger';
 // Use Node.js runtime for full compatibility with OpenAI and Supabase SDKs
 export const runtime = 'nodejs';
 export const maxDuration = 60; // Allow longer streaming responses
-
-/**
- * Opt-in to legacy orchestration system (default: use SDK)
- */
-const USE_LEGACY = process.env.USE_LEGACY_ORCHESTRATION === 'true';
 
 interface StreamRequest {
   message: string;
@@ -34,8 +26,6 @@ interface StreamRequest {
   forceAgent?: ExtendedAgentType;
   /** Show tool execution events (default: true) */
   showToolExecutions?: boolean;
-  /** Override to use legacy orchestration system (for testing/fallback) */
-  useLegacy?: boolean;
   /** Recent conversation history for context */
   conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>;
 }
@@ -201,7 +191,7 @@ export async function POST(request: NextRequest) {
   (async () => {
     try {
       const body = (await request.json()) as StreamRequest;
-      const { message, threadId, userProfile, forceAgent, showToolExecutions = true, useLegacy, conversationHistory } = body;
+      const { message, threadId, userProfile, forceAgent, showToolExecutions = true, conversationHistory } = body;
       const userId = user.id; // Use authenticated user ID
 
       if (!message) {
@@ -213,36 +203,22 @@ export async function POST(request: NextRequest) {
         return;
       }
 
-      // SDK is default; legacy is opt-in via env var or request body
-      const useLegacyOrchestration = useLegacy ?? USE_LEGACY;
-
       logger.debug('[Stream API] Processing message', {
         userId,
         threadId,
-        useLegacy: useLegacyOrchestration,
         forceAgent,
       });
 
-      // Get the event stream from the appropriate orchestration system
-      // Both systems produce OrchestrationEvent streams with the same format
-      const eventStream: AsyncGenerator<OrchestrationEvent> = useLegacyOrchestration
-        ? streamMessageLegacy({
-            message,
-            userId,
-            threadId,
-            userProfile,
-            forceAgent,
-            showToolExecutions,
-          })
-        : streamMessageSDK({
-            message,
-            userId,
-            threadId,
-            userProfile,
-            forceAgent: forceAgent as AgentType | undefined,
-            showToolExecutions,
-            conversationHistory,
-          });
+      const eventStream: AsyncGenerator<OrchestrationEvent> = streamMessageSDK({
+        message,
+        userId,
+        threadId,
+        userProfile,
+        forceAgent: forceAgent as AgentType | undefined,
+        showToolExecutions,
+        conversationHistory,
+        signal: request.signal,
+      });
 
       for await (const event of eventStream) {
         const streamEvent = toStreamEvent(event);

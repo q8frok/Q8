@@ -100,7 +100,7 @@ interface UseChatOptions {
       };
     };
   };
-  /** Use legacy orchestration instead of Agents SDK (SDK is default) */
+  /** @deprecated Legacy orchestration toggle is no longer used. */
   useLegacy?: boolean;
   onMessage?: (message: StreamingMessage) => void;
   onToolExecution?: (tool: ToolExecution) => void;
@@ -123,7 +123,6 @@ export function useChat(options: UseChatOptions) {
     userId,
     threadId: initialThreadId,
     userProfile,
-    useLegacy,
     onMessage,
     onToolExecution,
     onRouting,
@@ -290,11 +289,10 @@ export function useChat(options: UseChatOptions) {
         body: JSON.stringify({
           message: content,
           userId,
-          threadId: state.threadId,
-          userProfile,
-          useLegacy,
-          conversationHistory,
-        }),
+        threadId: state.threadId,
+        userProfile,
+        conversationHistory,
+      }),
         signal: abortControllerRef.current.signal,
       });
 
@@ -348,7 +346,7 @@ export function useChat(options: UseChatOptions) {
     }
   // Note: processStreamEvent is intentionally not in deps to avoid re-creating sendMessage
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, state.threadId, userProfile, useLegacy, onError]);
+  }, [userId, state.threadId, userProfile, onError]);
 
   /**
    * Process a stream event
