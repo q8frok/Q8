@@ -5,8 +5,106 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { logger } from '@/lib/logger';
+import { EVENT_SCHEMA_VERSION, hasSupportedEventVersion } from '@/lib/agents/sdk/events';
 
 export type AgentType = 'orchestrator' | 'coder' | 'researcher' | 'secretary' | 'personality' | 'home' | 'finance' | 'imagegen';
+
+type ParsedStreamEvent = {
+  type: string;
+  eventVersion?: number;
+  runId?: string;
+  requestId?: string;
+  timestamp?: string;
+  correlationId?: string;
+  agent?: AgentType;
+  reason?: string;
+  confidence?: number;
+  source?: string;
+  from?: AgentType;
+  to?: AgentType;
+  tool?: string;
+  id?: string;
+  args?: Record<string, unknown>;
+  success?: boolean;
+  result?: unknown;
+  duration?: number;
+  delta?: string;
+  fullContent?: string;
+  message?: string;
+  recoverable?: boolean;
+  threadId?: string;
+  count?: number;
+  url?: string;
+  relevance?: number;
+  memoryId?: string;
+  content?: string;
+  imageData?: string;
+  mimeType?: string;
+  caption?: string;
+  model?: string;
+  analysis?: string;
+  imageUrl?: string;
+  images?: Array<{ data: string; mimeType: string; caption?: string }>;
+  text?: string;
+  isComplete?: boolean;
+  widgetId?: string;
+  action?: string;
+  data?: Record<string, unknown>;
+  [key: string]: unknown;
+};
+
+const KNOWN_EVENT_TYPES = new Set([
+  'thread_created',
+  'memory_extracted',
+  'routing',
+  'agent_start',
+  'handoff',
+  'tool_start',
+  'tool_end',
+  'citation',
+  'memory_used',
+  'image_generated',
+  'image_analyzed',
+  'tts_chunk',
+  'widget_action',
+  'content',
+  'done',
+  'error',
+]);
+
+function parseVersionedEvent(raw: unknown): ParsedStreamEvent | null {
+  if (!raw || typeof raw !== 'object') {
+    return null;
+  }
+
+  const event = raw as ParsedStreamEvent;
+  if (typeof event.type !== 'string') {
+    return null;
+  }
+
+  if (!hasSupportedEventVersion(event)) {
+    logger.warn('Skipping stream event with unsupported version', {
+      expectedEventVersion: EVENT_SCHEMA_VERSION,
+      receivedEventVersion: event.eventVersion,
+      eventType: event.type,
+      runId: event.runId,
+      requestId: event.requestId,
+    });
+    return null;
+  }
+
+  if (!KNOWN_EVENT_TYPES.has(event.type)) {
+    logger.info('Ignoring unknown stream event type for forward compatibility', {
+      type: event.type,
+      runId: event.runId,
+      requestId: event.requestId,
+      eventVersion: event.eventVersion,
+    });
+    return null;
+  }
+
+  return event;
+}
 
 export interface ToolExecution {
   id: string;
@@ -323,7 +421,9 @@ export function useChat(options: UseChatOptions) {
 
           try {
             const data = JSON.parse(line.slice(6));
-            await processStreamEvent(data, assistantMessageId);
+            const event = parseVersionedEvent(data);
+            if (!event) continue;
+            await processStreamEvent(event, assistantMessageId);
           } catch (e) {
             logger.warn('Failed to parse SSE event', { line, error: e });
           }
@@ -352,48 +452,7 @@ export function useChat(options: UseChatOptions) {
    * Process a stream event
    */
   const processStreamEvent = useCallback(async (
-    event: {
-      type: string;
-      agent?: AgentType;
-      reason?: string;
-      confidence?: number;
-      source?: string;
-      from?: AgentType;
-      to?: AgentType;
-      tool?: string;
-      id?: string;
-      args?: Record<string, unknown>;
-      success?: boolean;
-      result?: unknown;
-      duration?: number;
-      delta?: string;
-      fullContent?: string;
-      message?: string;
-      recoverable?: boolean;
-      threadId?: string;
-      count?: number;
-      // Citation fields
-      url?: string;
-      relevance?: number;
-      // Memory fields
-      memoryId?: string;
-      content?: string;
-      // Image fields
-      imageData?: string;
-      mimeType?: string;
-      caption?: string;
-      model?: string;
-      analysis?: string;
-      imageUrl?: string;
-      images?: Array<{ data: string; mimeType: string; caption?: string }>;
-      // TTS fields
-      text?: string;
-      isComplete?: boolean;
-      // Widget action fields
-      widgetId?: string;
-      action?: string;
-      data?: Record<string, unknown>;
-    },
+    event: ParsedStreamEvent,
     messageId: string
   ) => {
     switch (event.type) {
@@ -662,9 +721,18 @@ export function useChat(options: UseChatOptions) {
               : m
           ),
         }));
-        if (event.message) {
-          onError?.(event.message, event.recoverable);
+        if (event.message && typeof event.message === 'string') {
+          onError?.(event.message, event.recoverable as boolean | undefined);
         }
+        break;
+
+      default:
+        logger.info('Unhandled stream event (ignored for forward compatibility)', {
+          eventType: event.type,
+          runId: event.runId,
+          requestId: event.requestId,
+          eventVersion: event.eventVersion,
+        });
         break;
     }
   }, [
