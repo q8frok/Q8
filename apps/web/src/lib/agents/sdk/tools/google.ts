@@ -12,6 +12,7 @@ import { tool, type Tool } from '@openai/agents';
 import type { RunContext as SDKRunContext } from '@openai/agents';
 import { getAllGoogleTokens, type GoogleAccountToken } from '@/lib/auth/google-accounts';
 import { createToolError } from '../utils/errors';
+import { logger } from '@/lib/logger';
 import type { RunContext } from '../runner';
 
 // =============================================================================
@@ -27,7 +28,19 @@ async function getTokenWithScope(
   scopeSubstring: string,
 ): Promise<GoogleAccountToken | null> {
   const tokens = await getAllGoogleTokens(userId);
-  return tokens.find(t => t.scopes.some(s => s.includes(scopeSubstring))) ?? null;
+  if (tokens.length === 0) {
+    logger.warn('[Google Tools] No Google accounts linked for user', { userId });
+    return null;
+  }
+  const match = tokens.find(t => t.scopes.some(s => s.includes(scopeSubstring)));
+  if (!match) {
+    logger.warn('[Google Tools] No account with required scope', {
+      userId,
+      requiredScope: scopeSubstring,
+      availableScopes: tokens.map(t => ({ email: t.email, scopes: t.scopes })),
+    });
+  }
+  return match ?? null;
 }
 
 async function googleApi(

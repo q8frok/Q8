@@ -230,6 +230,7 @@ export async function* streamMessage(
     let fullContent = '';
     let currentAgentType: AgentType = selectedType;
     const toolStartTimes = new Map<string, number>();
+    const toolNames = new Map<string, string>();
 
     // Step 4: Process SDK events → OrchestrationEvent
     for await (const event of streamResult) {
@@ -238,6 +239,7 @@ export async function* streamMessage(
         showToolExecutions,
         currentAgentType,
         toolStartTimes,
+        toolNames,
       );
 
       if (mapped) {
@@ -311,6 +313,7 @@ function mapSdkEvent(
   showToolExecutions: boolean,
   currentAgentType: AgentType,
   toolStartTimes: Map<string, number>,
+  toolNames: Map<string, string>,
 ): OrchestrationEvent | null {
   switch (event.type) {
     // Raw model streaming - extract text deltas
@@ -343,6 +346,7 @@ function mapSdkEvent(
             } catch { /* ignore parse errors */ }
 
             toolStartTimes.set(callId, Date.now());
+            toolNames.set(callId, toolName);
 
             return {
               type: 'tool_start',
@@ -374,7 +378,8 @@ function mapSdkEvent(
               result = parsed;
             } catch { /* leave as string */ }
 
-            const toolName = (raw.name ?? 'unknown') as string;
+            const toolName = toolNames.get(callId) ?? (raw.name as string | undefined) ?? 'unknown';
+            toolNames.delete(callId);
 
             return {
               type: 'tool_end',

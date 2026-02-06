@@ -10,6 +10,7 @@
 import { z } from 'zod';
 import { tool, type Tool } from '@openai/agents';
 import { createToolError } from '../utils/errors';
+import { logger } from '@/lib/logger';
 
 // =============================================================================
 // Constants
@@ -40,19 +41,37 @@ function hasCredentials(): boolean {
 
 async function hassApi(endpoint: string, method = 'GET', body?: unknown): Promise<unknown> {
   if (!HASS_TOKEN) {
+    logger.error('[Home Assistant] HASS_TOKEN not configured');
     throw new Error('Home Assistant token not configured (HASS_TOKEN)');
   }
 
-  const res = await fetch(`${HASS_URL}/api${endpoint}`, {
-    method,
-    headers: {
-      Authorization: `Bearer ${HASS_TOKEN}`,
-      'Content-Type': 'application/json',
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  const url = `${HASS_URL}/api${endpoint}`;
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method,
+      headers: {
+        Authorization: `Bearer ${HASS_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch (fetchError) {
+    logger.error('[Home Assistant] Connection failed', {
+      url,
+      error: fetchError instanceof Error ? fetchError.message : String(fetchError),
+    });
+    throw new Error(`Home Assistant unreachable at ${HASS_URL} — ${fetchError instanceof Error ? fetchError.message : 'connection failed'}`);
+  }
 
   if (!res.ok) {
+    const errorBody = await res.text().catch(() => '');
+    logger.error('[Home Assistant] API error', {
+      endpoint,
+      status: res.status,
+      statusText: res.statusText,
+      body: errorBody.slice(0, 500),
+    });
     throw new Error(`HA API: ${res.status} ${res.statusText}`);
   }
 

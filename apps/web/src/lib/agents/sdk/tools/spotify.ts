@@ -10,6 +10,7 @@ import { z } from 'zod';
 import { tool, type Tool } from '@openai/agents';
 import { createToolError, type ToolErrorResult } from '../utils/errors';
 import { executeWithRetry } from '../utils/retry';
+import { logger } from '@/lib/logger';
 
 // =============================================================================
 // Utility type: make nullable properties optional for TypeScript callers
@@ -197,13 +198,24 @@ export async function refreshSpotifyToken(): Promise<string> {
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to refresh Spotify token: ${response.status} ${response.statusText}`);
+    const errorBody = await response.text().catch(() => '(no body)');
+    logger.error('[Spotify] Token refresh failed', {
+      status: response.status,
+      statusText: response.statusText,
+      body: errorBody.slice(0, 500),
+    });
+    throw new Error(`Failed to refresh Spotify token: ${response.status} ${response.statusText} — ${errorBody.slice(0, 200)}`);
   }
 
   const data = await response.json();
   cachedAccessToken = data.access_token;
   // Expire 5 minutes early to avoid edge cases
   tokenExpiresAt = Date.now() + (data.expires_in - 300) * 1000;
+
+  logger.info('[Spotify] Token refreshed successfully', {
+    expiresIn: data.expires_in,
+    expiresAt: new Date(tokenExpiresAt).toISOString(),
+  });
 
   return data.access_token;
 }
