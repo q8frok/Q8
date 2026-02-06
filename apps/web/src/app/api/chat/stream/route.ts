@@ -8,15 +8,35 @@ import { type OrchestrationEvent, type ExtendedAgentType } from '@/lib/agents/or
 import { streamMessage as streamMessageSDK, type AgentType } from '@/lib/agents/sdk';
 import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
 import { logger } from '@/lib/logger';
+import { supabaseAdmin } from '@/lib/supabase/server';
 
 // Use Node.js runtime for full compatibility with OpenAI and Supabase SDKs
 export const runtime = 'nodejs';
 export const maxDuration = 60; // Allow longer streaming responses
 
+const IDEMPOTENCY_TTL_HOURS = 24;
+
+type RequestStatus = 'processing' | 'completed' | 'failed';
+
+interface StreamIdempotencyRecord {
+  id: string;
+  user_id: string;
+  thread_id: string;
+  request_id: string;
+  status: RequestStatus;
+  run_thread_id: string | null;
+  run_agent: string | null;
+  user_message: string | null;
+  assistant_message: string | null;
+  created_thread: boolean;
+  expires_at: string;
+}
+
 interface StreamRequest {
   message: string;
   userId: string;
   threadId?: string;
+  requestId: string;
   userProfile?: {
     name?: string;
     timezone?: string;
@@ -46,7 +66,7 @@ type StreamEvent =
   | { type: 'memory_used'; memoryId: string; content: string; relevance: number }
   | { type: 'image_generated'; imageData: string; mimeType: string; caption?: string; model?: string }
   | { type: 'image_analyzed'; analysis: string; imageUrl?: string }
-  | { type: 'done'; fullContent: string; agent: string; threadId: string; images?: Array<{ data: string; mimeType: string; caption?: string }> }
+  | { type: 'done'; fullContent: string; agent: string; threadId: string; images?: Array<{ data: string; mimeType: string; caption?: string }>; replayed?: boolean }
   | { type: 'thread_created'; threadId: string }
   | { type: 'memory_extracted'; count: number }
   | { type: 'widget_action'; widgetId: string; action: string; data?: Record<string, unknown> }
@@ -174,6 +194,47 @@ function encodeSSE(event: StreamEvent): string {
   return `data: ${JSON.stringify(event)}\n\n`;
 }
 
+async function cleanupExpiredIdempotencyRecords(): Promise<void> {
+  const { error } = await supabaseAdmin
+    .from('chat_stream_idempotency')
+    .delete()
+    .lt('expires_at', new Date().toISOString());
+
+  if (error) {
+    logger.warn('[Stream API] Failed idempotency cleanup', { error });
+  }
+}
+
+async function replayExistingRun(
+  writer: WritableStreamDefaultWriter<Uint8Array>,
+  encoder: TextEncoder,
+  existing: StreamIdempotencyRecord,
+): Promise<void> {
+  if (existing.created_thread && existing.run_thread_id) {
+    await writer.write(encoder.encode(encodeSSE({
+      type: 'thread_created',
+      threadId: existing.run_thread_id,
+    })));
+  }
+
+  if (existing.status === 'completed' && existing.run_thread_id) {
+    await writer.write(encoder.encode(encodeSSE({
+      type: 'done',
+      fullContent: existing.assistant_message ?? '',
+      agent: existing.run_agent ?? 'orchestrator',
+      threadId: existing.run_thread_id,
+      replayed: true,
+    })));
+    return;
+  }
+
+  await writer.write(encoder.encode(encodeSSE({
+    type: 'error',
+    message: 'Duplicate request is already being processed',
+    recoverable: true,
+  })));
+}
+
 export async function POST(request: NextRequest) {
   // Authenticate user before starting stream
   const user = await getAuthenticatedUser(request);
@@ -189,9 +250,11 @@ export async function POST(request: NextRequest) {
 
   // Process in background
   (async () => {
+    let idempotencyId: string | null = null;
+
     try {
       const body = (await request.json()) as StreamRequest;
-      const { message, threadId, userProfile, forceAgent, showToolExecutions = true, conversationHistory } = body;
+      const { message, threadId, requestId, userProfile, forceAgent, showToolExecutions = true, conversationHistory } = body;
       const userId = user.id; // Use authenticated user ID
 
       if (!message) {
@@ -203,11 +266,77 @@ export async function POST(request: NextRequest) {
         return;
       }
 
+      if (!threadId) {
+        await writer.write(encoder.encode(encodeSSE({
+          type: 'error',
+          message: 'threadId is required for idempotent stream requests',
+        })));
+        await writer.close();
+        return;
+      }
+
+      if (!requestId) {
+        await writer.write(encoder.encode(encodeSSE({
+          type: 'error',
+          message: 'requestId is required',
+        })));
+        await writer.close();
+        return;
+      }
+
+      await cleanupExpiredIdempotencyRecords();
+
+      const expiresAt = new Date(Date.now() + IDEMPOTENCY_TTL_HOURS * 60 * 60 * 1000).toISOString();
+
+      const { data: idempotencyRow, error: idempotencyInsertError } = await supabaseAdmin
+        .from('chat_stream_idempotency')
+        .insert({
+          user_id: userId,
+          thread_id: threadId,
+          request_id: requestId,
+          status: 'processing',
+          user_message: message,
+          expires_at: expiresAt,
+        })
+        .select('*')
+        .single();
+
+      if (idempotencyInsertError) {
+        const { data: existing, error: existingError } = await supabaseAdmin
+          .from('chat_stream_idempotency')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('thread_id', threadId)
+          .eq('request_id', requestId)
+          .maybeSingle();
+
+        if (existingError || !existing) {
+          throw idempotencyInsertError;
+        }
+
+        logger.info('[Stream API] Duplicate request detected, replaying stored metadata', {
+          userId,
+          threadId,
+          requestId,
+          status: existing.status,
+        });
+
+        await replayExistingRun(writer, encoder, existing as StreamIdempotencyRecord);
+        await writer.close();
+        return;
+      }
+
+      idempotencyId = idempotencyRow.id;
+
       logger.debug('[Stream API] Processing message', {
         userId,
         threadId,
+        requestId,
         forceAgent,
       });
+
+      let finalDoneEvent: Extract<StreamEvent, { type: 'done' }> | null = null;
+      let createdThread = false;
 
       const eventStream: AsyncGenerator<OrchestrationEvent> = streamMessageSDK({
         message,
@@ -222,11 +351,41 @@ export async function POST(request: NextRequest) {
 
       for await (const event of eventStream) {
         const streamEvent = toStreamEvent(event);
+
+        if (streamEvent.type === 'thread_created') {
+          createdThread = true;
+        }
+
+        if (streamEvent.type === 'done') {
+          finalDoneEvent = streamEvent;
+        }
+
         await writer.write(encoder.encode(encodeSSE(streamEvent)));
+      }
+
+      if (idempotencyId) {
+        await supabaseAdmin
+          .from('chat_stream_idempotency')
+          .update({
+            status: 'completed',
+            run_thread_id: finalDoneEvent?.threadId ?? threadId,
+            run_agent: finalDoneEvent?.agent ?? null,
+            assistant_message: finalDoneEvent?.fullContent ?? null,
+            created_thread: createdThread,
+          })
+          .eq('id', idempotencyId);
       }
     } catch (error) {
       logger.error('[Stream API] Error', { error: error });
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+      if (idempotencyId) {
+        await supabaseAdmin
+          .from('chat_stream_idempotency')
+          .update({ status: 'failed' })
+          .eq('id', idempotencyId);
+      }
+
       try {
         await writer.write(encoder.encode(encodeSSE({ type: 'error', message: errorMessage })));
       } catch {

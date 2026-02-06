@@ -222,6 +222,13 @@ export function useChat(options: UseChatOptions) {
   const abortControllerRef = useRef<AbortController | null>(null);
   const streamingMessageRef = useRef<StreamingMessage | null>(null);
 
+  const generateRequestId = (): string => {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+    return `req_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  };
+
   /**
    * Send a message and stream the response
    */
@@ -229,6 +236,15 @@ export function useChat(options: UseChatOptions) {
     // Cancel any existing stream
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
+    }
+
+    const requestId = generateRequestId();
+    const resolvedThreadId = state.threadId ?? crypto.randomUUID();
+
+    if (!state.threadId) {
+      skipNextLoadRef.current = true;
+      setState(prev => ({ ...prev, threadId: resolvedThreadId }));
+      onThreadCreated?.(resolvedThreadId);
     }
 
     const userMessageId = `msg_${Date.now()}_user`;
@@ -289,10 +305,11 @@ export function useChat(options: UseChatOptions) {
         body: JSON.stringify({
           message: content,
           userId,
-        threadId: state.threadId,
-        userProfile,
-        conversationHistory,
-      }),
+          threadId: resolvedThreadId,
+          requestId,
+          userProfile,
+          conversationHistory,
+        }),
         signal: abortControllerRef.current.signal,
       });
 
