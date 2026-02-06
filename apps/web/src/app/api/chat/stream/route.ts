@@ -15,8 +15,6 @@ import { executeChatStream, type ChatFailure, type ChatFailureClass } from '@/li
 import { classifyError } from '@/lib/agents/sdk/utils/errors';
 import {
   EVENT_SCHEMA_VERSION,
-  withEventMetadata,
-  type VersionedEvent,
   type EventTraceContext,
 } from '@/lib/agents/sdk/events';
 import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
@@ -365,12 +363,13 @@ export async function POST(request: NextRequest) {
 
       for await (const event of eventStream) {
         // Propagate versioned metadata from the runner events
-        const eventMeta = {
-          eventVersion: (event as Record<string, unknown>).eventVersion as number | undefined,
-          runId: (event as Record<string, unknown>).runId as string | undefined,
-          requestId: (event as Record<string, unknown>).requestId as string | undefined,
-          timestamp: (event as Record<string, unknown>).timestamp as string | undefined,
-          correlationId: (event as Record<string, unknown>).correlationId as string | undefined,
+        const raw = event as Record<string, unknown>;
+        const eventMeta: Partial<Pick<StreamEvent, 'eventVersion' | 'runId' | 'requestId' | 'timestamp' | 'correlationId'>> = {
+          ...(raw.eventVersion != null ? { eventVersion: raw.eventVersion as number } : {}),
+          ...(raw.runId != null ? { runId: raw.runId as string } : {}),
+          ...(raw.requestId != null ? { requestId: raw.requestId as string } : {}),
+          ...(raw.timestamp != null ? { timestamp: raw.timestamp as string } : {}),
+          ...(raw.correlationId != null ? { correlationId: raw.correlationId as string } : {}),
         };
 
         // Run state transitions (PR #8)
@@ -477,11 +476,12 @@ export async function POST(request: NextRequest) {
       };
 
       if (idempotencyId) {
-        await supabaseAdmin
-          .from('chat_stream_idempotency')
-          .update({ status: 'failed' })
-          .eq('id', idempotencyId)
-          .catch(() => {});
+        try {
+          await supabaseAdmin
+            .from('chat_stream_idempotency')
+            .update({ status: 'failed' })
+            .eq('id', idempotencyId);
+        } catch { /* ignore cleanup errors */ }
       }
 
       try {
