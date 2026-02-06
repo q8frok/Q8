@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/api-auth';
 import { errorResponse } from '@/lib/api/error-responses';
 import { logger } from '@/lib/logger';
+import { resolveRealtimeSessionConfig } from '@q8/ai-config';
 
 /**
  * POST /api/voice/realtime
@@ -20,8 +21,12 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json().catch(() => ({}));
-    const voice = body.voice || 'nova';
-    const instructions = body.instructions || 'You are Q8, a helpful AI personal assistant. Be concise and friendly.';
+
+    const { openAIConfig, metadata } = resolveRealtimeSessionConfig({
+      userId: user.id,
+      requestedVoice: body.voice,
+      requestedInstructions: body.instructions,
+    });
 
     // Request ephemeral token from OpenAI Realtime API
     const tokenResponse = await fetch('https://api.openai.com/v1/realtime/sessions', {
@@ -30,13 +35,7 @@ export async function POST(request: NextRequest) {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        model: 'gpt-4o-realtime-preview-2024-12-17',
-        voice,
-        instructions,
-        input_audio_transcription: { model: 'whisper-1' },
-        turn_detection: { type: 'server_vad' },
-      }),
+      body: JSON.stringify(openAIConfig),
     });
 
     if (!tokenResponse.ok) {
@@ -45,6 +44,8 @@ export async function POST(request: NextRequest) {
         status: tokenResponse.status,
         error: errorData,
         userId: user.id,
+        realtimeConfigVersion: metadata.version,
+        realtimeModel: metadata.model,
       });
       return errorResponse(
         'Failed to create voice session',
@@ -59,6 +60,9 @@ export async function POST(request: NextRequest) {
       clientSecret: sessionData.client_secret?.value,
       sessionId: sessionData.id,
       expiresAt: sessionData.client_secret?.expires_at,
+      negotiated: {
+        ...metadata,
+      },
     });
   } catch (error) {
     logger.error('Realtime session creation failed', { error, userId: user.id });
