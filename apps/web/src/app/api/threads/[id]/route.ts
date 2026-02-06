@@ -11,6 +11,7 @@ import type { ThreadUpdate } from '@/lib/supabase/types';
 import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
 import { errorResponse, notFoundResponse } from '@/lib/api/error-responses';
 import { logger } from '@/lib/logger';
+import { fetchThreadMessages } from '@/lib/server/chat-history';
 
 export const runtime = 'edge';
 
@@ -47,21 +48,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     // Get messages if requested
-    let messages = [];
-    if (includeMessages) {
-      const { data: messageData, error: messagesError } = await supabaseAdmin
-        .from('chat_messages')
-        .select('*')
-        .eq('thread_id', id)
-        .order('created_at', { ascending: true })
-        .limit(messageLimit);
-
-      if (messagesError) {
-        logger.error('[Thread API] Error fetching messages', { messagesError: messagesError });
-      } else {
-        messages = messageData || [];
-      }
-    }
+    const messages = includeMessages
+      ? await fetchThreadMessages(id, messageLimit)
+      : [];
 
     return NextResponse.json({ thread, messages });
   } catch (error) {

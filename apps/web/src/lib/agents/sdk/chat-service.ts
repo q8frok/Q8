@@ -1,6 +1,7 @@
 import { type OrchestrationEvent, type ExtendedAgentType, type RoutingDecision, type ToolEvent } from '@/lib/agents/orchestration';
 import { streamMessage as streamMessageSDK, type AgentType } from '@/lib/agents/sdk';
 import { classifyError } from '@/lib/agents/sdk/utils/errors';
+import type { VersionedEvent } from '@/lib/agents/sdk/events';
 
 export interface ChatServiceRequest {
   message: string;
@@ -14,7 +15,10 @@ export interface ChatServiceRequest {
   forceAgent?: ExtendedAgentType;
   showToolExecutions?: boolean;
   conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>;
+  historyOverride?: Array<{ role: 'user' | 'assistant'; content: string }>;
   signal?: AbortSignal;
+  requestId?: string;
+  correlationId?: string;
 }
 
 export interface ChatAgentSelection {
@@ -75,7 +79,7 @@ export class ChatServiceError extends Error {
   }
 }
 
-export function executeChatStream(request: ChatServiceRequest): AsyncGenerator<OrchestrationEvent> {
+export function executeChatStream(request: ChatServiceRequest): AsyncGenerator<VersionedEvent<OrchestrationEvent>> {
   return streamMessageSDK({
     ...request,
     forceAgent: request.forceAgent as AgentType | undefined,

@@ -73,8 +73,13 @@ export function VoiceButtonEnhanced({
     },
     onError: (error) => {
       logger.error('WebRTC voice error', { error, component: 'VoiceButtonEnhanced' });
-      // Fallback to HTTP on error
-      if (mode === 'webrtc') setMode('http');
+    },
+    onFallback: (reason) => {
+      logger.warn('WebRTC unavailable, switching to HTTP voice mode', {
+        reason,
+        component: 'VoiceButtonEnhanced',
+      });
+      setMode('http');
     },
   });
 

@@ -1,12 +1,128 @@
 /**
  * useChat Hook
  * Streaming chat with tool execution visibility
+ *
+ * Integrates:
+ * - Server-canonical history (no client-side conversationHistory sent)
+ * - Run lifecycle state (run_created / run_state)
+ * - Client requestId for idempotency
+ * - Versioned event parsing with forward-compatibility
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { logger } from '@/lib/logger';
+import { EVENT_SCHEMA_VERSION, hasSupportedEventVersion } from '@/lib/agents/sdk/events';
 
 export type AgentType = 'orchestrator' | 'coder' | 'researcher' | 'secretary' | 'personality' | 'home' | 'finance' | 'imagegen';
+
+// =============================================================================
+// VERSIONED EVENT PARSING (PR #12)
+// =============================================================================
+
+type ParsedStreamEvent = {
+  type: string;
+  eventVersion?: number;
+  runId?: string;
+  requestId?: string;
+  timestamp?: string;
+  correlationId?: string;
+  agent?: AgentType;
+  reason?: string;
+  confidence?: number;
+  source?: string;
+  from?: AgentType;
+  to?: AgentType;
+  tool?: string;
+  id?: string;
+  args?: Record<string, unknown>;
+  success?: boolean;
+  result?: unknown;
+  duration?: number;
+  delta?: string;
+  fullContent?: string;
+  message?: string;
+  recoverable?: boolean;
+  threadId?: string;
+  count?: number;
+  url?: string;
+  relevance?: number;
+  memoryId?: string;
+  content?: string;
+  imageData?: string;
+  mimeType?: string;
+  caption?: string;
+  model?: string;
+  analysis?: string;
+  imageUrl?: string;
+  images?: Array<{ data: string; mimeType: string; caption?: string }>;
+  text?: string;
+  isComplete?: boolean;
+  widgetId?: string;
+  action?: string;
+  data?: Record<string, unknown>;
+  state?: string;
+  [key: string]: unknown;
+};
+
+const KNOWN_EVENT_TYPES = new Set([
+  'thread_created',
+  'memory_extracted',
+  'routing',
+  'agent_start',
+  'handoff',
+  'tool_start',
+  'tool_end',
+  'citation',
+  'memory_used',
+  'image_generated',
+  'image_analyzed',
+  'tts_chunk',
+  'widget_action',
+  'content',
+  'done',
+  'error',
+  'run_created',
+  'run_state',
+]);
+
+function parseVersionedEvent(raw: unknown): ParsedStreamEvent | null {
+  if (!raw || typeof raw !== 'object') {
+    return null;
+  }
+
+  const event = raw as ParsedStreamEvent;
+  if (typeof event.type !== 'string') {
+    return null;
+  }
+
+  // Allow events without version (backward compat) but reject mismatched versions
+  if (event.eventVersion !== undefined && !hasSupportedEventVersion(event)) {
+    logger.warn('Skipping stream event with unsupported version', {
+      expectedEventVersion: EVENT_SCHEMA_VERSION,
+      receivedEventVersion: event.eventVersion,
+      eventType: event.type,
+      runId: event.runId,
+      requestId: event.requestId,
+    });
+    return null;
+  }
+
+  if (!KNOWN_EVENT_TYPES.has(event.type)) {
+    logger.info('Ignoring unknown stream event type for forward compatibility', {
+      type: event.type,
+      runId: event.runId,
+      requestId: event.requestId,
+      eventVersion: event.eventVersion,
+    });
+    return null;
+  }
+
+  return event;
+}
+
+// =============================================================================
+// INTERFACES
+// =============================================================================
 
 export interface ToolExecution {
   id: string;
@@ -54,6 +170,16 @@ export interface WidgetAction {
   data?: Record<string, unknown>;
 }
 
+export type RunState = 'queued' | 'running' | 'awaiting_tool' | 'completed' | 'failed' | 'cancelled';
+
+export interface RunMetadata {
+  runId: string;
+  state: RunState;
+  startedAt: Date;
+  updatedAt: Date;
+  endedAt?: Date;
+}
+
 export interface StreamingMessage {
   id: string;
   role: 'user' | 'assistant';
@@ -67,6 +193,7 @@ export interface StreamingMessage {
   images?: GeneratedImage[];
   handoff?: HandoffInfo;
   imageAnalysis?: string;
+  run?: RunMetadata;
 }
 
 export interface ChatState {
@@ -79,11 +206,16 @@ export interface ChatState {
   pendingHandoff: HandoffInfo | null;
   error: string | null;
   threadId: string | null;
+  runState: RunState | null;
+  runId: string | null;
+  runStartedAt: Date | null;
+  runUpdatedAt: Date | null;
+  runEndedAt: Date | null;
 }
 
 interface UseChatOptions {
   userId: string;
-  threadId?: string | null; // Optional - creates new thread if not provided
+  threadId?: string | null;
   userProfile?: {
     name?: string;
     timezone?: string;
@@ -118,9 +250,12 @@ interface UseChatOptions {
   onError?: (error: string, recoverable?: boolean) => void;
 }
 
+// =============================================================================
+// HOOK
+// =============================================================================
+
 export function useChat(options: UseChatOptions) {
   const {
-    userId,
     threadId: initialThreadId,
     userProfile,
     onMessage,
@@ -149,29 +284,45 @@ export function useChat(options: UseChatOptions) {
     pendingHandoff: null,
     error: null,
     threadId: initialThreadId || null,
+    runState: null,
+    runId: null,
+    runStartedAt: null,
+    runUpdatedAt: null,
+    runEndedAt: null,
   });
 
   // Track if we should skip the next message load (when thread is created during streaming)
   const skipNextLoadRef = useRef(false);
+  const getRunStoreKey = useCallback((threadId: string) => `q8_run_metadata_${threadId}`, []);
+
+  const saveRunMetadata = useCallback((threadId: string, messageId: string, run: RunMetadata) => {
+    if (typeof window === 'undefined') return;
+    try {
+      const key = getRunStoreKey(threadId);
+      const current = localStorage.getItem(key);
+      const parsed = current ? JSON.parse(current) as Record<string, unknown> : {};
+      parsed[messageId] = {
+        ...run,
+        startedAt: run.startedAt.toISOString(),
+        updatedAt: run.updatedAt.toISOString(),
+        endedAt: run.endedAt?.toISOString(),
+      };
+      localStorage.setItem(key, JSON.stringify(parsed));
+    } catch (error) {
+      logger.warn('Failed to persist run metadata', { threadId, messageId, error });
+    }
+  }, [getRunStoreKey]);
 
   // Load existing messages when threadId changes
   useEffect(() => {
     if (initialThreadId) {
-      // Check current state to decide if we should load
       const shouldLoad = !state.isStreaming && !state.isLoading && state.threadId !== initialThreadId;
-
-      // Update threadId immediately
       setState(prev => ({ ...prev, threadId: initialThreadId }));
-
-      // Only load messages if we're switching to a different thread and not streaming
       if (shouldLoad && !skipNextLoadRef.current) {
         loadMessages(initialThreadId);
       }
-
-      // Reset skip flag
       skipNextLoadRef.current = false;
     } else {
-      // Clear messages for new thread only if not streaming
       if (!state.isStreaming && !state.isLoading) {
         setState(prev => ({
           ...prev,
@@ -192,44 +343,92 @@ export function useChat(options: UseChatOptions) {
       if (!response.ok) throw new Error('Failed to load messages');
 
       const data = await response.json();
+      let persistedRuns: Record<string, {
+        runId: string;
+        state: RunState;
+        startedAt: string;
+        updatedAt: string;
+        endedAt?: string;
+      }> = {};
+
+      if (typeof window !== 'undefined') {
+        const stored = localStorage.getItem(getRunStoreKey(threadId));
+        if (stored) {
+          persistedRuns = JSON.parse(stored) as typeof persistedRuns;
+        }
+      }
+
       const loadedMessages: StreamingMessage[] = (data.messages || []).map((m: {
         id: string;
         role: 'user' | 'assistant';
         content: string;
         agent_name?: string;
         tool_executions?: ToolExecution[];
+        metadata?: Record<string, unknown>;
         created_at: string;
-      }) => ({
-        id: m.id,
-        role: m.role,
-        content: m.content,
-        agent: m.agent_name as AgentType | undefined,
-        isStreaming: false,
-        toolExecutions: m.tool_executions || [],
-        timestamp: new Date(m.created_at),
-      }));
+      }) => {
+        const persistedRun = persistedRuns[m.id];
+        const runMetadata = (persistedRun || (m.metadata?.run as Record<string, unknown> | undefined));
+        const run = runMetadata && typeof runMetadata.runId === 'string' && typeof runMetadata.state === 'string'
+          ? {
+              runId: runMetadata.runId,
+              state: runMetadata.state as RunState,
+              startedAt: runMetadata.startedAt ? new Date(String(runMetadata.startedAt)) : new Date(m.created_at),
+              updatedAt: runMetadata.updatedAt ? new Date(String(runMetadata.updatedAt)) : new Date(m.created_at),
+              endedAt: runMetadata.endedAt ? new Date(String(runMetadata.endedAt)) : undefined,
+            }
+          : undefined;
+
+        return {
+          id: m.id,
+          role: m.role,
+          content: m.content,
+          agent: m.agent_name as AgentType | undefined,
+          isStreaming: false,
+          toolExecutions: m.tool_executions || [],
+          timestamp: new Date(m.created_at),
+          run,
+        };
+      });
+
+      const latestRun = [...loadedMessages].reverse().find(message => message.role === 'assistant' && message.run)?.run;
 
       setState(prev => ({
         ...prev,
         messages: loadedMessages,
         threadId,
+        runState: latestRun?.state || null,
+        runId: latestRun?.runId || null,
+        runStartedAt: latestRun?.startedAt || null,
+        runUpdatedAt: latestRun?.updatedAt || null,
+        runEndedAt: latestRun?.endedAt || null,
       }));
     } catch (err) {
       logger.error('Failed to load messages', { threadId, error: err });
     }
-  }, []);
+  }, [getRunStoreKey]);
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const streamingMessageRef = useRef<StreamingMessage | null>(null);
 
+  const generateRequestId = (): string => {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+    return `req_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  };
+
   /**
    * Send a message and stream the response
+   * - No client conversationHistory sent (server fetches canonical history)
+   * - Sends requestId for idempotency
    */
   const sendMessage = useCallback(async (content: string) => {
-    // Cancel any existing stream
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
+
+    const requestId = generateRequestId();
 
     const userMessageId = `msg_${Date.now()}_user`;
     const userMessage: StreamingMessage = {
@@ -241,7 +440,6 @@ export function useChat(options: UseChatOptions) {
       timestamp: new Date(),
     };
 
-    // Add user message
     setState(prev => ({
       ...prev,
       messages: [...prev.messages, userMessage],
@@ -250,9 +448,13 @@ export function useChat(options: UseChatOptions) {
       error: null,
       currentAgent: null,
       routingReason: null,
+      runState: 'queued',
+      runId: null,
+      runStartedAt: new Date(),
+      runUpdatedAt: new Date(),
+      runEndedAt: null,
     }));
 
-    // Create assistant message placeholder
     const assistantMessageId = `msg_${Date.now()}_assistant`;
     const assistantMessage: StreamingMessage = {
       id: assistantMessageId,
@@ -271,28 +473,25 @@ export function useChat(options: UseChatOptions) {
       isStreaming: true,
     }));
 
-    // Start streaming
     abortControllerRef.current = new AbortController();
 
     try {
-      // Build conversation history from recent messages (last 20)
-      const conversationHistory = state.messages
-        .slice(-20)
-        .map(m => ({
-          role: m.role as 'user' | 'assistant',
-          content: m.content,
-        }));
-
+      /**
+       * Deterministic retry/reconnect behavior:
+       * - Local in-flight UI messages are treated as optimistic only.
+       * - The server reconstructs canonical thread history from persisted chat_messages.
+       * - Retries therefore resend only the user intent (`message`) + thread identity,
+       *   never an ad-hoc local transcript that might include unsynced duplicates.
+       */
       const response = await fetch('/api/chat/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: content,
-          userId,
-        threadId: state.threadId,
-        userProfile,
-        conversationHistory,
-      }),
+          threadId: state.threadId,
+          requestId,
+          userProfile,
+        }),
         signal: abortControllerRef.current.signal,
       });
 
@@ -314,16 +513,18 @@ export function useChat(options: UseChatOptions) {
 
         buffer += decoder.decode(value, { stream: true });
 
-        // Process complete SSE events
         const lines = buffer.split('\n\n');
-        buffer = lines.pop() || ''; // Keep incomplete line in buffer
+        buffer = lines.pop() || '';
 
         for (const line of lines) {
           if (!line.startsWith('data: ')) continue;
 
           try {
-            const data = JSON.parse(line.slice(6));
-            await processStreamEvent(data, assistantMessageId);
+            const raw = JSON.parse(line.slice(6));
+            const parsed = parseVersionedEvent(raw);
+            if (parsed) {
+              await processStreamEvent(parsed, assistantMessageId);
+            }
           } catch (e) {
             logger.warn('Failed to parse SSE event', { line, error: e });
           }
@@ -344,59 +545,60 @@ export function useChat(options: UseChatOptions) {
       }));
       onError?.(errorMessage);
     }
-  // Note: processStreamEvent is intentionally not in deps to avoid re-creating sendMessage
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, state.threadId, userProfile, onError]);
+  }, [state.threadId, userProfile, onError]);
 
   /**
    * Process a stream event
    */
   const processStreamEvent = useCallback(async (
-    event: {
-      type: string;
-      agent?: AgentType;
-      reason?: string;
-      confidence?: number;
-      source?: string;
-      from?: AgentType;
-      to?: AgentType;
-      tool?: string;
-      id?: string;
-      args?: Record<string, unknown>;
-      success?: boolean;
-      result?: unknown;
-      duration?: number;
-      delta?: string;
-      fullContent?: string;
-      message?: string;
-      recoverable?: boolean;
-      threadId?: string;
-      count?: number;
-      // Citation fields
-      url?: string;
-      relevance?: number;
-      // Memory fields
-      memoryId?: string;
-      content?: string;
-      // Image fields
-      imageData?: string;
-      mimeType?: string;
-      caption?: string;
-      model?: string;
-      analysis?: string;
-      imageUrl?: string;
-      images?: Array<{ data: string; mimeType: string; caption?: string }>;
-      // TTS fields
-      text?: string;
-      isComplete?: boolean;
-      // Widget action fields
-      widgetId?: string;
-      action?: string;
-      data?: Record<string, unknown>;
-    },
+    event: ParsedStreamEvent,
     messageId: string
   ) => {
+    const updateRunMetadata = (newState: RunState, runId?: string) => {
+      const now = new Date();
+      const isTerminal = newState === 'completed' || newState === 'failed' || newState === 'cancelled';
+      setState(prev => {
+        const updatedRunId = runId || prev.runId;
+        const run: RunMetadata = {
+          runId: updatedRunId || '',
+          state: newState,
+          startedAt: prev.runStartedAt || now,
+          updatedAt: now,
+          endedAt: isTerminal ? now : prev.runEndedAt ?? undefined,
+        };
+
+        const threadId = prev.threadId;
+        if (threadId) {
+          saveRunMetadata(threadId, messageId, run);
+        }
+
+        return {
+          ...prev,
+          runState: newState,
+          runId: updatedRunId,
+          runUpdatedAt: now,
+          runEndedAt: isTerminal ? now : prev.runEndedAt,
+          messages: prev.messages.map(m =>
+            m.id === messageId ? { ...m, run } : m
+          ),
+        };
+      });
+    };
+
     switch (event.type) {
+      case 'run_created':
+        if (event.runId) {
+          updateRunMetadata('queued', event.runId as string);
+        }
+        break;
+
+      case 'run_state':
+        if (event.state) {
+          updateRunMetadata(event.state as RunState, event.runId as string);
+        }
+        break;
+
       case 'thread_created':
         if (event.threadId) {
           skipNextLoadRef.current = true;
@@ -417,7 +619,7 @@ export function useChat(options: UseChatOptions) {
           currentAgent: event.agent || null,
           routingReason: event.reason || null,
           routingConfidence: event.confidence ?? null,
-          pendingHandoff: null, // Clear pending handoff when routing occurs
+          pendingHandoff: null,
         }));
         if (event.agent && event.reason) {
           onRouting?.(event.agent, event.reason, event.confidence ?? 0);
@@ -435,7 +637,7 @@ export function useChat(options: UseChatOptions) {
           setState(prev => ({
             ...prev,
             currentAgent: event.agent || null,
-            pendingHandoff: null, // Clear pending handoff when agent starts
+            pendingHandoff: null,
           }));
           onAgentStart?.(event.agent);
         }
@@ -618,6 +820,7 @@ export function useChat(options: UseChatOptions) {
         break;
 
       case 'done':
+        updateRunMetadata('completed', event.runId as string);
         // Handle images from done event
         const doneImages = event.images?.map(img => ({
           id: `img_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
@@ -651,6 +854,7 @@ export function useChat(options: UseChatOptions) {
         break;
 
       case 'error':
+        updateRunMetadata('failed', event.runId as string);
         setState(prev => ({
           ...prev,
           isLoading: false,
@@ -662,9 +866,18 @@ export function useChat(options: UseChatOptions) {
               : m
           ),
         }));
-        if (event.message) {
-          onError?.(event.message, event.recoverable);
+        if (event.message && typeof event.message === 'string') {
+          onError?.(event.message, event.recoverable as boolean | undefined);
         }
+        break;
+
+      default:
+        logger.info('Unhandled stream event (ignored for forward compatibility)', {
+          eventType: event.type,
+          runId: event.runId,
+          requestId: event.requestId,
+          eventVersion: event.eventVersion,
+        });
         break;
     }
   }, [
@@ -682,7 +895,8 @@ export function useChat(options: UseChatOptions) {
     onError,
     onThreadCreated,
     onMemoryExtracted,
-    state.messages
+    state.messages,
+    saveRunMetadata
   ]);
 
   /**
@@ -695,6 +909,14 @@ export function useChat(options: UseChatOptions) {
         ...prev,
         isLoading: false,
         isStreaming: false,
+        runState: 'cancelled',
+        runUpdatedAt: new Date(),
+        runEndedAt: new Date(),
+        messages: prev.messages.map(m =>
+          m.isStreaming && m.run
+            ? { ...m, run: { ...m.run, state: 'cancelled' as RunState, updatedAt: new Date(), endedAt: new Date() } }
+            : m
+        ),
       }));
     }
   }, []);
@@ -712,6 +934,11 @@ export function useChat(options: UseChatOptions) {
       routingReason: null,
       error: null,
       threadId: null,
+      runState: null,
+      runId: null,
+      runStartedAt: null,
+      runUpdatedAt: null,
+      runEndedAt: null,
     }));
   }, []);
 
@@ -721,7 +948,6 @@ export function useChat(options: UseChatOptions) {
   const retryLast = useCallback(() => {
     const lastUserMessage = [...state.messages].reverse().find(m => m.role === 'user');
     if (lastUserMessage) {
-      // Remove the last assistant message if it exists
       setState(prev => ({
         ...prev,
         messages: prev.messages.filter(m => 

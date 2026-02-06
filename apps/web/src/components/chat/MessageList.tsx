@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { StreamingMessage } from './StreamingMessage';
 import { AgentHandoff } from './AgentHandoff';
 import { ChatEmptyState } from './ChatEmptyState';
-import type { AgentType, StreamingMessage as StreamingMessageType } from '@/hooks/useChat';
+import type { AgentType, StreamingMessage as StreamingMessageType, RunState } from '@/hooks/useChat';
 
 interface MessageListProps {
   messages: StreamingMessageType[];
@@ -15,6 +15,7 @@ interface MessageListProps {
   activeAgent: string | null;
   routingReason: string | null;
   error: string | null;
+  runState: RunState | null;
   onSend: (content: string) => void;
   onMentionInsert: (mention: string) => void;
   onRetry: () => void;
@@ -28,6 +29,7 @@ export function MessageList({
   activeAgent,
   routingReason,
   error,
+  runState,
   onSend,
   onMentionInsert,
   onRetry,
@@ -54,6 +56,10 @@ export function MessageList({
         )}
       </AnimatePresence>
 
+      {runState && (
+        <div className="text-center text-xs text-text-muted">Run status: {runState.replace('_', ' ')}</div>
+      )}
+
       {/* Messages */}
       {messages.map((message) => (
         <StreamingMessage
@@ -64,6 +70,8 @@ export function MessageList({
           agent={message.agent as AgentType}
           isStreaming={message.isStreaming}
           toolExecutions={message.toolExecutions}
+          handoff={message.handoff}
+          run={message.run}
           timestamp={message.timestamp}
           onAction={onMessageAction}
         />

@@ -385,6 +385,11 @@ export function useUnifiedChat(options: UseUnifiedChatOptions): UseUnifiedChatRe
     pendingHandoff: chat.pendingHandoff,
     error: chat.error,
     threadId: chat.threadId,
+    runState: chat.runState,
+    runId: chat.runId,
+    runStartedAt: chat.runStartedAt,
+    runUpdatedAt: chat.runUpdatedAt,
+    runEndedAt: chat.runEndedAt,
 
     // Mode state
     mode,

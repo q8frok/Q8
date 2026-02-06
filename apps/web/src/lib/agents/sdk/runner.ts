@@ -26,6 +26,11 @@ import {
   type SDKRoutingDecision,
 } from './router';
 import { classifyError } from './utils/errors';
+import {
+  withEventMetadata,
+  type EventTraceContext,
+  type VersionedEvent,
+} from './events';
 
 // =============================================================================
 // TYPES
@@ -55,8 +60,16 @@ export interface StreamMessageOptions {
   forceAgent?: AgentType;
   showToolExecutions?: boolean;
   maxTurns?: number;
+  /**
+   * Optional INTERNAL override used by tests/dev tooling.
+   * Production path should pass canonical server-assembled history.
+   */
+  historyOverride?: Array<{ role: 'user' | 'assistant'; content: string }>;
+  /** @deprecated use historyOverride */
   conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>;
   signal?: AbortSignal;
+  requestId?: string;
+  correlationId?: string;
 }
 
 // =============================================================================
@@ -126,7 +139,7 @@ function buildUserContext(userProfile?: RunContext['userProfile']): string {
  */
 export async function* streamMessage(
   options: StreamMessageOptions
-): AsyncGenerator<OrchestrationEvent> {
+): AsyncGenerator<VersionedEvent<OrchestrationEvent>> {
   const {
     message,
     userId,
@@ -135,16 +148,26 @@ export async function* streamMessage(
     forceAgent,
     showToolExecutions = true,
     maxTurns = DEFAULT_MAX_TURNS,
-    conversationHistory = [],
+    historyOverride,
+    conversationHistory,
     signal,
+    requestId: providedRequestId,
+    correlationId,
   } = options;
 
   const threadId = providedThreadId ?? crypto.randomUUID();
+  const runId = crypto.randomUUID();
+  const requestId = providedRequestId ?? crypto.randomUUID();
+  const traceContext: EventTraceContext = {
+    runId,
+    requestId,
+    correlationId: correlationId ?? threadId,
+  };
   const startTime = Date.now();
 
   // Emit thread_created if new
   if (!providedThreadId) {
-    yield { type: 'thread_created', threadId };
+    yield withEventMetadata({ type: 'thread_created', threadId }, traceContext);
   }
 
   try {
@@ -162,10 +185,10 @@ export async function* streamMessage(
       routingDecision = await route(message);
     }
 
-    yield {
+    yield withEventMetadata({
       type: 'routing',
       decision: toOrchestrationRoutingDecision(routingDecision),
-    };
+    }, traceContext);
 
     // Step 2: Get and prepare the agent
     const selectedType = routingDecision.agent;
@@ -181,11 +204,13 @@ export async function* streamMessage(
         : '') + userContext,
     });
 
-    yield { type: 'agent_start', agent: selectedType };
+    yield withEventMetadata({ type: 'agent_start', agent: selectedType }, traceContext);
 
     // Step 3: Run with streaming
-    const input = conversationHistory.length > 0
-      ? buildInput(conversationHistory, message)
+    const prebuiltHistory = historyOverride ?? conversationHistory ?? [];
+
+    const input = prebuiltHistory.length > 0
+      ? buildInput(prebuiltHistory, message)
       : message;
 
     const runContext: RunContext = {
@@ -226,7 +251,7 @@ export async function* streamMessage(
           currentAgentType = mapped.to as AgentType;
         }
 
-        yield mapped;
+        yield withEventMetadata(mapped, traceContext);
       }
     }
 
@@ -241,32 +266,36 @@ export async function* streamMessage(
 
     const duration = Date.now() - startTime;
     logger.info('streamMessage completed', {
+      runId,
+      requestId,
       agent: finalAgentType,
       durationMs: duration,
       contentLength: fullContent.length,
     });
 
-    yield {
+    yield withEventMetadata({
       type: 'done',
       fullContent,
       agent: finalAgentType,
       threadId,
-    };
+    }, traceContext);
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     const classification = classifyError(error) ?? { recoverable: false };
 
     logger.error('streamMessage failed', {
+      runId,
+      requestId,
       userId,
       threadId,
       error: errorMessage,
     });
 
-    yield {
+    yield withEventMetadata({
       type: 'error',
       message: errorMessage,
       recoverable: classification.recoverable,
-    };
+    }, traceContext);
   }
 }
 

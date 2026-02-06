@@ -63,6 +63,7 @@ export async function POST(request: NextRequest) {
       negotiated: {
         ...metadata,
       },
+      iceServers: sessionData.ice_servers,
     });
   } catch (error) {
     logger.error('Realtime session creation failed', { error, userId: user.id });

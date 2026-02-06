@@ -9,6 +9,7 @@ export type RealtimeVoiceState =
   | 'connected'
   | 'speaking'
   | 'listening'
+  | 'fallback'
   | 'error';
 
 interface RealtimeVoiceConfig {
@@ -17,6 +18,7 @@ interface RealtimeVoiceConfig {
   onTranscript?: (text: string, isFinal: boolean) => void;
   onResponse?: (text: string) => void;
   onError?: (error: string) => void;
+  onFallback?: (reason: string) => void;
   onStateChange?: (state: RealtimeVoiceState) => void;
 }
 
@@ -32,19 +34,13 @@ interface UseRealtimeVoiceReturn {
   lastResponse: string;
   latencyMs: number | null;
   error: string | null;
+  isFallback: boolean;
 }
 
-/**
- * useRealtimeVoice - WebRTC connection to OpenAI Realtime API
- *
- * Provides sub-500ms conversational voice with:
- * - Server-side VAD (voice activity detection)
- * - Interruption handling
- * - Automatic reconnection on failure
- * - Latency measurement
- *
- * Falls back gracefully when WebRTC is not available.
- */
+const MAX_RECONNECT_ATTEMPTS = 4;
+const INITIAL_RECONNECT_DELAY_MS = 1000;
+const MAX_RECONNECT_DELAY_MS = 10_000;
+
 export function useRealtimeVoice(config: RealtimeVoiceConfig = {}): UseRealtimeVoiceReturn {
   const {
     voice = 'nova',
@@ -52,6 +48,7 @@ export function useRealtimeVoice(config: RealtimeVoiceConfig = {}): UseRealtimeV
     onTranscript,
     onResponse,
     onError,
+    onFallback,
     onStateChange,
   } = config;
 
@@ -65,126 +62,125 @@ export function useRealtimeVoice(config: RealtimeVoiceConfig = {}): UseRealtimeV
   const dcRef = useRef<RTCDataChannel | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const speechStartRef = useRef<number | null>(null);
+  const reconnectAttemptsRef = useRef(0);
+  const reconnectTimeoutRef = useRef<number | null>(null);
+  const manualDisconnectRef = useRef(false);
+  const stateRef = useRef<RealtimeVoiceState>('idle');
+  const connectRef = useRef<(() => Promise<void>) | null>(null);
 
   const updateState = useCallback(
     (newState: RealtimeVoiceState) => {
+      stateRef.current = newState;
       setState(newState);
       onStateChange?.(newState);
     },
     [onStateChange]
   );
 
-  const connect = useCallback(async () => {
-    if (pcRef.current) {
-      disconnect();
+  const clearReconnectTimer = useCallback(() => {
+    if (reconnectTimeoutRef.current !== null) {
+      window.clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+  }, []);
+
+  const classifyTerminalError = useCallback((err: unknown) => {
+    const message = err instanceof Error ? err.message : String(err);
+    const lowerMsg = message.toLowerCase();
+    const isTerminal =
+      lowerMsg.includes('permission denied') ||
+      lowerMsg.includes('notallowederror') ||
+      lowerMsg.includes('not found') ||
+      lowerMsg.includes('no client secret') ||
+      lowerMsg.includes('invalid token') ||
+      lowerMsg.includes('unauthorized') ||
+      lowerMsg.includes('forbidden') ||
+      lowerMsg.includes('unsupported') ||
+      lowerMsg.includes('not implemented') ||
+      lowerMsg.includes('not available');
+
+    return { message, isTerminal };
+  }, []);
+
+  const enterFallbackMode = useCallback((reason: string) => {
+    clearReconnectTimer();
+    updateState('fallback');
+    onFallback?.(reason);
+    logger.warn('Realtime voice unavailable, downgrading to non-realtime mode', {
+      reason,
+    });
+  }, [clearReconnectTimer, onFallback, updateState]);
+
+  const cleanup = useCallback(() => {
+    clearReconnectTimer();
+
+    if (dcRef.current) {
+      dcRef.current.close();
+      dcRef.current = null;
     }
 
-    updateState('connecting');
-    setError(null);
-
-    try {
-      // 1. Get ephemeral token from our API
-      const tokenRes = await fetch('/api/voice/realtime', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ voice, instructions }),
+    if (pcRef.current) {
+      pcRef.current.getSenders().forEach((sender) => {
+        sender.track?.stop();
       });
+      pcRef.current.close();
+      pcRef.current = null;
+    }
 
-      if (!tokenRes.ok) {
-        const data = await tokenRes.json().catch(() => ({}));
-        throw new Error(data?.error?.message || 'Failed to get voice session token');
+    if (audioRef.current) {
+      audioRef.current.srcObject = null;
+      audioRef.current = null;
+    }
+  }, [clearReconnectTimer]);
+
+  const scheduleReconnect = useCallback(
+    (reason: string) => {
+      const hasAttemptsRemaining = reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS;
+      if (!hasAttemptsRemaining) {
+        enterFallbackMode(reason);
+        return;
       }
 
-      const { clientSecret, negotiated } = await tokenRes.json();
-      if (!clientSecret) {
-        throw new Error('No client secret received');
-      }
-
-      // 2. Create RTCPeerConnection
-      const pc = new RTCPeerConnection();
-      pcRef.current = pc;
-
-      // 3. Set up audio playback
-      const audioEl = document.createElement('audio');
-      audioEl.autoplay = true;
-      audioRef.current = audioEl;
-
-      pc.ontrack = (event) => {
-        audioEl.srcObject = event.streams[0] ?? null;
-        // Measure latency from speech end to first audio response
-        if (speechStartRef.current) {
-          const latency = Date.now() - speechStartRef.current;
-          setLatencyMs(latency);
-          speechStartRef.current = null;
-        }
-      };
-
-      // 4. Get local audio stream
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach((track) => pc.addTrack(track, stream));
-
-      // 5. Set up data channel for events
-      const dc = pc.createDataChannel('oai-events');
-      dcRef.current = dc;
-
-      dc.onopen = () => {
-        updateState('connected');
-        logger.info('Realtime voice data channel opened');
-      };
-
-      dc.onmessage = (event) => {
-        try {
-          const msg = JSON.parse(event.data);
-          handleRealtimeEvent(msg);
-        } catch {
-          // Ignore unparseable messages
-        }
-      };
-
-      dc.onclose = () => {
-        logger.info('Realtime voice data channel closed');
-        if (state !== 'idle') {
-          updateState('idle');
-        }
-      };
-
-      // 6. Create and set local offer
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-
-      // 7. Send offer to OpenAI Realtime API
-      const realtimeModel = negotiated?.model || 'gpt-4o-realtime-preview-2024-12-17';
-
-      const sdpResponse = await fetch(
-        `https://api.openai.com/v1/realtime?model=${encodeURIComponent(realtimeModel)}`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${clientSecret}`,
-            'Content-Type': 'application/sdp',
-          },
-          body: offer.sdp,
-        }
+      const nextAttempt = reconnectAttemptsRef.current + 1;
+      reconnectAttemptsRef.current = nextAttempt;
+      const delay = Math.min(
+        INITIAL_RECONNECT_DELAY_MS * Math.pow(2, nextAttempt - 1),
+        MAX_RECONNECT_DELAY_MS
       );
 
-      if (!sdpResponse.ok) {
-        throw new Error(`SDP exchange failed: ${sdpResponse.status}`);
-      }
+      updateState('connecting');
+      logger.warn('Scheduling realtime voice reconnect', {
+        nextAttempt,
+        delayMs: delay,
+        reason,
+      });
 
-      const answerSdp = await sdpResponse.text();
-      await pc.setRemoteDescription({ type: 'answer', sdp: answerSdp });
+      clearReconnectTimer();
+      reconnectTimeoutRef.current = window.setTimeout(() => {
+        connectRef.current?.().catch((reconnectErr) => {
+          logger.error('Realtime reconnect attempt failed', {
+            errorMessage: reconnectErr instanceof Error ? reconnectErr.message : String(reconnectErr),
+          });
+        });
+      }, delay);
+    },
+    [clearReconnectTimer, enterFallbackMode, updateState]
+  );
 
-      logger.info('WebRTC connection established');
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'WebRTC connection failed';
-      setError(message);
-      updateState('error');
-      onError?.(message);
-      logger.error('Realtime voice connection failed', { error: err });
-      cleanup();
+  const handleConnectionFailure = useCallback((reason: string, isTerminal = false) => {
+    if (manualDisconnectRef.current) return;
+
+    setError(reason);
+    onError?.(reason);
+
+    cleanup();
+    if (isTerminal) {
+      enterFallbackMode(reason);
+      return;
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [voice, instructions, updateState, onError]);
+
+    scheduleReconnect(reason);
+  }, [cleanup, enterFallbackMode, onError, scheduleReconnect]);
 
   const handleRealtimeEvent = useCallback(
     (event: Record<string, unknown>) => {
@@ -237,29 +233,199 @@ export function useRealtimeVoice(config: RealtimeVoiceConfig = {}): UseRealtimeV
         }
       }
     },
-    [updateState, onTranscript, onResponse, onError]
+    [onError, onResponse, onTranscript, updateState]
   );
 
-  const cleanup = useCallback(() => {
-    if (dcRef.current) {
-      dcRef.current.close();
-      dcRef.current = null;
+  const connect = useCallback(async () => {
+    if (typeof window !== 'undefined' && !('RTCPeerConnection' in window)) {
+      const reason = 'Realtime voice is not supported in this browser';
+      setError(reason);
+      enterFallbackMode(reason);
+      return;
     }
-    if (pcRef.current) {
-      pcRef.current.getSenders().forEach((sender) => {
-        sender.track?.stop();
+
+    manualDisconnectRef.current = false;
+    clearReconnectTimer();
+    cleanup();
+
+    updateState('connecting');
+    setError(null);
+
+    try {
+      const tokenRes = await fetch('/api/voice/realtime', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ voice, instructions }),
       });
-      pcRef.current.close();
-      pcRef.current = null;
+
+      if (!tokenRes.ok) {
+        const data = await tokenRes.json().catch(() => ({}));
+        throw new Error(data?.error?.message || 'Failed to get voice session token');
+      }
+
+      const tokenData = await tokenRes.json();
+      const { clientSecret, negotiated } = tokenData;
+      if (!clientSecret) {
+        throw new Error('No client secret received');
+      }
+
+      const iceServers = Array.isArray(tokenData.iceServers) ? tokenData.iceServers : undefined;
+
+      logger.info('Initializing realtime voice peer connection', {
+        hasIcePolicy: Boolean(iceServers?.length),
+        iceServerCount: iceServers?.length ?? 0,
+      });
+
+      const pc = new RTCPeerConnection(
+        iceServers?.length
+          ? {
+              iceServers,
+            }
+          : undefined
+      );
+      pcRef.current = pc;
+
+      const logConnectionDiagnostics = (source: string) => {
+        logger.info('Realtime voice connection diagnostics', {
+          source,
+          connectionState: pc.connectionState,
+          iceConnectionState: pc.iceConnectionState,
+          iceGatheringState: pc.iceGatheringState,
+          signalingState: pc.signalingState,
+          reconnectAttempts: reconnectAttemptsRef.current,
+        });
+      };
+
+      pc.addEventListener('connectionstatechange', () => {
+        logConnectionDiagnostics('connectionstatechange');
+
+        if (pc.connectionState === 'connected') {
+          reconnectAttemptsRef.current = 0;
+          updateState('connected');
+          return;
+        }
+
+        if (pc.connectionState === 'disconnected') {
+          if (!manualDisconnectRef.current && stateRef.current !== 'fallback') {
+            updateState('connecting');
+          }
+          return;
+        }
+
+        if (pc.connectionState === 'failed' && !manualDisconnectRef.current) {
+          handleConnectionFailure('Peer connection failed during realtime session');
+        }
+      });
+
+      pc.addEventListener('iceconnectionstatechange', () => {
+        logConnectionDiagnostics('iceconnectionstatechange');
+
+        if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+          updateState('connected');
+          return;
+        }
+
+        if (pc.iceConnectionState === 'checking') {
+          updateState('connecting');
+          return;
+        }
+
+        if (pc.iceConnectionState === 'failed' && !manualDisconnectRef.current) {
+          handleConnectionFailure('ICE connectivity failed for realtime voice');
+        }
+      });
+
+      const audioEl = document.createElement('audio');
+      audioEl.autoplay = true;
+      audioRef.current = audioEl;
+
+      pc.ontrack = (event) => {
+        audioEl.srcObject = event.streams[0] ?? null;
+        if (speechStartRef.current) {
+          const latency = Date.now() - speechStartRef.current;
+          setLatencyMs(latency);
+          speechStartRef.current = null;
+        }
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+
+      const dc = pc.createDataChannel('oai-events');
+      dcRef.current = dc;
+
+      dc.onopen = () => {
+        reconnectAttemptsRef.current = 0;
+        updateState('connected');
+        logger.info('Realtime voice data channel opened');
+      };
+
+      dc.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          handleRealtimeEvent(msg);
+        } catch {
+          // Ignore unparseable messages
+        }
+      };
+
+      dc.onclose = () => {
+        logger.info('Realtime voice data channel closed');
+        if (!manualDisconnectRef.current && stateRef.current !== 'fallback') {
+          handleConnectionFailure('Realtime data channel closed unexpectedly');
+        }
+      };
+
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      const realtimeModel = negotiated?.model || 'gpt-4o-realtime-preview-2024-12-17';
+
+      const sdpResponse = await fetch(
+        `https://api.openai.com/v1/realtime?model=${encodeURIComponent(realtimeModel)}`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${clientSecret}`,
+            'Content-Type': 'application/sdp',
+          },
+          body: offer.sdp,
+        }
+      );
+
+      if (!sdpResponse.ok) {
+        throw new Error(`SDP exchange failed: ${sdpResponse.status}`);
+      }
+
+      const answerSdp = await sdpResponse.text();
+      await pc.setRemoteDescription({ type: 'answer', sdp: answerSdp });
+
+      logger.info('WebRTC connection established');
+    } catch (err) {
+      const { message, isTerminal } = classifyTerminalError(err);
+      logger.error('Realtime voice connection failed', {
+        errorMessage: message,
+        isTerminal,
+        reconnectAttempts: reconnectAttemptsRef.current,
+      });
+      handleConnectionFailure(message, isTerminal);
     }
-    if (audioRef.current) {
-      audioRef.current.srcObject = null;
-      audioRef.current = null;
-    }
-  }, []);
+  }, [
+    cleanup,
+    clearReconnectTimer,
+    classifyTerminalError,
+    enterFallbackMode,
+    handleConnectionFailure,
+    instructions,
+    updateState,
+    voice,
+    handleRealtimeEvent,
+  ]);
 
   const disconnect = useCallback(() => {
+    manualDisconnectRef.current = true;
     cleanup();
+    reconnectAttemptsRef.current = 0;
     updateState('idle');
     setLastTranscript('');
     setLastResponse('');
@@ -272,7 +438,10 @@ export function useRealtimeVoice(config: RealtimeVoiceConfig = {}): UseRealtimeV
     }
   }, [updateState]);
 
-  // Cleanup on unmount
+  useEffect(() => {
+    connectRef.current = connect;
+  }, [connect]);
+
   useEffect(() => {
     return () => {
       cleanup();
@@ -291,5 +460,6 @@ export function useRealtimeVoice(config: RealtimeVoiceConfig = {}): UseRealtimeV
     lastResponse,
     latencyMs,
     error,
+    isFallback: state === 'fallback',
   };
 }

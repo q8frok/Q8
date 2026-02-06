@@ -50,6 +50,7 @@ export function VoiceOverlay({
         case 'speaking': return 'Q8 is speaking...';
         case 'listening': return 'Hearing you...';
         case 'error': return 'Connection error';
+        case 'fallback': return 'Realtime unavailable';
         default: return 'Initializing...';
       }
     }

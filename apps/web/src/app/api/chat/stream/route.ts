@@ -1,33 +1,77 @@
 /**
  * Streaming Chat API Route
  * Server-sent events (SSE) for real-time response streaming
+ *
+ * Integrates:
+ * - Server-canonical conversation history (no client-provided transcript)
+ * - Run lifecycle events (run_created / run_state)
+ * - Client requestId idempotency with replay
+ * - Versioned event metadata wrapping
  */
 
 import { NextRequest } from 'next/server';
 import { type OrchestrationEvent, type ExtendedAgentType } from '@/lib/agents/orchestration';
 import { executeChatStream, type ChatFailure, type ChatFailureClass } from '@/lib/agents/sdk/chat-service';
 import { classifyError } from '@/lib/agents/sdk/utils/errors';
+import {
+  EVENT_SCHEMA_VERSION,
+  withEventMetadata,
+  type VersionedEvent,
+  type EventTraceContext,
+} from '@/lib/agents/sdk/events';
 import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
+import { fetchCanonicalConversationHistory } from '@/lib/server/chat-history';
+import { supabaseAdmin } from '@/lib/supabase/server';
 import { logger } from '@/lib/logger';
 
+// Use Node.js runtime for full compatibility with OpenAI and Supabase SDKs
 export const runtime = 'nodejs';
-export const maxDuration = 60;
+export const maxDuration = 60; // Allow longer streaming responses
+
+// =============================================================================
+// IDEMPOTENCY
+// =============================================================================
+
+const IDEMPOTENCY_TTL_HOURS = 24;
+
+type RequestStatus = 'processing' | 'completed' | 'failed';
+
+interface StreamIdempotencyRecord {
+  id: string;
+  user_id: string;
+  thread_id: string;
+  request_id: string;
+  status: RequestStatus;
+  run_thread_id: string | null;
+  run_agent: string | null;
+  user_message: string | null;
+  assistant_message: string | null;
+  created_thread: boolean;
+  expires_at: string;
+}
+
+// =============================================================================
+// REQUEST / EVENT TYPES
+// =============================================================================
 
 interface StreamRequest {
   message: string;
-  userId: string;
   threadId?: string;
+  requestId?: string;
   userProfile?: {
     name?: string;
     timezone?: string;
     communicationStyle?: 'concise' | 'detailed';
   };
+  /** Force a specific agent (bypasses routing) */
   forceAgent?: ExtendedAgentType;
+  /** Show tool execution events (default: true) */
   showToolExecutions?: boolean;
-  conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>;
 }
 
-type StreamEvent =
+type StreamEventBase =
+  | { type: 'run_created'; runId: string; state: 'queued'; timestamp: string }
+  | { type: 'run_state'; runId: string; state: 'queued' | 'running' | 'awaiting_tool' | 'completed' | 'failed' | 'cancelled'; timestamp: string }
   | { type: 'routing'; agent: string; reason: string; confidence: number; source: string }
   | { type: 'agent_start'; agent: string }
   | { type: 'handoff'; from: string; to: string; reason: string }
@@ -40,21 +84,34 @@ type StreamEvent =
   | { type: 'image_generated'; imageData: string; mimeType: string; caption?: string; model?: string }
   | { type: 'image_analyzed'; analysis: string; imageUrl?: string }
   | {
-    type: 'done';
-    fullContent: string;
-    agent: string;
-    threadId: string;
-    images?: Array<{ data: string; mimeType: string; caption?: string }>;
-    agentSelection: { agent: string; confidence: number; rationale: string; source: string };
-    toolSummary: { total: number; succeeded: number; failed: number; tools: string[] };
-    failure: null;
-  }
+      type: 'done';
+      fullContent: string;
+      agent: string;
+      threadId: string;
+      images?: Array<{ data: string; mimeType: string; caption?: string }>;
+      agentSelection: { agent: string; confidence: number; rationale: string; source: string };
+      toolSummary: { total: number; succeeded: number; failed: number; tools: string[] };
+      failure: null;
+      replayed?: boolean;
+    }
   | { type: 'thread_created'; threadId: string }
   | { type: 'memory_extracted'; count: number }
   | { type: 'widget_action'; widgetId: string; action: string; data?: Record<string, unknown> }
-  | { type: 'error'; message: string; recoverable?: boolean; failure: ChatFailure };
+  | { type: 'error'; message: string; recoverable?: boolean; failure?: ChatFailure };
 
-function toStreamEvent(event: OrchestrationEvent): StreamEvent {
+type StreamEvent = StreamEventBase & {
+  eventVersion?: number;
+  runId?: string;
+  requestId?: string;
+  timestamp?: string;
+  correlationId?: string;
+};
+
+// =============================================================================
+// HELPERS
+// =============================================================================
+
+function toStreamEvent(event: OrchestrationEvent): StreamEventBase {
   switch (event.type) {
     case 'routing':
       return { type: 'routing', agent: event.decision.agent, reason: event.decision.rationale, confidence: event.decision.confidence, source: event.decision.source };
@@ -106,11 +163,76 @@ function toFailureClass(code: string): ChatFailureClass {
   }
 }
 
+function stamp(base: StreamEventBase, trace: EventTraceContext): StreamEvent {
+  return {
+    ...base,
+    eventVersion: EVENT_SCHEMA_VERSION,
+    runId: trace.runId,
+    requestId: trace.requestId,
+    correlationId: trace.correlationId,
+    timestamp: new Date().toISOString(),
+  };
+}
+
+async function cleanupExpiredIdempotencyRecords(): Promise<void> {
+  const { error } = await supabaseAdmin
+    .from('chat_stream_idempotency')
+    .delete()
+    .lt('expires_at', new Date().toISOString());
+
+  if (error) {
+    logger.warn('[Stream API] Failed idempotency cleanup', { error });
+  }
+}
+
+async function replayExistingRun(
+  writer: WritableStreamDefaultWriter<Uint8Array>,
+  encoder: TextEncoder,
+  existing: StreamIdempotencyRecord,
+  trace: EventTraceContext,
+): Promise<void> {
+  if (existing.created_thread && existing.run_thread_id) {
+    await writer.write(encoder.encode(encodeSSE(stamp(
+      { type: 'thread_created', threadId: existing.run_thread_id },
+      trace,
+    ))));
+  }
+
+  if (existing.status === 'completed' && existing.run_thread_id) {
+    await writer.write(encoder.encode(encodeSSE(stamp(
+      {
+        type: 'done',
+        fullContent: existing.assistant_message ?? '',
+        agent: existing.run_agent ?? 'orchestrator',
+        threadId: existing.run_thread_id,
+        replayed: true,
+        agentSelection: { agent: existing.run_agent ?? 'orchestrator', confidence: 1, rationale: 'Replayed', source: 'idempotency' },
+        toolSummary: { total: 0, succeeded: 0, failed: 0, tools: [] },
+        failure: null,
+      },
+      trace,
+    ))));
+    return;
+  }
+
+  await writer.write(encoder.encode(encodeSSE(stamp(
+    { type: 'error', message: 'Duplicate request is already being processed', recoverable: true },
+    trace,
+  ))));
+}
+
+// =============================================================================
+// HANDLER
+// =============================================================================
+
 export async function POST(request: NextRequest) {
   const user = await getAuthenticatedUser(request);
   if (!user) {
     return unauthorizedResponse();
   }
+
+  const requestId = request.headers.get('x-request-id') ?? crypto.randomUUID();
+  const apiRunId = crypto.randomUUID();
 
   const encoder = new TextEncoder();
   const stream = new TransformStream();
@@ -119,18 +241,111 @@ export async function POST(request: NextRequest) {
   (async () => {
     let currentRouting = { agent: 'orchestrator', confidence: 0, rationale: 'Routing unavailable', source: 'fallback' };
     const toolEndEvents: Array<{ tool: string; success: boolean }> = [];
+    let idempotencyId: string | null = null;
+
+    const trace: EventTraceContext = {
+      runId: apiRunId,
+      requestId,
+      correlationId: requestId,
+    };
+
+    const emitRunState = async (state: 'queued' | 'running' | 'awaiting_tool' | 'completed' | 'failed' | 'cancelled') => {
+      await writer.write(encoder.encode(encodeSSE(stamp(
+        { type: 'run_state', runId: apiRunId, state, timestamp: new Date().toISOString() },
+        trace,
+      ))));
+    };
 
     try {
       const body = (await request.json()) as StreamRequest;
-      const { message, threadId, userProfile, forceAgent, showToolExecutions = true, conversationHistory } = body;
+      const { message, threadId, requestId: clientRequestId, userProfile, forceAgent, showToolExecutions = true } = body;
       const userId = user.id;
+
+      // Update trace correlation from threadId if available
+      if (threadId) {
+        trace.correlationId = threadId;
+      }
+      // Prefer client-provided requestId when available
+      const effectiveRequestId = clientRequestId || requestId;
+      trace.requestId = effectiveRequestId;
 
       if (!message) {
         const failure: ChatFailure = { class: 'validation', code: 'VALIDATION_ERROR', recoverable: false, message: 'Message is required' };
-        await writer.write(encoder.encode(encodeSSE({ type: 'error', message: failure.message, recoverable: failure.recoverable, failure })));
+        await writer.write(encoder.encode(encodeSSE(stamp(
+          { type: 'error', message: failure.message, recoverable: failure.recoverable, failure },
+          trace,
+        ))));
         await writer.close();
         return;
       }
+
+      // --- Idempotency check (when both threadId and requestId are present) ---
+      if (threadId && clientRequestId) {
+        await cleanupExpiredIdempotencyRecords();
+
+        const expiresAt = new Date(Date.now() + IDEMPOTENCY_TTL_HOURS * 60 * 60 * 1000).toISOString();
+
+        const { data: idempotencyRow, error: idempotencyInsertError } = await supabaseAdmin
+          .from('chat_stream_idempotency')
+          .insert({
+            user_id: userId,
+            thread_id: threadId,
+            request_id: clientRequestId,
+            status: 'processing',
+            user_message: message,
+            expires_at: expiresAt,
+          })
+          .select('*')
+          .single();
+
+        if (idempotencyInsertError) {
+          const { data: existing, error: existingError } = await supabaseAdmin
+            .from('chat_stream_idempotency')
+            .select('*')
+            .eq('user_id', userId)
+            .eq('thread_id', threadId)
+            .eq('request_id', clientRequestId)
+            .maybeSingle();
+
+          if (existingError || !existing) {
+            throw idempotencyInsertError;
+          }
+
+          logger.info('[Stream API] Duplicate request detected, replaying stored metadata', {
+            userId,
+            threadId,
+            requestId: clientRequestId,
+            status: existing.status,
+          });
+
+          await replayExistingRun(writer, encoder, existing as StreamIdempotencyRecord, trace);
+          await writer.close();
+          return;
+        }
+
+        idempotencyId = idempotencyRow.id;
+      }
+
+      // --- Emit run_created ---
+      await writer.write(encoder.encode(encodeSSE(stamp(
+        { type: 'run_created', runId: apiRunId, state: 'queued', timestamp: new Date().toISOString() },
+        trace,
+      ))));
+      await emitRunState('queued');
+
+      logger.debug('[Stream API] Processing message', {
+        requestId: effectiveRequestId,
+        runId: apiRunId,
+        userId,
+        threadId,
+        forceAgent,
+        eventVersion: EVENT_SCHEMA_VERSION,
+      });
+
+      // --- Fetch server-canonical history (PR #7) ---
+      const canonicalConversationHistory = threadId
+        ? await fetchCanonicalConversationHistory(threadId)
+        : [];
 
       const eventStream = executeChatStream({
         message,
@@ -139,11 +354,36 @@ export async function POST(request: NextRequest) {
         userProfile,
         forceAgent,
         showToolExecutions,
-        conversationHistory,
+        historyOverride: canonicalConversationHistory,
         signal: request.signal,
+        requestId: effectiveRequestId,
+        correlationId: threadId,
       });
 
+      let finalDoneEvent: (StreamEventBase & { type: 'done' }) | null = null;
+      let createdThread = false;
+
       for await (const event of eventStream) {
+        // Propagate versioned metadata from the runner events
+        const eventMeta = {
+          eventVersion: (event as Record<string, unknown>).eventVersion as number | undefined,
+          runId: (event as Record<string, unknown>).runId as string | undefined,
+          requestId: (event as Record<string, unknown>).requestId as string | undefined,
+          timestamp: (event as Record<string, unknown>).timestamp as string | undefined,
+          correlationId: (event as Record<string, unknown>).correlationId as string | undefined,
+        };
+
+        // Run state transitions (PR #8)
+        if (event.type === 'agent_start') {
+          await emitRunState('running');
+        }
+        if (event.type === 'tool_start') {
+          await emitRunState('awaiting_tool');
+        }
+        if (event.type === 'tool_end') {
+          await emitRunState('running');
+        }
+
         if (event.type === 'routing') {
           currentRouting = {
             agent: event.decision.agent,
@@ -151,19 +391,28 @@ export async function POST(request: NextRequest) {
             rationale: event.decision.rationale,
             source: event.decision.source,
           };
-          await writer.write(encoder.encode(encodeSSE(toStreamEvent(event))));
+          const mapped = toStreamEvent(event);
+          await writer.write(encoder.encode(encodeSSE({ ...mapped, ...eventMeta })));
           continue;
         }
 
         if (event.type === 'tool_end') {
           toolEndEvents.push({ tool: event.tool, success: event.success });
-          await writer.write(encoder.encode(encodeSSE(toStreamEvent(event))));
+          const mapped = toStreamEvent(event);
+          await writer.write(encoder.encode(encodeSSE({ ...mapped, ...eventMeta })));
+          continue;
+        }
+
+        if (event.type === 'thread_created') {
+          createdThread = true;
+          const mapped = toStreamEvent(event);
+          await writer.write(encoder.encode(encodeSSE({ ...mapped, ...eventMeta })));
           continue;
         }
 
         if (event.type === 'done') {
           const failed = toolEndEvents.filter((t) => !t.success).length;
-          const doneEvent: StreamEvent = {
+          const doneBase: StreamEventBase & { type: 'done' } = {
             type: 'done',
             fullContent: event.fullContent,
             agent: event.agent,
@@ -178,7 +427,9 @@ export async function POST(request: NextRequest) {
             },
             failure: null,
           };
-          await writer.write(encoder.encode(encodeSSE(doneEvent)));
+          finalDoneEvent = doneBase;
+          await emitRunState('completed');
+          await writer.write(encoder.encode(encodeSSE({ ...doneBase, ...eventMeta })));
           continue;
         }
 
@@ -190,14 +441,32 @@ export async function POST(request: NextRequest) {
             recoverable: classification.recoverable,
             message: event.message,
           };
-          await writer.write(encoder.encode(encodeSSE({ type: 'error', message: event.message, recoverable: event.recoverable, failure })));
+          await writer.write(encoder.encode(encodeSSE({ type: 'error', message: event.message, recoverable: event.recoverable, failure, ...eventMeta })));
           continue;
         }
 
-        await writer.write(encoder.encode(encodeSSE(toStreamEvent(event))));
+        const mapped = toStreamEvent(event);
+        await writer.write(encoder.encode(encodeSSE({ ...mapped, ...eventMeta })));
+      }
+
+      // Update idempotency record on success
+      if (idempotencyId) {
+        await supabaseAdmin
+          .from('chat_stream_idempotency')
+          .update({
+            status: 'completed',
+            run_thread_id: finalDoneEvent?.threadId ?? threadId ?? null,
+            run_agent: finalDoneEvent?.agent ?? null,
+            assistant_message: finalDoneEvent?.fullContent ?? null,
+            created_thread: createdThread,
+          })
+          .eq('id', idempotencyId);
       }
     } catch (error) {
-      logger.error('[Stream API] Error', { error });
+      const state: 'cancelled' | 'failed' = request.signal.aborted ? 'cancelled' : 'failed';
+      try { await emitRunState(state); } catch { /* writer may be closed */ }
+
+      logger.error('[Stream API] Error', { requestId, runId: apiRunId, error });
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       const classification = classifyError(errorMessage);
       const failure: ChatFailure = {
@@ -206,11 +475,23 @@ export async function POST(request: NextRequest) {
         recoverable: classification.recoverable,
         message: errorMessage,
       };
+
+      if (idempotencyId) {
+        await supabaseAdmin
+          .from('chat_stream_idempotency')
+          .update({ status: 'failed' })
+          .eq('id', idempotencyId)
+          .catch(() => {});
+      }
+
       try {
-        await writer.write(encoder.encode(encodeSSE({ type: 'error', message: errorMessage, recoverable: classification.recoverable, failure })));
-      } catch {}
+        await writer.write(encoder.encode(encodeSSE(stamp(
+          { type: 'error', message: errorMessage, recoverable: classification.recoverable, failure },
+          trace,
+        ))));
+      } catch { /* writer may be closed */ }
     } finally {
-      try { await writer.close(); } catch {}
+      try { await writer.close(); } catch { /* already closed */ }
     }
   })();
 
