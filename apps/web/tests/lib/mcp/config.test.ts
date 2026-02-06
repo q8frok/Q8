@@ -24,7 +24,7 @@ describe('MCP Configuration', () => {
 
   describe('MCP_CONFIG structure', () => {
     it('has all expected server configurations', () => {
-      const expectedServers: MCPServerName[] = ['github', 'google', 'supabase', 'homeAssistant'];
+      const expectedServers: MCPServerName[] = ['github', 'google', 'supabase', 'homeAssistant', 'spotify'];
       const actualServers = Object.keys(MCP_CONFIG);
 
       expect(actualServers).toHaveLength(expectedServers.length);
@@ -159,7 +159,7 @@ describe('getMCPServerNames', () => {
 
   it('returns all four server names', () => {
     const names = getMCPServerNames();
-    expect(names).toHaveLength(4);
+    expect(names).toHaveLength(5);
   });
 
   it('includes github server', () => {
@@ -219,7 +219,7 @@ describe('isMCPServerConfigured', () => {
 describe('MCPServerName type', () => {
   it('only allows valid server names', () => {
     // This is a compile-time check, but we can verify runtime behavior
-    const validNames: MCPServerName[] = ['github', 'google', 'supabase', 'homeAssistant'];
+    const validNames: MCPServerName[] = ['github', 'google', 'supabase', 'homeAssistant', 'spotify'];
     validNames.forEach((name) => {
       expect(typeof MCP_CONFIG[name]).toBe('object');
     });
@@ -232,7 +232,7 @@ describe('Configuration immutability', () => {
     // We can verify the structure is frozen at the type level
     // by checking that all properties exist and have correct types
     const config = MCP_CONFIG;
-    expect(Object.keys(config)).toEqual(['github', 'google', 'supabase', 'homeAssistant']);
+    expect(Object.keys(config)).toEqual(['github', 'google', 'supabase', 'homeAssistant', 'spotify']);
   });
 });
 

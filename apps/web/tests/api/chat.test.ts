@@ -12,9 +12,9 @@ import { NextRequest } from 'next/server';
 import type { ZodError } from 'zod';
 
 // Hoisted mock functions
-const { mockGetAuthenticatedUser, mockProcessMessage } = vi.hoisted(() => ({
+const { mockGetAuthenticatedUser, mockExecuteChat } = vi.hoisted(() => ({
   mockGetAuthenticatedUser: vi.fn(),
-  mockProcessMessage: vi.fn(),
+  mockExecuteChat: vi.fn(),
 }));
 
 // Mock auth module
@@ -29,10 +29,29 @@ vi.mock('@/lib/auth/api-auth', () => ({
   },
 }));
 
-// Mock orchestration service
-vi.mock('@/lib/agents/orchestration', () => ({
-  processMessage: mockProcessMessage,
+// Mock chat-service (route now uses executeChat instead of processMessage)
+vi.mock('@/lib/agents/sdk/chat-service', () => ({
+  executeChat: mockExecuteChat,
+  ChatServiceError: class ChatServiceError extends Error {
+    failure: { class: string; code: string; recoverable: boolean; message: string };
+    constructor(failure: { class: string; code: string; recoverable: boolean; message: string }) {
+      super(failure.message);
+      this.name = 'ChatServiceError';
+      this.failure = failure;
+    }
+  },
 }));
+
+// Mock error-responses (route imports errorResponse from here)
+vi.mock('@/lib/api/error-responses', () => {
+  const { NextResponse } = require('next/server');
+  return {
+    errorResponse: (message: string, status: number, code?: string) => {
+      const errorCode = code ?? (status >= 500 ? 'INTERNAL_ERROR' : 'BAD_REQUEST');
+      return NextResponse.json({ error: { code: errorCode, message } }, { status });
+    },
+  };
+});
 
 // Mock validations - re-export the real schemas but mock the error response helper
 vi.mock('@/lib/validations', async () => {
@@ -91,16 +110,24 @@ describe('POST /api/chat', () => {
       rationale: 'General query',
       source: 'router',
     },
+    agentSelection: {
+      agent: 'orchestrator',
+      confidence: 0.95,
+      rationale: 'General query',
+      source: 'router',
+    },
     toolExecutions: [],
+    toolSummary: { total: 0, succeeded: 0, failed: 0, tools: [] },
     memoriesUsed: [],
     citations: [],
     metadata: {},
+    failure: null,
   };
 
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetAuthenticatedUser.mockResolvedValue(mockUser);
-    mockProcessMessage.mockResolvedValue(mockResponse);
+    mockExecuteChat.mockResolvedValue(mockResponse);
   });
 
   it('returns 401 when user is not authenticated', async () => {
@@ -162,7 +189,7 @@ describe('POST /api/chat', () => {
     expect(body.routing.confidence).toBe(0.95);
   });
 
-  it('passes userId from authenticated user to processMessage', async () => {
+  it('passes userId from authenticated user to executeChat', async () => {
     const request = new NextRequest('http://localhost:3000/api/chat', {
       method: 'POST',
       body: JSON.stringify({ message: 'Hello' }),
@@ -171,7 +198,7 @@ describe('POST /api/chat', () => {
 
     await POST(request);
 
-    expect(mockProcessMessage).toHaveBeenCalledWith(
+    expect(mockExecuteChat).toHaveBeenCalledWith(
       expect.objectContaining({
         message: 'Hello',
         userId: 'user-123',
@@ -179,7 +206,7 @@ describe('POST /api/chat', () => {
     );
   });
 
-  it('passes conversationId and userProfile when provided', async () => {
+  it('passes conversationId as threadId and userProfile when provided', async () => {
     const request = new NextRequest('http://localhost:3000/api/chat', {
       method: 'POST',
       body: JSON.stringify({
@@ -196,7 +223,7 @@ describe('POST /api/chat', () => {
 
     await POST(request);
 
-    expect(mockProcessMessage).toHaveBeenCalledWith(
+    expect(mockExecuteChat).toHaveBeenCalledWith(
       expect.objectContaining({
         message: 'Check my calendar',
         threadId: 'conv-456',
@@ -208,8 +235,8 @@ describe('POST /api/chat', () => {
     );
   });
 
-  it('returns 500 when processMessage throws', async () => {
-    mockProcessMessage.mockRejectedValue(new Error('LLM service unavailable'));
+  it('returns 500 when executeChat throws', async () => {
+    mockExecuteChat.mockRejectedValue(new Error('LLM service unavailable'));
 
     const request = new NextRequest('http://localhost:3000/api/chat', {
       method: 'POST',

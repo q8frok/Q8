@@ -209,8 +209,8 @@ export function heuristicRoute(message: string): RoutingDecision {
           matchedKeywords.push(keyword);
         }
       } else {
-        // Single word - check word boundary
-        if (words.includes(keyword) || lowerMessage.includes(keyword)) {
+        // Single word - exact word match only (no substring matching)
+        if (words.includes(keyword)) {
           score += 1;
           matchedKeywords.push(keyword);
         }
