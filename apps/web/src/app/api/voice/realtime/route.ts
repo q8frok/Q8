@@ -59,6 +59,7 @@ export async function POST(request: NextRequest) {
       clientSecret: sessionData.client_secret?.value,
       sessionId: sessionData.id,
       expiresAt: sessionData.client_secret?.expires_at,
+      iceServers: sessionData.ice_servers,
     });
   } catch (error) {
     logger.error('Realtime session creation failed', { error, userId: user.id });

@@ -73,8 +73,13 @@ export function VoiceButtonEnhanced({
     },
     onError: (error) => {
       logger.error('WebRTC voice error', { error, component: 'VoiceButtonEnhanced' });
-      // Fallback to HTTP on error
-      if (mode === 'webrtc') setMode('http');
+    },
+    onFallback: (reason) => {
+      logger.warn('WebRTC unavailable, switching to HTTP voice mode', {
+        reason,
+        component: 'VoiceButtonEnhanced',
+      });
+      setMode('http');
     },
   });
 
@@ -205,7 +210,7 @@ export function VoiceButtonEnhanced({
       if (rtcListening) return 'bg-red-500 text-white';
       if (rtcSpeaking) return 'bg-green-500 text-white';
       if (realtimeState === 'connecting') return 'bg-yellow-500 text-white';
-      if (realtimeState === 'error') return 'bg-red-600 text-white';
+      if (realtimeState === 'error' || realtimeState === 'fallback') return 'bg-red-600 text-white';
       return 'bg-neon-primary text-white';
     }
     const statusColors: Record<string, string> = {
@@ -228,6 +233,7 @@ export function VoiceButtonEnhanced({
       if (rtcListening) return 'Hearing you...';
       if (rtcSpeaking) return 'Speaking... Tap to interrupt';
       if (realtimeState === 'error') return rtcError || 'Connection error';
+      if (realtimeState === 'fallback') return 'Realtime unavailable — using standard voice';
       return 'Tap to connect';
     }
     const texts: Record<string, string> = {
