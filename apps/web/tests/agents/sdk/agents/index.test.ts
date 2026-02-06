@@ -1,22 +1,35 @@
 /**
- * Tests for Agent Configurations
- * Validates all agent definitions, tools, and helper functions
+ * Tests for Agent Definitions (@openai/agents SDK)
+ * Validates all Agent instances, tools, handoffs, and helper functions
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeAll } from 'vitest';
+import type { Agent as AgentType_SDK } from '@openai/agents';
+
+// Mock model-provider before importing agents (requires API keys in real use)
+vi.mock('@/lib/agents/sdk/model-provider', () => ({
+  getAgentModel: vi.fn(() => 'gpt-4.1'), // Return string model name (SDK default)
+}));
+
+// Now import the module under test
 import {
   AgentTypeSchema,
-  agentConfigs,
-  getAgentConfig,
-  getAgentTools,
-  getAgentModel,
+  orchestratorAgent,
+  coderAgent,
+  researcherAgent,
+  secretaryAgent,
+  personalityAgent,
+  homeAgent,
+  financeAgent,
+  imagegenAgent,
+  getAgent,
   getAgentName,
   getHandoffTargets,
   isValidAgentType,
-  getAllAgentConfigs,
+  getAllAgents,
   getAgentByName,
+  getAgentType,
   type AgentType,
-  type AgentConfig,
 } from '@/lib/agents/sdk/agents';
 import { defaultTools } from '@/lib/agents/sdk/tools/default';
 import { githubTools } from '@/lib/agents/sdk/tools/github';
@@ -54,117 +67,111 @@ describe('AgentTypeSchema', () => {
 });
 
 // =============================================================================
-// Agent Configuration Structure Tests
+// Agent Instance Structure Tests
 // =============================================================================
 
-describe('agentConfigs structure', () => {
-  it('should have exactly 8 agent configurations', () => {
-    expect(Object.keys(agentConfigs)).toHaveLength(8);
+describe('agent instances', () => {
+  it('should have exactly 8 agents', () => {
+    const allAgents = getAllAgents();
+    expect(allAgents).toHaveLength(8);
   });
 
-  it('should have all required agent types', () => {
-    const requiredTypes: AgentType[] = [
-      'orchestrator',
-      'coder',
-      'researcher',
-      'secretary',
-      'personality',
-      'home',
-      'finance',
-      'imagegen',
-    ];
+  it('should all be Agent instances with required properties', () => {
+    const allAgents = getAllAgents();
+    allAgents.forEach((agent) => {
+      expect(agent.name).toBeDefined();
+      expect(typeof agent.name).toBe('string');
+      expect(agent.name.length).toBeGreaterThan(0);
 
-    requiredTypes.forEach((type) => {
-      expect(agentConfigs[type]).toBeDefined();
+      expect(agent.instructions).toBeDefined();
+      expect(typeof agent.instructions).toBe('string');
+      expect((agent.instructions as string).length).toBeGreaterThan(100);
+
+      expect(agent.tools).toBeDefined();
+      expect(Array.isArray(agent.tools)).toBe(true);
+
+      expect(agent.model).toBeDefined();
     });
   });
 
-  it('each agent should have all required fields', () => {
-    Object.entries(agentConfigs).forEach(([type, config]) => {
-      expect(config.name).toBeDefined();
-      expect(typeof config.name).toBe('string');
-      expect(config.name.length).toBeGreaterThan(0);
-
-      expect(config.type).toBe(type);
-
-      expect(config.model).toBeDefined();
-      expect(typeof config.model).toBe('string');
-      expect(config.model.length).toBeGreaterThan(0);
-
-      expect(config.instructions).toBeDefined();
-      expect(typeof config.instructions).toBe('string');
-      expect(config.instructions.length).toBeGreaterThan(100);
-
-      expect(config.tools).toBeDefined();
-      expect(Array.isArray(config.tools)).toBe(true);
-    });
+  it('should all have unique names', () => {
+    const allAgents = getAllAgents();
+    const names = allAgents.map((a) => a.name);
+    const unique = new Set(names);
+    expect(unique.size).toBe(names.length);
   });
 });
 
 // =============================================================================
-// Orchestrator Configuration Tests
+// Orchestrator Agent Tests
 // =============================================================================
 
 describe('orchestrator agent', () => {
-  const config = agentConfigs.orchestrator;
-
-  it('should have correct basic configuration', () => {
-    expect(config.name).toBe('Q8');
-    expect(config.type).toBe('orchestrator');
-    expect(config.model).toBe('gpt-5.2');
+  it('should have correct name', () => {
+    expect(orchestratorAgent.name).toBe('Q8');
   });
 
   it('should have handoffs to all specialist agents', () => {
-    expect(config.handoffs).toBeDefined();
-    expect(config.handoffs).toContain('coder');
-    expect(config.handoffs).toContain('researcher');
-    expect(config.handoffs).toContain('secretary');
-    expect(config.handoffs).toContain('personality');
-    expect(config.handoffs).toContain('home');
-    expect(config.handoffs).toContain('finance');
-    expect(config.handoffs).toContain('imagegen');
-    expect(config.handoffs).toHaveLength(7);
+    expect(orchestratorAgent.handoffs).toBeDefined();
+    expect(orchestratorAgent.handoffs).toHaveLength(7);
+
+    const handoffNames = orchestratorAgent.handoffs.map((h) => {
+      // Handoff objects have an .agent property
+      return 'agent' in h ? h.agent.name : h.name;
+    });
+    expect(handoffNames).toContain('DevBot');
+    expect(handoffNames).toContain('ResearchBot');
+    expect(handoffNames).toContain('SecretaryBot');
+    expect(handoffNames).toContain('PersonalityBot');
+    expect(handoffNames).toContain('HomeBot');
+    expect(handoffNames).toContain('FinanceAdvisor');
+    expect(handoffNames).toContain('ImageGen');
   });
 
   it('should not hand off to itself', () => {
-    expect(config.handoffs).not.toContain('orchestrator');
+    const handoffNames = orchestratorAgent.handoffs.map((h) => {
+      return 'agent' in h ? h.agent.name : h.name;
+    });
+    expect(handoffNames).not.toContain('Q8');
   });
 
   it('should have default tools', () => {
-    expect(config.tools.length).toBeGreaterThan(0);
-    const toolNames = config.tools.map((t) => t.name);
+    expect(orchestratorAgent.tools.length).toBeGreaterThan(0);
+    const toolNames = orchestratorAgent.tools.map((t) => t.name);
     expect(toolNames).toContain('getCurrentDatetime');
     expect(toolNames).toContain('calculate');
     expect(toolNames).toContain('getWeather');
   });
 
   it('should have instructions mentioning delegation', () => {
-    expect(config.instructions).toContain('delegate');
-    expect(config.instructions).toContain('Coder');
-    expect(config.instructions).toContain('Researcher');
-    expect(config.instructions).toContain('Secretary');
+    const instructions = orchestratorAgent.instructions as string;
+    expect(instructions).toContain('delegate');
+    expect(instructions).toContain('Coder');
+    expect(instructions).toContain('Researcher');
+    expect(instructions).toContain('Secretary');
+  });
+
+  it('should have handoff description', () => {
+    expect(orchestratorAgent.handoffDescription).toBeDefined();
+    expect(orchestratorAgent.handoffDescription.length).toBeGreaterThan(0);
+  });
+
+  it('should not have temperature (not supported by Responses API)', () => {
+    expect(orchestratorAgent.modelSettings.temperature).toBeUndefined();
   });
 });
 
 // =============================================================================
-// Coder Agent Configuration Tests
+// Coder Agent Tests
 // =============================================================================
 
 describe('coder agent', () => {
-  const config = agentConfigs.coder;
-
-  it('should have correct basic configuration', () => {
-    expect(config.name).toBe('DevBot');
-    expect(config.type).toBe('coder');
-    expect(config.model).toBe('claude-opus-4-5-20251101');
-  });
-
-  it('should have extended thinking enabled', () => {
-    expect(config.modelOptions?.extendedThinking).toBe(true);
+  it('should have correct name', () => {
+    expect(coderAgent.name).toBe('DevBot');
   });
 
   it('should have github tools', () => {
-    const toolNames = config.tools.map((t) => t.name);
+    const toolNames = coderAgent.tools.map((t) => t.name);
     expect(toolNames).toContain('github_list_repos');
     expect(toolNames).toContain('github_get_repo');
     expect(toolNames).toContain('github_list_issues');
@@ -176,90 +183,103 @@ describe('coder agent', () => {
   });
 
   it('should have default tools', () => {
-    const toolNames = config.tools.map((t) => t.name);
+    const toolNames = coderAgent.tools.map((t) => t.name);
     expect(toolNames).toContain('getCurrentDatetime');
     expect(toolNames).toContain('calculate');
   });
 
-  it('should not have handoffs (specialized agent)', () => {
-    expect(config.handoffs).toBeUndefined();
+  it('should not have handoffs (specialist agent)', () => {
+    expect(coderAgent.handoffs).toHaveLength(0);
   });
 
   it('should have instructions about GitHub and code', () => {
-    expect(config.instructions).toContain('GitHub');
-    expect(config.instructions).toContain('code');
-    expect(config.instructions).toContain('Extended Thinking');
+    const instructions = coderAgent.instructions as string;
+    expect(instructions).toContain('GitHub');
+    expect(instructions).toContain('code');
+    expect(instructions).toContain('Extended Thinking');
+  });
+
+  it('should not have temperature (not supported by Responses API)', () => {
+    expect(coderAgent.modelSettings.temperature).toBeUndefined();
+  });
+
+  it('should have handoff description', () => {
+    expect(coderAgent.handoffDescription).toContain('code');
   });
 });
 
 // =============================================================================
-// Researcher Agent Configuration Tests
+// Researcher Agent Tests
 // =============================================================================
 
 describe('researcher agent', () => {
-  const config = agentConfigs.researcher;
-
-  it('should have correct basic configuration', () => {
-    expect(config.name).toBe('ResearchBot');
-    expect(config.type).toBe('researcher');
-    expect(config.model).toBe('sonar-reasoning-pro');
+  it('should have correct name', () => {
+    expect(researcherAgent.name).toBe('ResearchBot');
   });
 
-  it('should have default tools only (search built into model)', () => {
-    expect(config.tools).toEqual(defaultTools);
+  it('should have default tools and hosted web search', () => {
+    const toolNames = researcherAgent.tools.map((t) => t.name);
+    expect(toolNames).toContain('getCurrentDatetime');
+    expect(toolNames).toContain('calculate');
+    expect(toolNames).toContain('getWeather');
+    expect(toolNames).toContain('web_search');
   });
 
   it('should have instructions about citations and research', () => {
-    expect(config.instructions).toContain('cite');
-    expect(config.instructions).toContain('sources');
-    expect(config.instructions).toContain('research');
-    expect(config.instructions).toContain('fact');
+    const instructions = researcherAgent.instructions as string;
+    expect(instructions).toContain('cite');
+    expect(instructions).toContain('sources');
+    expect(instructions).toContain('research');
+    expect(instructions).toContain('fact');
   });
 });
 
 // =============================================================================
-// Secretary Agent Configuration Tests
+// Secretary Agent Tests
 // =============================================================================
 
 describe('secretary agent', () => {
-  const config = agentConfigs.secretary;
-
-  it('should have correct basic configuration', () => {
-    expect(config.name).toBe('SecretaryBot');
-    expect(config.type).toBe('secretary');
-    expect(config.model).toBe('gemini-3-flash-preview');
+  it('should have correct name', () => {
+    expect(secretaryAgent.name).toBe('SecretaryBot');
   });
 
-  it('should have default tools (Google tools TBD)', () => {
-    expect(config.tools).toEqual(defaultTools);
+  it('should have Google Workspace tools and default tools', () => {
+    const toolNames = secretaryAgent.tools.map((t) => t.name);
+    // Google tools
+    expect(toolNames).toContain('google_list_calendars');
+    expect(toolNames).toContain('google_list_events');
+    expect(toolNames).toContain('google_create_event');
+    expect(toolNames).toContain('google_send_email');
+    expect(toolNames).toContain('google_search_drive');
+    // Default tools
+    expect(toolNames).toContain('getCurrentDatetime');
+    expect(toolNames).toContain('calculate');
+    expect(toolNames).toContain('getWeather');
   });
 
   it('should have instructions about email and calendar', () => {
-    expect(config.instructions).toContain('Email');
-    expect(config.instructions).toContain('Calendar');
-    expect(config.instructions).toContain('scheduling');
+    const instructions = secretaryAgent.instructions as string;
+    expect(instructions).toContain('Email');
+    expect(instructions).toContain('Calendar');
+    expect(instructions).toContain('scheduling');
   });
 });
 
 // =============================================================================
-// Personality Agent Configuration Tests
+// Personality Agent Tests
 // =============================================================================
 
 describe('personality agent', () => {
-  const config = agentConfigs.personality;
-
-  it('should have correct basic configuration', () => {
-    expect(config.name).toBe('PersonalityBot');
-    expect(config.type).toBe('personality');
-    expect(config.model).toBe('grok-4-1-fast');
+  it('should have correct name', () => {
+    expect(personalityAgent.name).toBe('PersonalityBot');
   });
 
-  it('should have high temperature for creativity', () => {
-    expect(config.modelOptions?.temperature).toBe(0.9);
+  it('should not have temperature (not supported by Responses API)', () => {
+    expect(personalityAgent.modelSettings.temperature).toBeUndefined();
   });
 
   it('should have spotify tools', () => {
-    const toolNames = config.tools.map((t) => t.name);
+    const toolNames = personalityAgent.tools.map((t) => t.name);
     expect(toolNames).toContain('spotify_search');
     expect(toolNames).toContain('spotify_now_playing');
     expect(toolNames).toContain('spotify_play_pause');
@@ -270,100 +290,119 @@ describe('personality agent', () => {
   });
 
   it('should have default tools', () => {
-    const toolNames = config.tools.map((t) => t.name);
+    const toolNames = personalityAgent.tools.map((t) => t.name);
     expect(toolNames).toContain('getCurrentDatetime');
     expect(toolNames).toContain('calculate');
     expect(toolNames).toContain('getWeather');
   });
 
   it('should have instructions about Spotify and entertainment', () => {
-    expect(config.instructions).toContain('Spotify');
-    expect(config.instructions).toContain('music');
-    expect(config.instructions).toContain('USE THE TOOLS');
+    const instructions = personalityAgent.instructions as string;
+    expect(instructions).toContain('Spotify');
+    expect(instructions).toContain('music');
+    expect(instructions).toContain('USE THE TOOLS');
   });
 });
 
 // =============================================================================
-// Home Agent Configuration Tests
+// Home Agent Tests
 // =============================================================================
 
 describe('home agent', () => {
-  const config = agentConfigs.home;
-
-  it('should have correct basic configuration', () => {
-    expect(config.name).toBe('HomeBot');
-    expect(config.type).toBe('home');
-    expect(config.model).toBe('gpt-5-mini');
+  it('should have correct name', () => {
+    expect(homeAgent.name).toBe('HomeBot');
   });
 
-  it('should have low temperature for reliability', () => {
-    expect(config.modelOptions?.temperature).toBe(0.3);
+  it('should not have temperature (not supported by Responses API)', () => {
+    expect(homeAgent.modelSettings.temperature).toBeUndefined();
   });
 
-  it('should have default tools (Home Assistant tools TBD)', () => {
-    expect(config.tools).toEqual(defaultTools);
+  it('should have Home Assistant tools and default tools', () => {
+    const toolNames = homeAgent.tools.map((t) => t.name);
+    // Home tools
+    expect(toolNames).toContain('home_get_states');
+    expect(toolNames).toContain('home_control_device');
+    expect(toolNames).toContain('home_set_light');
+    expect(toolNames).toContain('home_set_climate');
+    expect(toolNames).toContain('home_activate_scene');
+    expect(toolNames).toContain('home_control_cover');
+    // Default tools
+    expect(toolNames).toContain('getCurrentDatetime');
+    expect(toolNames).toContain('calculate');
+    expect(toolNames).toContain('getWeather');
   });
 
   it('should have instructions about safety', () => {
-    expect(config.instructions).toContain('Safety');
-    expect(config.instructions).toContain('confirm');
-    expect(config.instructions).toContain('unlock');
+    const instructions = homeAgent.instructions as string;
+    expect(instructions).toContain('Safety');
+    expect(instructions).toContain('confirm');
+    expect(instructions).toContain('unlock');
   });
 });
 
 // =============================================================================
-// Finance Agent Configuration Tests
+// Finance Agent Tests
 // =============================================================================
 
 describe('finance agent', () => {
-  const config = agentConfigs.finance;
-
-  it('should have correct basic configuration', () => {
-    expect(config.name).toBe('FinanceAdvisor');
-    expect(config.type).toBe('finance');
-    expect(config.model).toBe('gemini-3-flash-preview');
+  it('should have correct name', () => {
+    expect(financeAgent.name).toBe('FinanceAdvisor');
   });
 
-  it('should have low temperature for accuracy', () => {
-    expect(config.modelOptions?.temperature).toBe(0.3);
+  it('should not have temperature (not supported by Responses API)', () => {
+    expect(financeAgent.modelSettings.temperature).toBeUndefined();
   });
 
-  it('should have default tools (Square tools TBD)', () => {
-    expect(config.tools).toEqual(defaultTools);
+  it('should have finance tools and default tools', () => {
+    const toolNames = financeAgent.tools.map((t) => t.name);
+    // Finance tools
+    expect(toolNames).toContain('finance_get_accounts');
+    expect(toolNames).toContain('finance_get_transactions');
+    expect(toolNames).toContain('finance_spending_summary');
+    expect(toolNames).toContain('finance_upcoming_bills');
+    expect(toolNames).toContain('finance_net_worth');
+    // Default tools
+    expect(toolNames).toContain('getCurrentDatetime');
+    expect(toolNames).toContain('calculate');
+    expect(toolNames).toContain('getWeather');
   });
 
   it('should have instructions about privacy and financial advice', () => {
-    expect(config.instructions).toContain('privacy');
-    expect(config.instructions).toContain('financial');
-    expect(config.instructions).toContain('Spending');
+    const instructions = financeAgent.instructions as string;
+    expect(instructions).toContain('privacy');
+    expect(instructions).toContain('financial');
+    expect(instructions).toContain('Spending');
   });
 });
 
 // =============================================================================
-// ImageGen Agent Configuration Tests
+// ImageGen Agent Tests
 // =============================================================================
 
 describe('imagegen agent', () => {
-  const config = agentConfigs.imagegen;
-
-  it('should have correct basic configuration', () => {
-    expect(config.name).toBe('ImageGen');
-    expect(config.type).toBe('imagegen');
-    expect(config.model).toBe('gpt-image-1.5');
+  it('should have correct name', () => {
+    expect(imagegenAgent.name).toBe('ImageGen');
   });
 
-  it('should have no tools (uses native image generation)', () => {
-    expect(config.tools).toHaveLength(0);
+  it('should have hosted image generation tool and default tools', () => {
+    const toolNames = imagegenAgent.tools.map((t) => t.name);
+    // Hosted image generation
+    expect(toolNames).toContain('image_generation');
+    // Default tools
+    expect(toolNames).toContain('getCurrentDatetime');
+    expect(toolNames).toContain('calculate');
+    expect(toolNames).toContain('getWeather');
   });
 
-  it('should have high temperature for creativity', () => {
-    expect(config.modelOptions?.temperature).toBe(0.8);
+  it('should not have temperature (not supported by Responses API)', () => {
+    expect(imagegenAgent.modelSettings.temperature).toBeUndefined();
   });
 
   it('should have instructions about image generation', () => {
-    expect(config.instructions.toLowerCase()).toContain('image');
-    expect(config.instructions.toLowerCase()).toContain('generate');
-    expect(config.instructions.toLowerCase()).toContain('style');
+    const instructions = (imagegenAgent.instructions as string).toLowerCase();
+    expect(instructions).toContain('image');
+    expect(instructions).toContain('generate');
+    expect(instructions).toContain('style');
   });
 });
 
@@ -371,41 +410,26 @@ describe('imagegen agent', () => {
 // Helper Function Tests
 // =============================================================================
 
-describe('getAgentConfig', () => {
-  it('should return correct config for valid agent type', () => {
-    const config = getAgentConfig('coder');
-    expect(config.name).toBe('DevBot');
-    expect(config.model).toBe('claude-opus-4-5-20251101');
+describe('getAgent', () => {
+  it('should return correct agent for valid type', () => {
+    const agent = getAgent('coder');
+    expect(agent.name).toBe('DevBot');
   });
 
   it('should throw for invalid agent type', () => {
-    expect(() => getAgentConfig('invalid' as AgentType)).toThrow('Unknown agent type');
-  });
-});
-
-describe('getAgentTools', () => {
-  it('should return tools for an agent', () => {
-    const tools = getAgentTools('coder');
-    expect(tools.length).toBeGreaterThan(0);
-    expect(tools.some((t) => t.name === 'github_list_repos')).toBe(true);
+    expect(() => getAgent('invalid' as AgentType)).toThrow('Unknown agent type');
   });
 
-  it('should return empty array for imagegen', () => {
-    const tools = getAgentTools('imagegen');
-    expect(tools).toHaveLength(0);
-  });
-});
-
-describe('getAgentModel', () => {
-  it('should return correct model for each agent', () => {
-    expect(getAgentModel('orchestrator')).toBe('gpt-5.2');
-    expect(getAgentModel('coder')).toBe('claude-opus-4-5-20251101');
-    expect(getAgentModel('researcher')).toBe('sonar-reasoning-pro');
-    expect(getAgentModel('secretary')).toBe('gemini-3-flash-preview');
-    expect(getAgentModel('personality')).toBe('grok-4-1-fast');
-    expect(getAgentModel('home')).toBe('gpt-5-mini');
-    expect(getAgentModel('finance')).toBe('gemini-3-flash-preview');
-    expect(getAgentModel('imagegen')).toBe('gpt-image-1.5');
+  it('should return agent instances for all types', () => {
+    const types: AgentType[] = [
+      'orchestrator', 'coder', 'researcher', 'secretary',
+      'personality', 'home', 'finance', 'imagegen',
+    ];
+    types.forEach((type) => {
+      const agent = getAgent(type);
+      expect(agent).toBeDefined();
+      expect(agent.name).toBeDefined();
+    });
   });
 });
 
@@ -455,35 +479,33 @@ describe('isValidAgentType', () => {
   });
 });
 
-describe('getAllAgentConfigs', () => {
-  it('should return all 8 configurations', () => {
-    const configs = getAllAgentConfigs();
-    expect(configs).toHaveLength(8);
+describe('getAllAgents', () => {
+  it('should return all 8 agents', () => {
+    const agents = getAllAgents();
+    expect(agents).toHaveLength(8);
   });
 
-  it('should return array of AgentConfig objects', () => {
-    const configs = getAllAgentConfigs();
-    configs.forEach((config) => {
-      expect(config.name).toBeDefined();
-      expect(config.type).toBeDefined();
-      expect(config.model).toBeDefined();
-      expect(config.instructions).toBeDefined();
-      expect(config.tools).toBeDefined();
+  it('should return Agent instances with names', () => {
+    const agents = getAllAgents();
+    agents.forEach((agent) => {
+      expect(agent.name).toBeDefined();
+      expect(agent.instructions).toBeDefined();
+      expect(agent.tools).toBeDefined();
     });
   });
 });
 
 describe('getAgentByName', () => {
   it('should find agent by exact name', () => {
-    const config = getAgentByName('DevBot');
-    expect(config).toBeDefined();
-    expect(config?.type).toBe('coder');
+    const agent = getAgentByName('DevBot');
+    expect(agent).toBeDefined();
+    expect(agent?.name).toBe('DevBot');
   });
 
   it('should find agent by name case-insensitively', () => {
-    expect(getAgentByName('devbot')?.type).toBe('coder');
-    expect(getAgentByName('DEVBOT')?.type).toBe('coder');
-    expect(getAgentByName('DevBot')?.type).toBe('coder');
+    expect(getAgentByName('devbot')?.name).toBe('DevBot');
+    expect(getAgentByName('DEVBOT')?.name).toBe('DevBot');
+    expect(getAgentByName('DevBot')?.name).toBe('DevBot');
   });
 
   it('should return undefined for unknown name', () => {
@@ -491,9 +513,22 @@ describe('getAgentByName', () => {
   });
 
   it('should find Q8 orchestrator', () => {
-    const config = getAgentByName('Q8');
-    expect(config).toBeDefined();
-    expect(config?.type).toBe('orchestrator');
+    const agent = getAgentByName('Q8');
+    expect(agent).toBeDefined();
+    expect(agent?.name).toBe('Q8');
+  });
+});
+
+describe('getAgentType', () => {
+  it('should return correct type for each agent', () => {
+    expect(getAgentType(orchestratorAgent)).toBe('orchestrator');
+    expect(getAgentType(coderAgent)).toBe('coder');
+    expect(getAgentType(researcherAgent)).toBe('researcher');
+    expect(getAgentType(secretaryAgent)).toBe('secretary');
+    expect(getAgentType(personalityAgent)).toBe('personality');
+    expect(getAgentType(homeAgent)).toBe('home');
+    expect(getAgentType(financeAgent)).toBe('finance');
+    expect(getAgentType(imagegenAgent)).toBe('imagegen');
   });
 });
 
@@ -503,76 +538,59 @@ describe('getAgentByName', () => {
 
 describe('tool assignments', () => {
   it('coder should have all github tools', () => {
-    const coderTools = getAgentTools('coder');
+    const coderToolNames = coderAgent.tools.map((t) => t.name);
     githubTools.forEach((githubTool) => {
-      expect(coderTools.some((t) => t.name === githubTool.name)).toBe(true);
+      expect(coderToolNames).toContain(githubTool.name);
     });
   });
 
   it('personality should have all spotify tools', () => {
-    const personalityTools = getAgentTools('personality');
+    const personalityToolNames = personalityAgent.tools.map((t) => t.name);
     spotifyTools.forEach((spotifyTool) => {
-      expect(personalityTools.some((t) => t.name === spotifyTool.name)).toBe(true);
+      expect(personalityToolNames).toContain(spotifyTool.name);
     });
   });
 
   it('all agents except imagegen should have default tools', () => {
-    const agentsWithDefaults: AgentType[] = [
-      'orchestrator',
-      'coder',
-      'researcher',
-      'secretary',
-      'personality',
-      'home',
-      'finance',
+    const agentsWithDefaults = [
+      orchestratorAgent,
+      coderAgent,
+      researcherAgent,
+      secretaryAgent,
+      personalityAgent,
+      homeAgent,
+      financeAgent,
     ];
 
-    agentsWithDefaults.forEach((agentType) => {
-      const tools = getAgentTools(agentType);
+    agentsWithDefaults.forEach((agent) => {
+      const toolNames = agent.tools.map((t) => t.name);
       defaultTools.forEach((defaultTool) => {
-        expect(tools.some((t) => t.name === defaultTool.name)).toBe(true);
+        expect(toolNames).toContain(defaultTool.name);
       });
     });
   });
 
   it('only orchestrator should have handoffs', () => {
-    const agents = getAllAgentConfigs();
-    agents.forEach((config) => {
-      if (config.type === 'orchestrator') {
-        expect(config.handoffs).toBeDefined();
-        expect(config.handoffs?.length).toBeGreaterThan(0);
+    const allAgents = getAllAgents();
+    allAgents.forEach((agent) => {
+      if (agent.name === 'Q8') {
+        expect(agent.handoffs.length).toBeGreaterThan(0);
       } else {
-        expect(config.handoffs).toBeUndefined();
+        expect(agent.handoffs).toHaveLength(0);
       }
     });
   });
 });
 
 // =============================================================================
-// Model Options Validation Tests
+// Model Settings Validation Tests
 // =============================================================================
 
-describe('model options', () => {
-  it('coder should have extendedThinking enabled', () => {
-    const config = getAgentConfig('coder');
-    expect(config.modelOptions?.extendedThinking).toBe(true);
-  });
-
-  it('creative agents should have higher temperature', () => {
-    const personality = getAgentConfig('personality');
-    const imagegen = getAgentConfig('imagegen');
-
-    expect(personality.modelOptions?.temperature).toBeGreaterThan(0.7);
-    expect(imagegen.modelOptions?.temperature).toBeGreaterThan(0.7);
-  });
-
-  it('precision agents should have lower temperature', () => {
-    const coder = getAgentConfig('coder');
-    const home = getAgentConfig('home');
-    const finance = getAgentConfig('finance');
-
-    expect(coder.modelOptions?.temperature).toBeLessThanOrEqual(0.5);
-    expect(home.modelOptions?.temperature).toBeLessThanOrEqual(0.5);
-    expect(finance.modelOptions?.temperature).toBeLessThanOrEqual(0.5);
+describe('model settings', () => {
+  it('no agents should have temperature (not supported by Responses API)', () => {
+    const allAgents = getAllAgents();
+    allAgents.forEach((agent) => {
+      expect(agent.modelSettings.temperature).toBeUndefined();
+    });
   });
 });

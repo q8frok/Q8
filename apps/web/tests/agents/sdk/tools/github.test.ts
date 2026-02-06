@@ -4,6 +4,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import type { FunctionTool } from '@openai/agents';
 
 // Mock data
 const mockRepoData = {
@@ -1008,14 +1009,15 @@ describe('githubTools', () => {
   });
 
   it('all tools have required properties', () => {
-    for (const tool of githubTools) {
-      expect(tool).toHaveProperty('name');
-      expect(tool).toHaveProperty('description');
-      expect(tool).toHaveProperty('parameters');
-      expect(tool).toHaveProperty('execute');
-      expect(typeof tool.name).toBe('string');
-      expect(typeof tool.description).toBe('string');
-      expect(typeof tool.execute).toBe('function');
+    for (const t of githubTools) {
+      const ft = t as FunctionTool;
+      expect(ft).toHaveProperty('name');
+      expect(ft).toHaveProperty('description');
+      expect(ft).toHaveProperty('parameters');
+      expect(ft).toHaveProperty('invoke');
+      expect(typeof ft.name).toBe('string');
+      expect(typeof ft.description).toBe('string');
+      expect(typeof ft.invoke).toBe('function');
     }
   });
 
@@ -1026,50 +1028,50 @@ describe('githubTools', () => {
   });
 
   it('includes github_list_repos tool', () => {
-    const tool = githubTools.find((t) => t.name === 'github_list_repos');
-    expect(tool).toBeDefined();
-    expect(tool?.description).toContain('repositories');
+    const t = githubTools.find((t) => t.name === 'github_list_repos') as FunctionTool;
+    expect(t).toBeDefined();
+    expect(t.description).toContain('repositories');
   });
 
   it('includes github_get_repo tool', () => {
-    const tool = githubTools.find((t) => t.name === 'github_get_repo');
-    expect(tool).toBeDefined();
-    expect(tool?.description).toContain('repository');
+    const t = githubTools.find((t) => t.name === 'github_get_repo') as FunctionTool;
+    expect(t).toBeDefined();
+    expect(t.description).toContain('repository');
   });
 
   it('includes github_list_issues tool', () => {
-    const tool = githubTools.find((t) => t.name === 'github_list_issues');
-    expect(tool).toBeDefined();
-    expect(tool?.description).toContain('issues');
+    const t = githubTools.find((t) => t.name === 'github_list_issues') as FunctionTool;
+    expect(t).toBeDefined();
+    expect(t.description).toContain('issues');
   });
 
   it('includes github_create_issue tool', () => {
-    const tool = githubTools.find((t) => t.name === 'github_create_issue');
-    expect(tool).toBeDefined();
-    expect(tool?.description).toContain('issue');
+    const t = githubTools.find((t) => t.name === 'github_create_issue') as FunctionTool;
+    expect(t).toBeDefined();
+    expect(t.description).toContain('issue');
   });
 
   it('includes github_list_prs tool', () => {
-    const tool = githubTools.find((t) => t.name === 'github_list_prs');
-    expect(tool).toBeDefined();
-    expect(tool?.description).toContain('pull request');
+    const t = githubTools.find((t) => t.name === 'github_list_prs') as FunctionTool;
+    expect(t).toBeDefined();
+    expect(t.description).toContain('pull request');
   });
 
   it('includes github_get_pr tool', () => {
-    const tool = githubTools.find((t) => t.name === 'github_get_pr');
-    expect(tool).toBeDefined();
-    expect(tool?.description).toContain('pull request');
+    const t = githubTools.find((t) => t.name === 'github_get_pr') as FunctionTool;
+    expect(t).toBeDefined();
+    expect(t.description).toContain('pull request');
   });
 
   it('includes github_create_pr tool', () => {
-    const tool = githubTools.find((t) => t.name === 'github_create_pr');
-    expect(tool).toBeDefined();
-    expect(tool?.description).toContain('pull request');
+    const t = githubTools.find((t) => t.name === 'github_create_pr') as FunctionTool;
+    expect(t).toBeDefined();
+    expect(t.description).toContain('pull request');
   });
 
   it('includes github_search_code tool', () => {
-    const tool = githubTools.find((t) => t.name === 'github_search_code');
-    expect(tool).toBeDefined();
-    expect(tool?.description).toContain('Search');
+    const t = githubTools.find((t) => t.name === 'github_search_code') as FunctionTool;
+    expect(t).toBeDefined();
+    expect(t.description).toContain('Search');
   });
 });

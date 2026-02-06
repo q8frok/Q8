@@ -39,7 +39,7 @@ const AGENT_CREDENTIALS: Record<AgentType, CredentialCheck[]> = {
     { envKey: 'GITHUB_PERSONAL_ACCESS_TOKEN', name: 'GitHub' },
   ],
   researcher: [
-    { envKey: 'PERPLEXITY_API_KEY', name: 'Perplexity' },
+    { envKey: 'OPENAI_API_KEY', name: 'OpenAI' },
   ],
   secretary: [
     { envKey: 'GOOGLE_CLIENT_ID', name: 'Google Calendar' },

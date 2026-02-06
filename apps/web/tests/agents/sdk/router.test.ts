@@ -10,11 +10,9 @@ const mockParse = vi.fn();
 
 vi.mock('openai', () => ({
   default: class MockOpenAI {
-    beta = {
-      chat: {
-        completions: {
-          parse: mockParse,
-        },
+    chat = {
+      completions: {
+        parse: mockParse,
       },
     };
   },

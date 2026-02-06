@@ -348,7 +348,7 @@ Respond with:
 - confidence: Your confidence (0-1) in this choice
 - rationale: Brief explanation (1 sentence)`;
 
-    const completion = await client.beta.chat.completions.parse({
+    const completion = await client.chat.completions.parse({
       model: 'gpt-5-nano',
       messages: [
         { role: 'system', content: systemPrompt },

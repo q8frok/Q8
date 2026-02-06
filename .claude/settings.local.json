@@ -46,7 +46,21 @@
       "Bash(cmd //c \"taskkill /PID 3308 /F\")",
       "Bash(cmd //c \"taskkill /PID 41844 /F\")",
       "Bash(cmd //c \"tasklist | findstr /i node\")",
-      "Bash(cmd //c \"taskkill /IM node.exe /F\")"
+      "Bash(cmd //c \"taskkill /IM node.exe /F\")",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:github.com)",
+      "Bash(node:*)",
+      "Bash(del \"C:\\\\Users\\\\Minki\\\\Q8\\\\apps\\\\web\\\\src\\\\lib\\\\agents\\\\sdk\\\\handoffs.ts\")",
+      "Bash(test:*)",
+      "Bash(npm test:*)",
+      "WebFetch(domain:discuss.ai.google.dev)",
+      "WebFetch(domain:ai.google.dev)",
+      "WebFetch(domain:community.openai.com)",
+      "WebFetch(domain:docs.perplexity.ai)",
+      "WebFetch(domain:ai-sdk.dev)",
+      "WebFetch(domain:platform.openai.com)",
+      "Bash(pushd:*)",
+      "Bash(popd:*)"
     ],
     "deny": []
   },

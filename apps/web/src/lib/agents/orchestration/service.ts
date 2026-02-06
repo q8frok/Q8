@@ -641,6 +641,7 @@ export async function processMessage(
         const toolResults = await Promise.all(
           toolCalls.map(async (toolCall) => {
             const callStartTime = Date.now();
+            if (!('function' in toolCall)) return null;
             const functionName = toolCall.function.name;
             const functionArgs = JSON.parse(toolCall.function.arguments);
 
@@ -683,10 +684,13 @@ export async function processMessage(
           })
         );
 
-        // Process results after parallel execution
+        // Process results after parallel execution (filter out nulls from non-function tool calls)
+        const validToolResults = toolResults.filter(
+          (r): r is NonNullable<typeof r> => r !== null
+        );
         const toolMessages: Array<{ role: 'tool'; tool_call_id: string; content: string }> = [];
 
-        for (const { toolCall, functionName, functionArgs, result, duration } of toolResults) {
+        for (const { toolCall, functionName, functionArgs, result, duration } of validToolResults) {
           toolExecutions.push({
             id: toolCall.id,
             type: 'end',
@@ -705,11 +709,11 @@ export async function processMessage(
           });
         }
 
-        const cacheHits = toolResults.filter(r => r.fromCache).length;
+        const cacheHits = validToolResults.filter(r => r.fromCache).length;
         logger.debug('Parallel tool execution completed', {
           toolCount: toolCalls.length,
           totalDuration: Date.now() - toolStartTime,
-          individualDurations: toolResults.map(r => r.duration),
+          individualDurations: validToolResults.map(r => r.duration),
           speculativeCacheHits: cacheHits,
           speculativeCacheHitRate: cacheHits / toolCalls.length,
         });
@@ -1040,12 +1044,14 @@ export async function* streamMessage(
         const parallelStartTime = Date.now();
 
         // Parse all tool calls and emit start events immediately
-        const parsedToolCalls = toolCalls.map((toolCall) => ({
-          id: toolCall.id,
-          functionName: toolCall.function.name,
-          functionArgs: JSON.parse(toolCall.function.arguments),
-          toolCall,
-        }));
+        const parsedToolCalls = toolCalls
+          .filter((tc): tc is Extract<typeof tc, { function: unknown }> => 'function' in tc)
+          .map((toolCall) => ({
+            id: toolCall.id,
+            functionName: toolCall.function.name,
+            functionArgs: JSON.parse(toolCall.function.arguments),
+            toolCall,
+          }));
 
         // Emit all tool_start events upfront (users see all tools spinning)
         if (showToolExecutions) {

@@ -2,12 +2,24 @@
  * Spotify Direct API Tools
  * Direct integration with Spotify Web API for playback control and search
  * Assigned to: Personality Agent (Grok 4.1 Fast)
+ *
+ * Uses @openai/agents tool() for native SDK integration.
  */
 
 import { z } from 'zod';
+import { tool, type Tool } from '@openai/agents';
 import { createToolError, type ToolErrorResult } from '../utils/errors';
 import { executeWithRetry } from '../utils/retry';
-import type { ToolDefinition } from './default';
+
+// =============================================================================
+// Utility type: make nullable properties optional for TypeScript callers
+// =============================================================================
+
+type NullableOptional<T> = {
+  [K in keyof T as null extends T[K] ? never : K]: T[K];
+} & {
+  [K in keyof T as null extends T[K] ? K : never]?: T[K];
+};
 
 // =============================================================================
 // Constants
@@ -316,10 +328,7 @@ const spotifySearchParamsSchema = z.object({
     .describe('Maximum number of results to return (default: 10, max: 50)'),
 });
 
-// Input type allows optional type and limit
 type SpotifySearchParamsInput = z.input<typeof spotifySearchParamsSchema>;
-// Output type has defaults applied
-type _SpotifySearchParams = z.output<typeof spotifySearchParamsSchema>;
 
 interface SpotifySearchApiResponse {
   tracks?: {
@@ -405,13 +414,16 @@ export async function spotifySearch(
   }
 }
 
-export const spotifySearchDefinition: ToolDefinition<SpotifySearchParamsInput, SpotifySearchResult> = {
+export const spotifySearchTool = tool({
   name: 'spotify_search',
   description:
     'Search for tracks, albums, artists, or playlists on Spotify. Returns matching items with details like name, artist, and URI.',
-  parameters: spotifySearchParamsSchema as z.ZodSchema<SpotifySearchParamsInput>,
-  execute: spotifySearch as (args: SpotifySearchParamsInput) => Promise<SpotifySearchResult>,
-};
+  parameters: spotifySearchParamsSchema,
+  execute: async (args) => {
+    const result = await spotifySearch(args);
+    return JSON.stringify(result);
+  },
+});
 
 // =============================================================================
 // spotify_now_playing
@@ -509,16 +521,16 @@ export async function spotifyNowPlaying(
   }
 }
 
-export const spotifyNowPlayingDefinition: ToolDefinition<
-  SpotifyNowPlayingParams,
-  SpotifyNowPlayingResult
-> = {
+export const spotifyNowPlayingTool = tool({
   name: 'spotify_now_playing',
   description:
     'Get information about the currently playing track on Spotify, including track details, playback progress, and the active device.',
   parameters: spotifyNowPlayingParamsSchema,
-  execute: spotifyNowPlaying,
-};
+  execute: async () => {
+    const result = await spotifyNowPlaying({});
+    return JSON.stringify(result);
+  },
+});
 
 // =============================================================================
 // spotify_play_pause
@@ -530,15 +542,15 @@ const spotifyPlayPauseParamsSchema = z.object({
     .describe('The playback action to perform: play, pause, or toggle'),
   uri: z
     .string()
-    .optional()
+    .nullable()
     .describe('Spotify URI to play (e.g., spotify:track:xxx). Only used with play action.'),
   deviceId: z
     .string()
-    .optional()
+    .nullable()
     .describe('The device ID to control. If not specified, the active device is used.'),
 });
 
-type SpotifyPlayPauseParams = z.infer<typeof spotifyPlayPauseParamsSchema>;
+type SpotifyPlayPauseParams = NullableOptional<z.infer<typeof spotifyPlayPauseParamsSchema>>;
 
 /**
  * Control Spotify playback (play, pause, or toggle)
@@ -586,7 +598,7 @@ export async function spotifyPlayPause(
     return {
       success: true,
       action,
-      uri,
+      uri: uri ?? undefined,
     };
   } catch (error) {
     const toolError = createToolError('spotify_play_pause', error);
@@ -598,16 +610,16 @@ export async function spotifyPlayPause(
   }
 }
 
-export const spotifyPlayPauseDefinition: ToolDefinition<
-  SpotifyPlayPauseParams,
-  SpotifyPlaybackResult
-> = {
+export const spotifyPlayPauseTool = tool({
   name: 'spotify_play_pause',
   description:
     'Control Spotify playback. Can play, pause, or toggle playback. Optionally specify a track URI to play or a specific device.',
   parameters: spotifyPlayPauseParamsSchema,
-  execute: spotifyPlayPause,
-};
+  execute: async (args) => {
+    const result = await spotifyPlayPause(args);
+    return JSON.stringify(result);
+  },
+});
 
 // =============================================================================
 // spotify_next_previous
@@ -617,11 +629,11 @@ const spotifyNextPreviousParamsSchema = z.object({
   direction: z.enum(['next', 'previous']).describe('Skip to the next or previous track'),
   deviceId: z
     .string()
-    .optional()
+    .nullable()
     .describe('The device ID to control. If not specified, the active device is used.'),
 });
 
-type SpotifyNextPreviousParams = z.infer<typeof spotifyNextPreviousParamsSchema>;
+type SpotifyNextPreviousParams = NullableOptional<z.infer<typeof spotifyNextPreviousParamsSchema>>;
 
 /**
  * Skip to the next or previous track on Spotify
@@ -656,16 +668,16 @@ export async function spotifyNextPrevious(
   }
 }
 
-export const spotifyNextPreviousDefinition: ToolDefinition<
-  SpotifyNextPreviousParams,
-  SpotifyPlaybackResult
-> = {
+export const spotifyNextPreviousTool = tool({
   name: 'spotify_next_previous',
   description:
     'Skip to the next or previous track in the current playback queue.',
   parameters: spotifyNextPreviousParamsSchema,
-  execute: spotifyNextPrevious,
-};
+  execute: async (args) => {
+    const result = await spotifyNextPrevious(args);
+    return JSON.stringify(result);
+  },
+});
 
 // =============================================================================
 // spotify_add_to_queue
@@ -675,11 +687,11 @@ const spotifyAddToQueueParamsSchema = z.object({
   uri: z.string().describe('Spotify URI of the track to add (e.g., spotify:track:xxx)'),
   deviceId: z
     .string()
-    .optional()
+    .nullable()
     .describe('The device ID to add to queue on. If not specified, the active device is used.'),
 });
 
-type SpotifyAddToQueueParams = z.infer<typeof spotifyAddToQueueParamsSchema>;
+type SpotifyAddToQueueParams = NullableOptional<z.infer<typeof spotifyAddToQueueParamsSchema>>;
 
 /**
  * Add a track to the Spotify playback queue
@@ -717,16 +729,16 @@ export async function spotifyAddToQueue(
   }
 }
 
-export const spotifyAddToQueueDefinition: ToolDefinition<
-  SpotifyAddToQueueParams,
-  SpotifyPlaybackResult
-> = {
+export const spotifyAddToQueueTool = tool({
   name: 'spotify_add_to_queue',
   description:
     'Add a track to the playback queue. The track will play after the current queue.',
   parameters: spotifyAddToQueueParamsSchema,
-  execute: spotifyAddToQueue,
-};
+  execute: async (args) => {
+    const result = await spotifyAddToQueue(args);
+    return JSON.stringify(result);
+  },
+});
 
 // =============================================================================
 // spotify_get_devices
@@ -781,16 +793,16 @@ export async function spotifyGetDevices(
   }
 }
 
-export const spotifyGetDevicesDefinition: ToolDefinition<
-  SpotifyGetDevicesParams,
-  SpotifyDevicesResult
-> = {
+export const spotifyGetDevicesTool = tool({
   name: 'spotify_get_devices',
   description:
     'Get a list of available Spotify playback devices (speakers, phones, computers, etc.).',
   parameters: spotifyGetDevicesParamsSchema,
-  execute: spotifyGetDevices,
-};
+  execute: async () => {
+    const result = await spotifyGetDevices({});
+    return JSON.stringify(result);
+  },
+});
 
 // =============================================================================
 // spotify_set_volume
@@ -802,11 +814,11 @@ const spotifySetVolumeParamsSchema = z.object({
     .describe('The volume level to set (0-100). Values outside this range will be clamped.'),
   deviceId: z
     .string()
-    .optional()
+    .nullable()
     .describe('The device ID to set volume on. If not specified, the active device is used.'),
 });
 
-type SpotifySetVolumeParams = z.infer<typeof spotifySetVolumeParamsSchema>;
+type SpotifySetVolumeParams = NullableOptional<z.infer<typeof spotifySetVolumeParamsSchema>>;
 
 /**
  * Set the Spotify playback volume
@@ -846,27 +858,27 @@ export async function spotifySetVolume(
   }
 }
 
-export const spotifySetVolumeDefinition: ToolDefinition<
-  SpotifySetVolumeParams,
-  SpotifyVolumeResult
-> = {
+export const spotifySetVolumeTool = tool({
   name: 'spotify_set_volume',
   description:
     'Set the playback volume on Spotify. Volume is a percentage from 0 to 100.',
   parameters: spotifySetVolumeParamsSchema,
-  execute: spotifySetVolume,
-};
+  execute: async (args) => {
+    const result = await spotifySetVolume(args);
+    return JSON.stringify(result);
+  },
+});
 
 // =============================================================================
 // Export all Spotify tools
 // =============================================================================
 
-export const spotifyTools: ToolDefinition[] = [
-  spotifySearchDefinition as ToolDefinition,
-  spotifyNowPlayingDefinition as ToolDefinition,
-  spotifyPlayPauseDefinition as ToolDefinition,
-  spotifyNextPreviousDefinition as ToolDefinition,
-  spotifyAddToQueueDefinition as ToolDefinition,
-  spotifyGetDevicesDefinition as ToolDefinition,
-  spotifySetVolumeDefinition as ToolDefinition,
+export const spotifyTools: Tool[] = [
+  spotifySearchTool,
+  spotifyNowPlayingTool,
+  spotifyPlayPauseTool,
+  spotifyNextPreviousTool,
+  spotifyAddToQueueTool,
+  spotifyGetDevicesTool,
+  spotifySetVolumeTool,
 ];

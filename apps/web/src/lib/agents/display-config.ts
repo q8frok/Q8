@@ -23,6 +23,8 @@ export interface AgentDisplayConfig {
   iconColor: string;
   bgColor: string;
   description?: string;
+  /** Model name for display purposes */
+  model?: string;
 }
 
 /**
@@ -36,6 +38,7 @@ export const AGENT_DISPLAY_CONFIG: Record<AgentRole, AgentDisplayConfig> = {
     iconColor: 'text-neon-primary',
     bgColor: 'bg-neon-primary/20',
     description: 'Main routing agent',
+    model: 'GPT-5.2',
   },
   coder: {
     name: 'DevBot',
@@ -43,6 +46,7 @@ export const AGENT_DISPLAY_CONFIG: Record<AgentRole, AgentDisplayConfig> = {
     iconColor: 'text-blue-500',
     bgColor: 'bg-blue-500/20',
     description: 'Code and development specialist',
+    model: 'Claude Opus 4.5',
   },
   researcher: {
     name: 'Research Agent',
@@ -50,6 +54,7 @@ export const AGENT_DISPLAY_CONFIG: Record<AgentRole, AgentDisplayConfig> = {
     iconColor: 'text-purple-500',
     bgColor: 'bg-purple-500/20',
     description: 'Web search and research',
+    model: 'Sonar Reasoning Pro',
   },
   secretary: {
     name: 'Secretary',
@@ -57,6 +62,7 @@ export const AGENT_DISPLAY_CONFIG: Record<AgentRole, AgentDisplayConfig> = {
     iconColor: 'text-green-500',
     bgColor: 'bg-green-500/20',
     description: 'Email, calendar, and scheduling',
+    model: 'Gemini 3 Flash',
   },
   personality: {
     name: 'Grok',
@@ -64,6 +70,7 @@ export const AGENT_DISPLAY_CONFIG: Record<AgentRole, AgentDisplayConfig> = {
     iconColor: 'text-orange-500',
     bgColor: 'bg-orange-500/20',
     description: 'Casual conversation and creativity',
+    model: 'Grok 4.1',
   },
   home: {
     name: 'HomeBot',
@@ -71,6 +78,7 @@ export const AGENT_DISPLAY_CONFIG: Record<AgentRole, AgentDisplayConfig> = {
     iconColor: 'text-cyan-500',
     bgColor: 'bg-cyan-500/20',
     description: 'Smart home control',
+    model: 'GPT-5-mini',
   },
   finance: {
     name: 'Finance Advisor',
@@ -78,6 +86,7 @@ export const AGENT_DISPLAY_CONFIG: Record<AgentRole, AgentDisplayConfig> = {
     iconColor: 'text-emerald-500',
     bgColor: 'bg-emerald-500/20',
     description: 'Personal finance and budgeting',
+    model: 'Gemini 3 Flash',
   },
   imagegen: {
     name: 'ImageGen',
@@ -85,6 +94,7 @@ export const AGENT_DISPLAY_CONFIG: Record<AgentRole, AgentDisplayConfig> = {
     iconColor: 'text-pink-500',
     bgColor: 'bg-pink-500/20',
     description: 'AI image generation and analysis',
+    model: 'gpt-image-1.5',
   },
   user: {
     name: 'You',

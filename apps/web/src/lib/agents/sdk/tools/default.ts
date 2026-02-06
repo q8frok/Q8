@@ -4,22 +4,14 @@
  * - getCurrentDatetime: Returns current date/time in user's timezone
  * - calculate: Safe math expression evaluation using mathjs
  * - getWeather: Weather lookup using OpenWeatherMap API
+ *
+ * Uses @openai/agents tool() for native SDK integration.
  */
 
 import { z } from 'zod';
+import { tool, type Tool } from '@openai/agents';
 import { safeEvaluate } from '@/lib/utils/safe-math';
 import { createToolError } from '../utils/errors';
-
-// =============================================================================
-// Tool Definition Interface
-// =============================================================================
-
-export interface ToolDefinition<TParams = unknown, TResult = unknown> {
-  name: string;
-  description: string;
-  parameters: z.ZodSchema<TParams>;
-  execute: (args: TParams) => Promise<TResult>;
-}
 
 // =============================================================================
 // getCurrentDatetime Tool
@@ -28,13 +20,20 @@ export interface ToolDefinition<TParams = unknown, TResult = unknown> {
 const getCurrentDatetimeParamsSchema = z.object({
   timezone: z
     .string()
-    .optional()
+    .nullable()
     .describe(
       'IANA timezone name (e.g., "America/New_York", "Europe/London"). Defaults to UTC.'
     ),
 });
 
-type GetCurrentDatetimeParams = z.infer<typeof getCurrentDatetimeParamsSchema>;
+/** Makes nullable properties optional for TypeScript callers */
+type NullableOptional<T> = {
+  [K in keyof T as null extends T[K] ? never : K]: T[K];
+} & {
+  [K in keyof T as null extends T[K] ? K : never]?: T[K];
+};
+
+type GetCurrentDatetimeParams = NullableOptional<z.infer<typeof getCurrentDatetimeParamsSchema>>;
 
 interface GetCurrentDatetimeResult {
   datetime: string;
@@ -70,7 +69,7 @@ export async function getCurrentDatetime(
 
   // Get formatted date parts in the specified timezone
   const options: Intl.DateTimeFormatOptions = {
-    timeZone: isValidTimezone ? params.timezone : 'UTC',
+    timeZone: isValidTimezone ? (params.timezone ?? undefined) : 'UTC',
     weekday: 'long',
     year: 'numeric',
     month: 'long',
@@ -120,16 +119,16 @@ export async function getCurrentDatetime(
   };
 }
 
-export const getCurrentDatetimeDefinition: ToolDefinition<
-  GetCurrentDatetimeParams,
-  GetCurrentDatetimeResult
-> = {
+export const getCurrentDatetimeTool = tool({
   name: 'getCurrentDatetime',
   description:
     'Get the current date and time. Optionally specify a timezone to get the time in that timezone. Returns ISO datetime, formatted string, and individual date components.',
   parameters: getCurrentDatetimeParamsSchema,
-  execute: getCurrentDatetime,
-};
+  execute: async (args) => {
+    const result = await getCurrentDatetime(args);
+    return JSON.stringify(result);
+  },
+});
 
 // =============================================================================
 // calculate Tool
@@ -190,30 +189,29 @@ export async function calculate(params: CalculateParams): Promise<CalculateResul
   }
 }
 
-export const calculateDefinition: ToolDefinition<CalculateParams, CalculateResult> = {
+export const calculateTool = tool({
   name: 'calculate',
   description:
     'Evaluate a mathematical expression safely. Supports arithmetic operations (+, -, *, /, ^), functions (sqrt, sin, cos, tan, log, etc.), percentages (15% of 200), and more. Returns the numeric result or an error message.',
   parameters: calculateParamsSchema,
-  execute: calculate,
-};
+  execute: async (args) => {
+    const result = await calculate(args);
+    return JSON.stringify(result);
+  },
+});
 
 // =============================================================================
 // getWeather Tool
 // =============================================================================
 
-const getWeatherParamsSchema = z
-  .object({
-    location: z
-      .string()
-      .optional()
-      .describe('City name (e.g., "New York", "London, UK")'),
-    lat: z.number().optional().describe('Latitude coordinate'),
-    lon: z.number().optional().describe('Longitude coordinate'),
-  })
-  .refine((data) => data.location || (data.lat !== undefined && data.lon !== undefined), {
-    message: 'Either location or both lat and lon must be provided',
-  });
+const getWeatherParamsSchema = z.object({
+  location: z
+    .string()
+    .nullable()
+    .describe('City name (e.g., "New York", "London, UK")'),
+  lat: z.number().nullable().describe('Latitude coordinate'),
+  lon: z.number().nullable().describe('Longitude coordinate'),
+});
 
 type GetWeatherParams = z.infer<typeof getWeatherParamsSchema>;
 
@@ -273,8 +271,8 @@ export async function getWeather(
     };
   }
 
-  // Validate params
-  if (!params.location && (params.lat === undefined || params.lon === undefined)) {
+  // Validate params — either location or lat+lon required
+  if (!params.location && (params.lat == null || params.lon == null)) {
     return {
       success: false,
       error: {
@@ -347,23 +345,23 @@ export async function getWeather(
   }
 }
 
-export const getWeatherDefinition: ToolDefinition<
-  GetWeatherParams,
-  GetWeatherResult
-> = {
+export const getWeatherTool = tool({
   name: 'getWeather',
   description:
     'Get current weather conditions for a location. Provide either a city name or latitude/longitude coordinates. Returns temperature, humidity, wind, and conditions.',
-  parameters: getWeatherParamsSchema as z.ZodSchema<GetWeatherParams>,
-  execute: getWeather as (args: GetWeatherParams) => Promise<GetWeatherResult>,
-};
+  parameters: getWeatherParamsSchema,
+  execute: async (args) => {
+    const result = await getWeather(args);
+    return JSON.stringify(result);
+  },
+});
 
 // =============================================================================
 // Export all default tools
 // =============================================================================
 
-export const defaultTools: ToolDefinition[] = [
-  getCurrentDatetimeDefinition as ToolDefinition,
-  calculateDefinition as ToolDefinition,
-  getWeatherDefinition as ToolDefinition,
+export const defaultTools: Tool[] = [
+  getCurrentDatetimeTool,
+  calculateTool,
+  getWeatherTool,
 ];

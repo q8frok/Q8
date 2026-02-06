@@ -298,7 +298,7 @@ export async function executeImageTool(
           });
         }
 
-        const editRawItem = response.data?.[0];
+        const editRawItem = 'data' in response ? response.data?.[0] : undefined;
         const editB64 = editRawItem ? await extractBase64(editRawItem) : null;
 
         if (editB64) {

@@ -4,13 +4,14 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import type { FunctionTool } from '@openai/agents';
 import {
   getCurrentDatetime,
-  getCurrentDatetimeDefinition,
+  getCurrentDatetimeTool,
   calculate,
-  calculateDefinition,
+  calculateTool,
   getWeather,
-  getWeatherDefinition,
+  getWeatherTool,
   defaultTools,
   type CalculateResult,
   type CalculateSuccessResult,
@@ -85,9 +86,9 @@ describe('getCurrentDatetime', () => {
   });
 
   it('tool definition has correct schema', () => {
-    expect(getCurrentDatetimeDefinition.name).toBe('getCurrentDatetime');
-    expect(getCurrentDatetimeDefinition.description).toContain('date');
-    expect(getCurrentDatetimeDefinition.parameters).toBeDefined();
+    expect(getCurrentDatetimeTool.name).toBe('getCurrentDatetime');
+    expect(getCurrentDatetimeTool.description).toContain('date');
+    expect(getCurrentDatetimeTool.parameters).toBeDefined();
   });
 });
 
@@ -169,9 +170,9 @@ describe('calculate', () => {
   });
 
   it('tool definition has correct schema', () => {
-    expect(calculateDefinition.name).toBe('calculate');
-    expect(calculateDefinition.description).toContain('math');
-    expect(calculateDefinition.parameters).toBeDefined();
+    expect(calculateTool.name).toBe('calculate');
+    expect(calculateTool.description).toContain('math');
+    expect(calculateTool.parameters).toBeDefined();
   });
 });
 
@@ -297,9 +298,9 @@ describe('getWeather', () => {
   });
 
   it('tool definition has correct schema', () => {
-    expect(getWeatherDefinition.name).toBe('getWeather');
-    expect(getWeatherDefinition.description).toContain('weather');
-    expect(getWeatherDefinition.parameters).toBeDefined();
+    expect(getWeatherTool.name).toBe('getWeather');
+    expect(getWeatherTool.description).toContain('weather');
+    expect(getWeatherTool.parameters).toBeDefined();
   });
 });
 
@@ -310,14 +311,15 @@ describe('defaultTools', () => {
   });
 
   it('all tools have required properties', () => {
-    for (const tool of defaultTools) {
-      expect(tool).toHaveProperty('name');
-      expect(tool).toHaveProperty('description');
-      expect(tool).toHaveProperty('parameters');
-      expect(tool).toHaveProperty('execute');
-      expect(typeof tool.name).toBe('string');
-      expect(typeof tool.description).toBe('string');
-      expect(typeof tool.execute).toBe('function');
+    for (const t of defaultTools) {
+      const ft = t as FunctionTool;
+      expect(ft).toHaveProperty('name');
+      expect(ft).toHaveProperty('description');
+      expect(ft).toHaveProperty('parameters');
+      expect(ft).toHaveProperty('invoke');
+      expect(typeof ft.name).toBe('string');
+      expect(typeof ft.description).toBe('string');
+      expect(typeof ft.invoke).toBe('function');
     }
   });
 

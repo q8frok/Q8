@@ -3,7 +3,7 @@
  * Tests the full routing -> agent -> tool execution flow
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach, type MockedFunction, type Mock } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // =============================================================================
 // SHARED MOCK FUNCTIONS - Must be at module level
@@ -23,14 +23,13 @@ vi.mock('openai', () => {
       chat: {
         completions: {
           create: mockCreate,
+          parse: mockParse,
         },
       },
       beta: {
-        chat: {
-          completions: {
-            parse: mockParse,
-          },
-        },
+        realtime: {},
+        assistants: {},
+        threads: {},
       },
     })),
   };
@@ -60,6 +59,11 @@ vi.mock('@/lib/logger', () => ({
     warn: vi.fn(),
     error: vi.fn(),
   },
+}));
+
+// Mock model-provider (agents module depends on this)
+vi.mock('@/lib/agents/sdk/model-provider', () => ({
+  getAgentModel: vi.fn(() => 'gpt-4.1'),
 }));
 
 // Note: We don't mock safe-math because we want to test the real implementation
@@ -169,21 +173,6 @@ describe('SDK Integration', () => {
       expect(result.confidence).toBeGreaterThan(0.6);
     });
 
-    it('executes tools when agent requests them', async () => {
-      const { executeTool } = await import('@/lib/agents/sdk/runner');
-      const { defaultTools } = await import('@/lib/agents/sdk/tools/default');
-
-      // Test calculate tool
-      const result = await executeTool('calculate', { expression: '2 + 2' }, defaultTools);
-
-      expect(result.success).toBe(true);
-      expect(result.result).toEqual({
-        success: true,
-        expression: '2 + 2',
-        result: 4,
-      });
-    });
-
     it('handles explicit agent requests with @mention', async () => {
       const { route } = await import('@/lib/agents/sdk/router');
 
@@ -205,98 +194,43 @@ describe('SDK Integration', () => {
   });
 
   // ===========================================================================
-  // HANDOFF TESTS
+  // AGENT SDK HANDOFF TESTS
   // ===========================================================================
 
-  describe('Handoff handling', () => {
-    it('orchestrator can handoff to all specialists', async () => {
-      const { canHandoff, getValidHandoffTargets } = await import('@/lib/agents/sdk/handoffs');
+  describe('Agent SDK handoffs', () => {
+    it('orchestrator agent has handoffs to all specialists', async () => {
+      const { orchestratorAgent } = await import('@/lib/agents/sdk/agents');
 
-      const specialists: AgentType[] = ['coder', 'researcher', 'secretary', 'personality', 'home', 'finance', 'imagegen'];
+      // Orchestrator should have handoffs defined
+      expect(orchestratorAgent.handoffs).toBeDefined();
+      expect(orchestratorAgent.handoffs.length).toBe(7);
+    });
 
-      for (const specialist of specialists) {
-        expect(canHandoff('orchestrator', specialist)).toBe(true);
-      }
+    it('getHandoffTargets returns all specialist types', async () => {
+      const { getHandoffTargets } = await import('@/lib/agents/sdk/agents');
 
-      const targets = getValidHandoffTargets('orchestrator');
-      expect(targets).toHaveLength(7);
+      const targets = getHandoffTargets();
+
       expect(targets).toContain('coder');
       expect(targets).toContain('researcher');
+      expect(targets).toContain('secretary');
+      expect(targets).toContain('personality');
+      expect(targets).toContain('home');
+      expect(targets).toContain('finance');
+      expect(targets).toContain('imagegen');
+      expect(targets).not.toContain('orchestrator');
+      expect(targets).toHaveLength(7);
     });
 
-    it('specialists can only handoff back to orchestrator', async () => {
-      const { canHandoff, getValidHandoffTargets } = await import('@/lib/agents/sdk/handoffs');
+    it('specialist agents do not have handoffs', async () => {
+      const { getAgent } = await import('@/lib/agents/sdk/agents');
 
       const specialists: AgentType[] = ['coder', 'researcher', 'secretary', 'personality', 'home', 'finance', 'imagegen'];
 
       for (const specialist of specialists) {
-        // Can handoff to orchestrator
-        expect(canHandoff(specialist, 'orchestrator')).toBe(true);
-
-        // Cannot handoff to other specialists
-        for (const other of specialists) {
-          if (other !== specialist) {
-            expect(canHandoff(specialist, other)).toBe(false);
-          }
-        }
-
-        // Valid targets should only be orchestrator
-        const targets = getValidHandoffTargets(specialist);
-        expect(targets).toEqual(['orchestrator']);
+        const agent = getAgent(specialist);
+        expect(agent.handoffs.length).toBe(0);
       }
-    });
-
-    it('prevents self-handoffs', async () => {
-      const { canHandoff } = await import('@/lib/agents/sdk/handoffs');
-
-      const agents: AgentType[] = ['orchestrator', 'coder', 'researcher', 'secretary'];
-
-      for (const agent of agents) {
-        expect(canHandoff(agent, agent)).toBe(false);
-      }
-    });
-
-    it('creates handoff with context', async () => {
-      const { handoffToCoder } = await import('@/lib/agents/sdk/handoffs');
-
-      const handoff = handoffToCoder('User needs help with a bug', {
-        repo: 'q8-app',
-        issue: 42,
-      });
-
-      expect(handoff.targetAgent).toBe('coder');
-      expect(handoff.reason).toBe('User needs help with a bug');
-      expect(handoff.context).toEqual({
-        repo: 'q8-app',
-        issue: 42,
-      });
-    });
-
-    it('formats handoff message correctly', async () => {
-      const { formatHandoffMessage, handoffToResearcher } = await import('@/lib/agents/sdk/handoffs');
-
-      const handoff = handoffToResearcher('Need to research AI regulations', {
-        query: 'AI regulations 2026',
-        depth: 'thorough',
-      });
-
-      const message = formatHandoffMessage(handoff);
-
-      expect(message).toContain('ResearchBot');
-      expect(message).toContain('Need to research AI regulations');
-    });
-
-    it('executes handoff successfully', async () => {
-      const { executeHandoff, handoffToCoder } = await import('@/lib/agents/sdk/handoffs');
-
-      const handoff = handoffToCoder('Debug the login issue', { repo: 'q8-app' });
-
-      const result = await executeHandoff(handoff, 'Help me debug the login', 'user-123', 'thread-456');
-
-      expect(result.success).toBe(true);
-      expect(result.targetAgent).toBe('coder');
-      expect(result.context?._handoff).toBeDefined();
-      expect((result.context?._handoff as Record<string, unknown>).reason).toBe('Debug the login issue');
     });
   });
 
@@ -421,10 +355,6 @@ describe('SDK Integration', () => {
 
   describe('Streaming events', () => {
     it('defines expected event types structure', async () => {
-      // Test that our event types are correctly structured
-      // This tests the type system without needing to mock OpenAI
-
-      // The event types should include these key events
       const eventTypes = [
         'routing',
         'agent_start',
@@ -437,7 +367,6 @@ describe('SDK Integration', () => {
         'thread_created',
       ];
 
-      // Verify all expected event types are accounted for
       expect(eventTypes).toContain('routing');
       expect(eventTypes).toContain('agent_start');
       expect(eventTypes).toContain('content');
@@ -447,74 +376,19 @@ describe('SDK Integration', () => {
       expect(eventTypes).toContain('tool_end');
     });
 
-    it('runner exports streaming functions', async () => {
+    it('runner exports streamMessage function', async () => {
       const runner = await import('@/lib/agents/sdk/runner');
 
-      // Verify the module exports the expected functions
-      expect(typeof runner.runAgent).toBe('function');
       expect(typeof runner.streamMessage).toBe('function');
-      expect(typeof runner.executeTool).toBe('function');
-      expect(typeof runner.toOpenAITools).toBe('function');
-      expect(typeof runner.buildSystemPrompt).toBe('function');
     });
 
-    it('buildSystemPrompt includes agent instructions', async () => {
-      const { buildSystemPrompt } = await import('@/lib/agents/sdk/runner');
-      const { getAgentConfig } = await import('@/lib/agents/sdk/agents');
+    it('runner does not export removed legacy functions', async () => {
+      const runner = await import('@/lib/agents/sdk/runner');
 
-      const coderConfig = getAgentConfig('coder');
-      const prompt = buildSystemPrompt(coderConfig, { userId: 'test-user' });
-
-      // Should include the agent's base instructions
-      expect(prompt).toContain('DevBot');
-      expect(prompt).toContain('software engineer');
-
-      // Should include datetime context
-      expect(prompt).toContain('Current date and time');
-    });
-
-    it('buildSystemPrompt includes user profile when provided', async () => {
-      const { buildSystemPrompt } = await import('@/lib/agents/sdk/runner');
-      const { getAgentConfig } = await import('@/lib/agents/sdk/agents');
-
-      const orchestratorConfig = getAgentConfig('orchestrator');
-      const prompt = buildSystemPrompt(orchestratorConfig, {
-        userId: 'test-user',
-        userProfile: {
-          name: 'Alice',
-          timezone: 'America/New_York',
-          communicationStyle: 'concise',
-        },
-      });
-
-      expect(prompt).toContain('Alice');
-      expect(prompt).toContain('America/New_York');
-      expect(prompt).toContain('concise');
-    });
-
-    it('toOpenAITools converts tool definitions correctly', async () => {
-      const { toOpenAITools } = await import('@/lib/agents/sdk/runner');
-      const { defaultTools } = await import('@/lib/agents/sdk/tools/default');
-
-      const openaiTools = toOpenAITools(defaultTools);
-
-      expect(Array.isArray(openaiTools)).toBe(true);
-      expect(openaiTools.length).toBe(defaultTools.length);
-
-      // Check structure of converted tools
-      for (const tool of openaiTools) {
-        expect(tool).toHaveProperty('type', 'function');
-        expect(tool).toHaveProperty('function');
-        expect(tool.function).toHaveProperty('name');
-        expect(tool.function).toHaveProperty('description');
-        expect(tool.function).toHaveProperty('parameters');
-      }
-
-      // Verify specific tool names
-      const toolNames = openaiTools.map(t => t.function.name);
-      expect(toolNames).toContain('calculate');
-      expect(toolNames).toContain('getCurrentDatetime');
-      expect(toolNames).toContain('getWeather');
+      expect(runner).not.toHaveProperty('runAgent');
+      expect(runner).not.toHaveProperty('executeTool');
+      expect(runner).not.toHaveProperty('toOpenAITools');
+      expect(runner).not.toHaveProperty('buildSystemPrompt');
     });
   });
 
@@ -528,7 +402,6 @@ describe('SDK Integration', () => {
 
       const result = await calculate({ expression: '2 + 2' });
 
-      // Check the structure - actual result comes from real safeEvaluate
       expect(result.success).toBe(true);
       expect(result.expression).toBe('2 + 2');
       if (result.success) {
@@ -540,7 +413,6 @@ describe('SDK Integration', () => {
     it('handles calculate tool errors', async () => {
       const { calculate } = await import('@/lib/agents/sdk/tools/default');
 
-      // Use an expression that will cause a real error
       const result = await calculate({ expression: '' });
 
       expect(result.success).toBe(false);
@@ -568,17 +440,14 @@ describe('SDK Integration', () => {
 
       const result = await getCurrentDatetime({ timezone: 'Invalid/Timezone' });
 
-      // Should fall back to UTC
       expect(result.timezone).toBe('UTC');
     });
 
     it('handles Spotify API errors', async () => {
-      // Clear Spotify credentials
       delete process.env.SPOTIFY_CLIENT_ID;
       delete process.env.SPOTIFY_CLIENT_SECRET;
       delete process.env.SPOTIFY_REFRESH_TOKEN;
 
-      // Clear cached modules to pick up new env
       vi.resetModules();
 
       const { spotifySearch } = await import('@/lib/agents/sdk/tools/spotify');
@@ -592,10 +461,8 @@ describe('SDK Integration', () => {
     });
 
     it('handles GitHub API errors', async () => {
-      // Clear GitHub credentials
       delete process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
 
-      // Clear cached modules to pick up new env
       vi.resetModules();
 
       const { githubListRepos } = await import('@/lib/agents/sdk/tools/github');
@@ -607,17 +474,6 @@ describe('SDK Integration', () => {
         expect(result.error.code).toBe('MISSING_CREDENTIALS');
       }
     });
-
-    it('validates tool arguments', async () => {
-      const { executeTool } = await import('@/lib/agents/sdk/runner');
-      const { defaultTools } = await import('@/lib/agents/sdk/tools/default');
-
-      // Missing required argument
-      const result = await executeTool('calculate', {}, defaultTools);
-
-      // Should fail validation
-      expect(result.success).toBe(false);
-    });
   });
 
   // ===========================================================================
@@ -625,26 +481,20 @@ describe('SDK Integration', () => {
   // ===========================================================================
 
   describe('Agent configurations', () => {
-    it('all agents have valid configurations', async () => {
-      const { getAllAgentConfigs, AgentTypeSchema } = await import('@/lib/agents/sdk/agents');
+    it('all agents are valid Agent instances', async () => {
+      const { getAllAgents, AgentTypeSchema } = await import('@/lib/agents/sdk/agents');
 
-      const configs = getAllAgentConfigs();
+      const agents = getAllAgents();
 
-      expect(configs.length).toBe(8); // 8 agents
+      expect(agents.length).toBe(8);
 
-      for (const config of configs) {
-        // Has required fields
-        expect(config.name).toBeDefined();
-        expect(config.type).toBeDefined();
-        expect(config.model).toBeDefined();
-        expect(config.instructions).toBeDefined();
-        expect(Array.isArray(config.tools)).toBe(true);
-
-        // Type is valid
-        expect(AgentTypeSchema.safeParse(config.type).success).toBe(true);
-
-        // Instructions are non-empty
-        expect(config.instructions.length).toBeGreaterThan(50);
+      for (const agent of agents) {
+        expect(agent.name).toBeDefined();
+        expect(typeof agent.instructions === 'string' || typeof agent.instructions === 'function').toBe(true);
+        const instructions = typeof agent.instructions === 'string'
+          ? agent.instructions
+          : '';
+        expect(instructions.length).toBeGreaterThan(50);
       }
     });
 
@@ -664,46 +514,35 @@ describe('SDK Integration', () => {
     });
 
     it('tool assignments match agent responsibilities', async () => {
-      const { getAgentTools, getAgentConfig } = await import('@/lib/agents/sdk/agents');
+      const { getAgent } = await import('@/lib/agents/sdk/agents');
 
       // Coder should have GitHub tools
-      const coderTools = getAgentTools('coder');
-      const coderToolNames = coderTools.map(t => t.name);
-      expect(coderToolNames.some(name => name.startsWith('github_'))).toBe(true);
+      const coder = getAgent('coder');
+      const coderToolNames = coder.tools.map((t: { name: string }) => t.name);
+      expect(coderToolNames.some((name: string) => name.startsWith('github_'))).toBe(true);
 
       // Personality should have Spotify tools
-      const personalityTools = getAgentTools('personality');
-      const personalityToolNames = personalityTools.map(t => t.name);
-      expect(personalityToolNames.some(name => name.startsWith('spotify_'))).toBe(true);
+      const personality = getAgent('personality');
+      const personalityToolNames = personality.tools.map((t: { name: string }) => t.name);
+      expect(personalityToolNames.some((name: string) => name.startsWith('spotify_'))).toBe(true);
 
-      // ImageGen should have minimal tools (uses model capabilities)
-      const imagegenTools = getAgentTools('imagegen');
-      expect(imagegenTools.length).toBe(0);
+      // ImageGen should have hosted image generation + default tools
+      const imagegen = getAgent('imagegen');
+      const imagegenToolNames = imagegen.tools.map((t: { name: string }) => t.name);
+      expect(imagegenToolNames).toContain('image_generation');
+      expect(imagegenToolNames).toContain('getCurrentDatetime');
 
-      // All agents except imagegen should have default tools
-      const agents: AgentType[] = ['orchestrator', 'coder', 'researcher', 'secretary', 'personality', 'home', 'finance'];
-      for (const agent of agents) {
-        const tools = getAgentTools(agent);
-        const toolNames = tools.map(t => t.name);
-        // Check for at least one default tool (calculate or getCurrentDatetime)
+      // All agents should have default tools
+      const agentTypes: AgentType[] = ['orchestrator', 'coder', 'researcher', 'secretary', 'personality', 'home', 'finance', 'imagegen'];
+      for (const agentType of agentTypes) {
+        const agent = agentType === 'orchestrator'
+          ? (await import('@/lib/agents/sdk/agents')).orchestratorAgent
+          : getAgent(agentType);
+        const toolNames = agent.tools.map((t: { name: string }) => t.name);
         expect(
           toolNames.includes('calculate') || toolNames.includes('getCurrentDatetime')
         ).toBe(true);
       }
-    });
-
-    it('agent models are correctly assigned', async () => {
-      const { getAgentModel } = await import('@/lib/agents/sdk/agents');
-
-      // Verify model assignments match documentation
-      expect(getAgentModel('orchestrator')).toBe('gpt-5.2');
-      expect(getAgentModel('coder')).toBe('claude-opus-4-5-20251101');
-      expect(getAgentModel('researcher')).toBe('sonar-reasoning-pro');
-      expect(getAgentModel('secretary')).toBe('gemini-3-flash-preview');
-      expect(getAgentModel('personality')).toBe('grok-4-1-fast');
-      expect(getAgentModel('home')).toBe('gpt-5-mini');
-      expect(getAgentModel('finance')).toBe('gemini-3-flash-preview');
-      expect(getAgentModel('imagegen')).toBe('gpt-image-1.5');
     });
 
     it('agent names are user-friendly', async () => {
@@ -722,34 +561,30 @@ describe('SDK Integration', () => {
     it('validates agent type correctly', async () => {
       const { isValidAgentType } = await import('@/lib/agents/sdk/agents');
 
-      // Valid types
       expect(isValidAgentType('orchestrator')).toBe(true);
       expect(isValidAgentType('coder')).toBe(true);
       expect(isValidAgentType('researcher')).toBe(true);
 
-      // Invalid types
       expect(isValidAgentType('invalid')).toBe(false);
       expect(isValidAgentType('')).toBe(false);
-      expect(isValidAgentType('CODER')).toBe(false); // Case sensitive
+      expect(isValidAgentType('CODER')).toBe(false);
     });
 
     it('can find agent by name', async () => {
-      const { getAgentByName } = await import('@/lib/agents/sdk/agents');
+      const { getAgentByName, getAgentType } = await import('@/lib/agents/sdk/agents');
 
       const devBot = getAgentByName('DevBot');
       expect(devBot).toBeDefined();
-      expect(devBot?.type).toBe('coder');
+      expect(getAgentType(devBot!)).toBe('coder');
 
       const q8 = getAgentByName('Q8');
       expect(q8).toBeDefined();
-      expect(q8?.type).toBe('orchestrator');
+      expect(getAgentType(q8!)).toBe('orchestrator');
 
-      // Case insensitive
       const devBotLower = getAgentByName('devbot');
       expect(devBotLower).toBeDefined();
-      expect(devBotLower?.type).toBe('coder');
+      expect(getAgentType(devBotLower!)).toBe('coder');
 
-      // Non-existent
       const notFound = getAgentByName('NonExistent');
       expect(notFound).toBeUndefined();
     });
@@ -763,7 +598,6 @@ describe('SDK Integration', () => {
     it('explicit routing takes highest priority', async () => {
       const { route } = await import('@/lib/agents/sdk/router');
 
-      // Even with code keywords, explicit mention wins
       const result = await route('@researcher tell me about code review best practices');
 
       expect(result.agent).toBe('researcher');
@@ -783,7 +617,6 @@ describe('SDK Integration', () => {
     it('falls back to orchestrator for ambiguous messages', async () => {
       const { route } = await import('@/lib/agents/sdk/router');
 
-      // Very ambiguous message
       const result = await route('help me with something', { skipLLM: true });
 
       expect(result.agent).toBe('orchestrator');
@@ -805,19 +638,16 @@ describe('SDK Integration', () => {
       expect(orchDecision.agent).toBe('coder');
       expect(orchDecision.confidence).toBe(0.85);
       expect(orchDecision.rationale).toBe('Code-related request');
-      expect(orchDecision.source).toBe('heuristic'); // keyword maps to heuristic
+      expect(orchDecision.source).toBe('heuristic');
     });
 
     it('LLM routing function accepts OpenAI client parameter', async () => {
       const { llmRoute } = await import('@/lib/agents/sdk/router');
 
-      // Verify the function exists and has correct signature
       expect(typeof llmRoute).toBe('function');
 
-      // Without a valid API key, it should fallback to orchestrator
       const result = await llmRoute('Help me debug this TypeScript error');
 
-      // Since we don't have a real API key configured, it should fallback
       expect(result).toHaveProperty('agent');
       expect(result).toHaveProperty('confidence');
       expect(result).toHaveProperty('rationale');
@@ -827,7 +657,6 @@ describe('SDK Integration', () => {
     it('routing decision schema validates correctly', async () => {
       const { RoutingDecisionSchema } = await import('@/lib/agents/sdk/router');
 
-      // Valid decision
       const validDecision = {
         agent: 'coder',
         confidence: 0.85,
@@ -835,7 +664,6 @@ describe('SDK Integration', () => {
       };
       expect(RoutingDecisionSchema.safeParse(validDecision).success).toBe(true);
 
-      // Invalid agent
       const invalidAgent = {
         agent: 'invalid_agent',
         confidence: 0.85,
@@ -843,10 +671,9 @@ describe('SDK Integration', () => {
       };
       expect(RoutingDecisionSchema.safeParse(invalidAgent).success).toBe(false);
 
-      // Invalid confidence
       const invalidConfidence = {
         agent: 'coder',
-        confidence: 1.5, // Over 1
+        confidence: 1.5,
         rationale: 'Test',
       };
       expect(RoutingDecisionSchema.safeParse(invalidConfidence).success).toBe(false);
@@ -861,17 +688,15 @@ describe('SDK Integration', () => {
     it('streamMessage accepts all expected options', async () => {
       const { streamMessage } = await import('@/lib/agents/sdk/runner');
 
-      // Verify the function exists
       expect(typeof streamMessage).toBe('function');
 
-      // Create a generator (but don't iterate - that would make API calls)
       const generator = streamMessage({
         message: 'Test message',
         userId: 'test-user',
         threadId: 'test-thread',
         forceAgent: 'personality',
         showToolExecutions: true,
-        maxToolRounds: 5,
+        maxTurns: 5,
         conversationHistory: [{ role: 'user', content: 'Previous message' }],
         userProfile: {
           name: 'Test User',
@@ -880,70 +705,7 @@ describe('SDK Integration', () => {
         },
       });
 
-      // Verify it returns an async generator
       expect(generator[Symbol.asyncIterator]).toBeDefined();
-    });
-
-    it('runAgent accepts all expected options', async () => {
-      const { runAgent } = await import('@/lib/agents/sdk/runner');
-
-      // Verify the function exists
-      expect(typeof runAgent).toBe('function');
-
-      // Create a generator (but don't iterate - that would make API calls)
-      const generator = runAgent(
-        'orchestrator',
-        'Test message',
-        {
-          userId: 'test-user',
-          threadId: 'test-thread',
-          userProfile: {
-            name: 'Test User',
-            timezone: 'UTC',
-          },
-        },
-        {
-          conversationHistory: [{ role: 'assistant', content: 'Previous response' }],
-          maxToolRounds: 10,
-          showToolExecutions: false,
-        }
-      );
-
-      // Verify it returns an async generator
-      expect(generator[Symbol.asyncIterator]).toBeDefined();
-    });
-
-    it('executeTool handles tool not found gracefully', async () => {
-      const { executeTool } = await import('@/lib/agents/sdk/runner');
-
-      const result = await executeTool('non_existent_tool', { arg: 'value' }, []);
-
-      expect(result.success).toBe(false);
-      expect(result.error?.code).toBe('TOOL_NOT_FOUND');
-      expect(result.error?.recoverable).toBe(false);
-    });
-
-    it('executeTool handles tool validation errors', async () => {
-      const { executeTool } = await import('@/lib/agents/sdk/runner');
-      const { defaultTools } = await import('@/lib/agents/sdk/tools/default');
-
-      // Call calculate without required expression parameter
-      const result = await executeTool('calculate', {}, defaultTools);
-
-      expect(result.success).toBe(false);
-      // The error should indicate validation issue
-      expect(result.error).toBeDefined();
-    });
-
-    it('executeTool runs successfully with valid arguments', async () => {
-      const { executeTool } = await import('@/lib/agents/sdk/runner');
-      const { defaultTools } = await import('@/lib/agents/sdk/tools/default');
-
-      // Call calculate with valid expression
-      const result = await executeTool('calculate', { expression: '10 + 5' }, defaultTools);
-
-      expect(result.success).toBe(true);
-      expect(result.result).toBeDefined();
     });
   });
 
@@ -953,7 +715,6 @@ describe('SDK Integration', () => {
 
   describe('Preflight checks', () => {
     it('checks all agent availability', async () => {
-      // Set all credentials
       process.env.OPENAI_API_KEY = 'test';
       process.env.GITHUB_PERSONAL_ACCESS_TOKEN = 'test';
       process.env.PERPLEXITY_API_KEY = 'test';
@@ -973,13 +734,8 @@ describe('SDK Integration', () => {
 
       const results = checkAllAgentsAvailability();
 
-      // Should have results for all agents
       expect(Object.keys(results)).toHaveLength(8);
-
-      // Orchestrator should be available (only needs OpenAI)
       expect(results.orchestrator.available).toBe(true);
-
-      // Coder should be available
       expect(results.coder.available).toBe(true);
     });
 
@@ -996,9 +752,7 @@ describe('SDK Integration', () => {
     });
 
     it('identifies missing credentials', async () => {
-      // Clear all credentials
       delete process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
-      delete process.env.PERPLEXITY_API_KEY;
 
       vi.resetModules();
 
@@ -1008,9 +762,10 @@ describe('SDK Integration', () => {
       expect(coderResult.available).toBe(false);
       expect(coderResult.missingCredentials).toContain('GitHub');
 
+      // Researcher only needs OPENAI_API_KEY (uses hosted web_search)
+      // which is set in test env, so researcher should be available
       const researcherResult = checkToolAvailability('researcher');
-      expect(researcherResult.available).toBe(false);
-      expect(researcherResult.missingCredentials).toContain('Perplexity');
+      expect(researcherResult.available).toBe(true);
     });
   });
 });

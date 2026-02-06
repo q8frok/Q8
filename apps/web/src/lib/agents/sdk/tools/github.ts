@@ -2,13 +2,27 @@
  * GitHub Direct API Tools
  * Direct integration with GitHub API for repository, issue, and PR operations
  * Assigned to: Coder Agent (Claude Opus 4.5)
+ *
+ * Uses @openai/agents tool() for native SDK integration.
  */
 
 import { z } from 'zod';
 import { Octokit } from '@octokit/rest';
+import { tool, type Tool } from '@openai/agents';
 import { createToolError, type ToolErrorResult } from '../utils/errors';
 import { executeWithRetry } from '../utils/retry';
-import type { ToolDefinition } from './default';
+
+// =============================================================================
+// Utility type: make nullable properties optional for TypeScript callers
+// (OpenAI strict mode requires all properties in 'required', hence .nullable()
+//  in schemas, but TS callers should be able to omit them)
+// =============================================================================
+
+type NullableOptional<T> = {
+  [K in keyof T as null extends T[K] ? never : K]: T[K];
+} & {
+  [K in keyof T as null extends T[K] ? K : never]?: T[K];
+};
 
 // =============================================================================
 // Octokit Instance Management
@@ -324,24 +338,21 @@ const githubListReposParamsSchema = z.object({
     .number()
     .min(1)
     .max(100)
-    .optional()
-    .default(30)
+    .nullable()
     .describe('Number of results per page (default: 30, max: 100)'),
-  page: z.number().min(1).optional().default(1).describe('Page number (default: 1)'),
+  page: z.number().min(1).nullable().describe('Page number (default: 1)'),
   type: z
     .enum(['all', 'owner', 'public', 'private', 'member'])
-    .optional()
+    .nullable()
     .describe('Filter by repository type'),
   sort: z
     .enum(['created', 'updated', 'pushed', 'full_name'])
-    .optional()
-    .default('updated')
+    .nullable()
     .describe('Sort field (default: updated)'),
-  direction: z.enum(['asc', 'desc']).optional().default('desc').describe('Sort direction (default: desc)'),
+  direction: z.enum(['asc', 'desc']).nullable().describe('Sort direction (default: desc)'),
 });
 
-type GitHubListReposParamsInput = z.input<typeof githubListReposParamsSchema>;
-type _GitHubListReposParams = z.output<typeof githubListReposParamsSchema>;
+type GitHubListReposParamsInput = NullableOptional<z.input<typeof githubListReposParamsSchema>>;
 
 /**
  * List repositories for the authenticated user
@@ -359,15 +370,15 @@ export async function githubListRepos(
   }
 
   try {
-    const { perPage = 30, page = 1, type, sort = 'updated', direction = 'desc' } = params;
+    const { perPage, page, type, sort, direction } = params;
 
     const response = await executeWithRetry(
       () =>
         octokit.repos.listForAuthenticatedUser({
-          per_page: perPage,
-          page,
-          sort,
-          direction,
+          per_page: perPage ?? 30,
+          page: page ?? 1,
+          sort: sort ?? 'updated',
+          direction: direction ?? 'desc',
           ...(type && { type }),
         }),
       { maxRetries: 2 }
@@ -410,16 +421,16 @@ export async function githubListRepos(
   }
 }
 
-export const githubListReposDefinition: ToolDefinition<
-  GitHubListReposParamsInput,
-  GitHubListReposResult
-> = {
+export const githubListReposTool = tool({
   name: 'github_list_repos',
   description:
     'List repositories for the authenticated GitHub user. Supports pagination and filtering by type (all, owner, public, private, member).',
-  parameters: githubListReposParamsSchema as z.ZodSchema<GitHubListReposParamsInput>,
-  execute: githubListRepos as (args: GitHubListReposParamsInput) => Promise<GitHubListReposResult>,
-};
+  parameters: githubListReposParamsSchema,
+  execute: async (args) => {
+    const result = await githubListRepos(args);
+    return JSON.stringify(result);
+  },
+});
 
 // =============================================================================
 // github_get_repo
@@ -489,13 +500,16 @@ export async function githubGetRepo(params: GitHubGetRepoParams): Promise<GitHub
   }
 }
 
-export const githubGetRepoDefinition: ToolDefinition<GitHubGetRepoParams, GitHubGetRepoResult> = {
+export const githubGetRepoTool = tool({
   name: 'github_get_repo',
   description:
     'Get detailed information about a specific GitHub repository, including stats like stars, forks, and open issues.',
   parameters: githubGetRepoParamsSchema,
-  execute: githubGetRepo,
-};
+  execute: async (args) => {
+    const result = await githubGetRepo(args);
+    return JSON.stringify(result);
+  },
+});
 
 // =============================================================================
 // github_list_issues
@@ -506,23 +520,21 @@ const githubListIssuesParamsSchema = z.object({
   repo: z.string().describe('Repository name'),
   state: z
     .enum(['open', 'closed', 'all'])
-    .optional()
-    .default('open')
+    .nullable()
     .describe('Filter by issue state (default: open)'),
-  labels: z.array(z.string()).optional().describe('Filter by label names'),
-  assignee: z.string().optional().describe('Filter by assignee username'),
-  creator: z.string().optional().describe('Filter by issue creator username'),
+  labels: z.array(z.string()).nullable().describe('Filter by label names'),
+  assignee: z.string().nullable().describe('Filter by assignee username'),
+  creator: z.string().nullable().describe('Filter by issue creator username'),
   perPage: z
     .number()
     .min(1)
     .max(100)
-    .optional()
-    .default(30)
+    .nullable()
     .describe('Number of results per page (default: 30, max: 100)'),
-  page: z.number().min(1).optional().default(1).describe('Page number (default: 1)'),
+  page: z.number().min(1).nullable().describe('Page number (default: 1)'),
 });
 
-type GitHubListIssuesParamsInput = z.input<typeof githubListIssuesParamsSchema>;
+type GitHubListIssuesParamsInput = NullableOptional<z.input<typeof githubListIssuesParamsSchema>>;
 
 /**
  * List issues for a repository
@@ -543,12 +555,12 @@ export async function githubListIssues(
     const {
       owner,
       repo,
-      state = 'open',
+      state,
       labels,
       assignee,
       creator,
-      perPage = 30,
-      page = 1,
+      perPage,
+      page,
     } = params;
 
     const response = await executeWithRetry(
@@ -556,9 +568,9 @@ export async function githubListIssues(
         octokit.issues.listForRepo({
           owner,
           repo,
-          state,
-          per_page: perPage,
-          page,
+          state: state ?? 'open',
+          per_page: perPage ?? 30,
+          page: page ?? 1,
           ...(labels && { labels: labels.join(',') }),
           ...(assignee && { assignee }),
           ...(creator && { creator }),
@@ -613,16 +625,16 @@ export async function githubListIssues(
   }
 }
 
-export const githubListIssuesDefinition: ToolDefinition<
-  GitHubListIssuesParamsInput,
-  GitHubListIssuesResult
-> = {
+export const githubListIssuesTool = tool({
   name: 'github_list_issues',
   description:
     'List issues for a GitHub repository. Supports filtering by state (open, closed, all), labels, assignee, and creator.',
-  parameters: githubListIssuesParamsSchema as z.ZodSchema<GitHubListIssuesParamsInput>,
-  execute: githubListIssues as (args: GitHubListIssuesParamsInput) => Promise<GitHubListIssuesResult>,
-};
+  parameters: githubListIssuesParamsSchema,
+  execute: async (args) => {
+    const result = await githubListIssues(args);
+    return JSON.stringify(result);
+  },
+});
 
 // =============================================================================
 // github_create_issue
@@ -632,13 +644,13 @@ const githubCreateIssueParamsSchema = z.object({
   owner: z.string().describe('Repository owner (username or organization)'),
   repo: z.string().describe('Repository name'),
   title: z.string().describe('Issue title'),
-  body: z.string().optional().describe('Issue body/description'),
-  labels: z.array(z.string()).optional().describe('Labels to add to the issue'),
-  assignees: z.array(z.string()).optional().describe('Usernames to assign to the issue'),
-  milestone: z.number().optional().describe('Milestone number to associate with the issue'),
+  body: z.string().nullable().describe('Issue body/description'),
+  labels: z.array(z.string()).nullable().describe('Labels to add to the issue'),
+  assignees: z.array(z.string()).nullable().describe('Usernames to assign to the issue'),
+  milestone: z.number().nullable().describe('Milestone number to associate with the issue'),
 });
 
-type GitHubCreateIssueParams = z.infer<typeof githubCreateIssueParamsSchema>;
+type GitHubCreateIssueParams = NullableOptional<z.infer<typeof githubCreateIssueParamsSchema>>;
 
 /**
  * Create a new issue in a repository
@@ -691,16 +703,16 @@ export async function githubCreateIssue(
   }
 }
 
-export const githubCreateIssueDefinition: ToolDefinition<
-  GitHubCreateIssueParams,
-  GitHubCreateIssueResult
-> = {
+export const githubCreateIssueTool = tool({
   name: 'github_create_issue',
   description:
     'Create a new issue in a GitHub repository. Supports adding labels, assignees, and linking to a milestone.',
   parameters: githubCreateIssueParamsSchema,
-  execute: githubCreateIssue,
-};
+  execute: async (args) => {
+    const result = await githubCreateIssue(args);
+    return JSON.stringify(result);
+  },
+});
 
 // =============================================================================
 // github_list_prs
@@ -711,28 +723,25 @@ const githubListPRsParamsSchema = z.object({
   repo: z.string().describe('Repository name'),
   state: z
     .enum(['open', 'closed', 'all'])
-    .optional()
-    .default('open')
+    .nullable()
     .describe('Filter by PR state (default: open)'),
-  head: z.string().optional().describe('Filter by head branch (format: user:ref-name or org:ref-name)'),
-  base: z.string().optional().describe('Filter by base branch name'),
+  head: z.string().nullable().describe('Filter by head branch (format: user:ref-name or org:ref-name)'),
+  base: z.string().nullable().describe('Filter by base branch name'),
   sort: z
     .enum(['created', 'updated', 'popularity', 'long-running'])
-    .optional()
-    .default('created')
+    .nullable()
     .describe('Sort field (default: created)'),
-  direction: z.enum(['asc', 'desc']).optional().default('desc').describe('Sort direction (default: desc)'),
+  direction: z.enum(['asc', 'desc']).nullable().describe('Sort direction (default: desc)'),
   perPage: z
     .number()
     .min(1)
     .max(100)
-    .optional()
-    .default(30)
+    .nullable()
     .describe('Number of results per page (default: 30, max: 100)'),
-  page: z.number().min(1).optional().default(1).describe('Page number (default: 1)'),
+  page: z.number().min(1).nullable().describe('Page number (default: 1)'),
 });
 
-type GitHubListPRsParamsInput = z.input<typeof githubListPRsParamsSchema>;
+type GitHubListPRsParamsInput = NullableOptional<z.input<typeof githubListPRsParamsSchema>>;
 
 /**
  * List pull requests for a repository
@@ -751,13 +760,13 @@ export async function githubListPRs(params: GitHubListPRsParamsInput): Promise<G
     const {
       owner,
       repo,
-      state = 'open',
+      state,
       head,
       base,
-      sort = 'created',
-      direction = 'desc',
-      perPage = 30,
-      page = 1,
+      sort,
+      direction,
+      perPage,
+      page,
     } = params;
 
     const response = await executeWithRetry(
@@ -765,11 +774,11 @@ export async function githubListPRs(params: GitHubListPRsParamsInput): Promise<G
         octokit.pulls.list({
           owner,
           repo,
-          state,
-          sort,
-          direction,
-          per_page: perPage,
-          page,
+          state: state ?? 'open',
+          sort: sort ?? 'created',
+          direction: direction ?? 'desc',
+          per_page: perPage ?? 30,
+          page: page ?? 1,
           ...(head && { head }),
           ...(base && { base }),
         }),
@@ -816,16 +825,16 @@ export async function githubListPRs(params: GitHubListPRsParamsInput): Promise<G
   }
 }
 
-export const githubListPRsDefinition: ToolDefinition<
-  GitHubListPRsParamsInput,
-  GitHubListPRsResult
-> = {
+export const githubListPRsTool = tool({
   name: 'github_list_prs',
   description:
     'List pull requests for a GitHub repository. Supports filtering by state (open, closed, all), head branch, and base branch.',
-  parameters: githubListPRsParamsSchema as z.ZodSchema<GitHubListPRsParamsInput>,
-  execute: githubListPRs as (args: GitHubListPRsParamsInput) => Promise<GitHubListPRsResult>,
-};
+  parameters: githubListPRsParamsSchema,
+  execute: async (args) => {
+    const result = await githubListPRs(args);
+    return JSON.stringify(result);
+  },
+});
 
 // =============================================================================
 // github_get_pr
@@ -905,13 +914,16 @@ export async function githubGetPR(params: GitHubGetPRParams): Promise<GitHubGetP
   }
 }
 
-export const githubGetPRDefinition: ToolDefinition<GitHubGetPRParams, GitHubGetPRResult> = {
+export const githubGetPRTool = tool({
   name: 'github_get_pr',
   description:
     'Get detailed information about a specific pull request, including additions, deletions, changed files, and merge status.',
   parameters: githubGetPRParamsSchema,
-  execute: githubGetPR,
-};
+  execute: async (args) => {
+    const result = await githubGetPR(args);
+    return JSON.stringify(result);
+  },
+});
 
 // =============================================================================
 // github_create_pr
@@ -923,16 +935,15 @@ const githubCreatePRParamsSchema = z.object({
   title: z.string().describe('Pull request title'),
   head: z.string().describe('The branch containing changes (source branch)'),
   base: z.string().describe('The branch to merge into (target branch)'),
-  body: z.string().optional().describe('Pull request description'),
-  draft: z.boolean().optional().default(false).describe('Create as draft PR (default: false)'),
+  body: z.string().nullable().describe('Pull request description'),
+  draft: z.boolean().nullable().describe('Create as draft PR (default: false)'),
   maintainerCanModify: z
     .boolean()
-    .optional()
-    .default(true)
+    .nullable()
     .describe('Allow maintainers to modify the PR (default: true)'),
 });
 
-type GitHubCreatePRParamsInput = z.input<typeof githubCreatePRParamsSchema>;
+type GitHubCreatePRParamsInput = NullableOptional<z.input<typeof githubCreatePRParamsSchema>>;
 
 /**
  * Create a new pull request
@@ -957,8 +968,8 @@ export async function githubCreatePR(
       head,
       base,
       body,
-      draft = false,
-      maintainerCanModify = true,
+      draft,
+      maintainerCanModify,
     } = params;
 
     const response = await executeWithRetry(
@@ -969,8 +980,8 @@ export async function githubCreatePR(
           title,
           head,
           base,
-          draft,
-          maintainer_can_modify: maintainerCanModify,
+          draft: draft ?? false,
+          maintainer_can_modify: maintainerCanModify ?? true,
           ...(body && { body }),
         }),
       { maxRetries: 2 }
@@ -995,16 +1006,16 @@ export async function githubCreatePR(
   }
 }
 
-export const githubCreatePRDefinition: ToolDefinition<
-  GitHubCreatePRParamsInput,
-  GitHubCreatePRResult
-> = {
+export const githubCreatePRTool = tool({
   name: 'github_create_pr',
   description:
     'Create a new pull request in a GitHub repository. Specify source (head) and target (base) branches.',
-  parameters: githubCreatePRParamsSchema as z.ZodSchema<GitHubCreatePRParamsInput>,
-  execute: githubCreatePR as (args: GitHubCreatePRParamsInput) => Promise<GitHubCreatePRResult>,
-};
+  parameters: githubCreatePRParamsSchema,
+  execute: async (args) => {
+    const result = await githubCreatePR(args);
+    return JSON.stringify(result);
+  },
+});
 
 // =============================================================================
 // github_search_code
@@ -1012,21 +1023,20 @@ export const githubCreatePRDefinition: ToolDefinition<
 
 const githubSearchCodeParamsSchema = z.object({
   query: z.string().describe('Search query (e.g., "useState", "class Component")'),
-  repo: z.string().optional().describe('Limit search to a specific repository (format: owner/repo)'),
-  extension: z.string().optional().describe('Filter by file extension (e.g., "ts", "tsx", "js")'),
-  filename: z.string().optional().describe('Filter by filename (e.g., "index.ts")'),
-  path: z.string().optional().describe('Filter by path (e.g., "src/components")'),
+  repo: z.string().nullable().describe('Limit search to a specific repository (format: owner/repo)'),
+  extension: z.string().nullable().describe('Filter by file extension (e.g., "ts", "tsx", "js")'),
+  filename: z.string().nullable().describe('Filter by filename (e.g., "index.ts")'),
+  path: z.string().nullable().describe('Filter by path (e.g., "src/components")'),
   perPage: z
     .number()
     .min(1)
     .max(100)
-    .optional()
-    .default(30)
+    .nullable()
     .describe('Number of results per page (default: 30, max: 100)'),
-  page: z.number().min(1).optional().default(1).describe('Page number (default: 1)'),
+  page: z.number().min(1).nullable().describe('Page number (default: 1)'),
 });
 
-type GitHubSearchCodeParamsInput = z.input<typeof githubSearchCodeParamsSchema>;
+type GitHubSearchCodeParamsInput = NullableOptional<z.input<typeof githubSearchCodeParamsSchema>>;
 
 /**
  * Search for code across GitHub repositories
@@ -1044,7 +1054,7 @@ export async function githubSearchCode(
   }
 
   try {
-    const { query, repo, extension, filename, path, perPage = 30, page = 1 } = params;
+    const { query, repo, extension, filename, path, perPage, page } = params;
 
     // Build query string with qualifiers
     let searchQuery = query;
@@ -1057,8 +1067,8 @@ export async function githubSearchCode(
       () =>
         octokit.search.code({
           q: searchQuery,
-          per_page: perPage,
-          page,
+          per_page: perPage ?? 30,
+          page: page ?? 1,
         }),
       { maxRetries: 2 }
     );
@@ -1091,28 +1101,28 @@ export async function githubSearchCode(
   }
 }
 
-export const githubSearchCodeDefinition: ToolDefinition<
-  GitHubSearchCodeParamsInput,
-  GitHubSearchCodeResult
-> = {
+export const githubSearchCodeTool = tool({
   name: 'github_search_code',
   description:
     'Search for code across GitHub repositories. Supports filtering by repository, file extension, filename, and path.',
-  parameters: githubSearchCodeParamsSchema as z.ZodSchema<GitHubSearchCodeParamsInput>,
-  execute: githubSearchCode as (args: GitHubSearchCodeParamsInput) => Promise<GitHubSearchCodeResult>,
-};
+  parameters: githubSearchCodeParamsSchema,
+  execute: async (args) => {
+    const result = await githubSearchCode(args);
+    return JSON.stringify(result);
+  },
+});
 
 // =============================================================================
 // Export all GitHub tools
 // =============================================================================
 
-export const githubTools: ToolDefinition[] = [
-  githubListReposDefinition as ToolDefinition,
-  githubGetRepoDefinition as ToolDefinition,
-  githubListIssuesDefinition as ToolDefinition,
-  githubCreateIssueDefinition as ToolDefinition,
-  githubListPRsDefinition as ToolDefinition,
-  githubGetPRDefinition as ToolDefinition,
-  githubCreatePRDefinition as ToolDefinition,
-  githubSearchCodeDefinition as ToolDefinition,
+export const githubTools: Tool[] = [
+  githubListReposTool,
+  githubGetRepoTool,
+  githubListIssuesTool,
+  githubCreateIssueTool,
+  githubListPRsTool,
+  githubGetPRTool,
+  githubCreatePRTool,
+  githubSearchCodeTool,
 ];

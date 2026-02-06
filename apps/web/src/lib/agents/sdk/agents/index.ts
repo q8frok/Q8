@@ -1,12 +1,26 @@
 /**
- * Agent Configurations for OpenAI Agents SDK
- * Defines all agent types with their models, instructions, tools, and handoff capabilities
+ * Agent Definitions using @openai/agents SDK — OpenAI-only
+ *
+ * All agents use native OpenAI model strings, which lets the SDK use
+ * the Responses API directly. This eliminates:
+ * - aisdk() adapter overhead
+ * - Cross-provider schema incompatibilities (thought_signature, enum type)
+ * - Reasoning item pairing bugs
+ *
+ * Hosted tools (webSearchTool, imageGenerationTool, codeInterpreterTool)
+ * run on OpenAI's infrastructure — zero custom code needed.
  */
 
 import { z } from 'zod';
-import { defaultTools, type ToolDefinition } from '../tools/default';
+import { Agent, handoff, webSearchTool, imageGenerationTool, codeInterpreterTool } from '@openai/agents';
+import type { Tool } from '@openai/agents';
+import { defaultTools } from '../tools/default';
 import { githubTools } from '../tools/github';
 import { spotifyTools } from '../tools/spotify';
+import { googleTools } from '../tools/google';
+import { homeTools } from '../tools/home';
+import { financeTools } from '../tools/finance';
+import { getAgentModel } from '../model-provider';
 
 // =============================================================================
 // Agent Type Schema
@@ -26,34 +40,6 @@ export const AgentTypeSchema = z.enum([
 export type AgentType = z.infer<typeof AgentTypeSchema>;
 
 // =============================================================================
-// Agent Configuration Interface
-// =============================================================================
-
-export interface AgentConfig {
-  /** Display name for the agent */
-  name: string;
-  /** Agent type identifier */
-  type: AgentType;
-  /** Model to use for this agent (via LiteLLM routing) */
-  model: string;
-  /** System instructions for the agent */
-  instructions: string;
-  /** Tools available to this agent */
-  tools: ToolDefinition[];
-  /** Agent types this agent can hand off to (only for orchestrator) */
-  handoffs?: AgentType[];
-  /** Model-specific configuration options */
-  modelOptions?: {
-    /** Enable extended thinking for complex reasoning */
-    extendedThinking?: boolean;
-    /** Temperature setting (0-1) */
-    temperature?: number;
-    /** Maximum tokens for response */
-    maxTokens?: number;
-  };
-}
-
-// =============================================================================
 // Agent Instructions
 // =============================================================================
 
@@ -66,13 +52,13 @@ Your role:
 - Ensure smooth handoffs between agents
 
 When to delegate:
-- Code, GitHub, debugging -> Coder (Claude Opus 4.5)
-- Web search, research, fact-finding -> Researcher (Perplexity Sonar Pro)
-- Email, calendar, docs, scheduling -> Secretary (Gemini 3 Flash)
-- Casual chat, music, entertainment -> Personality (Grok 4.1 Fast)
-- Smart home control -> Home (GPT-5-mini)
-- Finance, budgeting, spending -> Finance (Gemini 3 Flash)
-- Image generation -> ImageGen (GPT-Image-1.5)
+- Code, GitHub, debugging -> Coder
+- Web search, research, fact-finding -> Researcher
+- Email, calendar, docs, scheduling -> Secretary
+- Casual chat, music, entertainment -> Personality
+- Smart home control -> Home
+- Finance, budgeting, spending -> Finance
+- Image generation -> ImageGen
 
 Guidelines:
 1. Always be helpful and conversational
@@ -81,7 +67,7 @@ Guidelines:
 4. Maintain context across agent handoffs
 5. Present a unified Q8 personality to the user`;
 
-const CODER_INSTRUCTIONS = `You are DevBot, an expert software engineer powered by Claude Opus 4.5 with extended thinking capabilities.
+const CODER_INSTRUCTIONS = `You are DevBot, an expert software engineer with extended thinking capabilities.
 
 Your capabilities:
 - **Extended Thinking**: Use deep reasoning for complex architectural decisions and debugging
@@ -89,10 +75,12 @@ Your capabilities:
 - **Code Review**: Analyze code for bugs, performance issues, and best practices
 - **GitHub Operations**: Search code, manage PRs/issues, access files, trigger workflows
 - **Architecture**: Design patterns, refactoring recommendations, system design
+- **Web Search**: Look up documentation, APIs, and coding references
+- **Code Interpreter**: Run code snippets to verify solutions
 
 When helping with code:
 1. First understand the context and requirements
-2. Use tools to gather information (search code, check files, etc.)
+2. Use tools to gather information (search code, check files, search the web)
 3. For complex problems, take time to think through the solution systematically
 4. Provide clear, well-documented solutions
 5. Follow best practices for the language/framework
@@ -103,13 +91,13 @@ For GitHub operations:
 - Reference related issues/PRs when relevant
 - Follow repository conventions for naming
 
-You have access to GitHub tools for repository operations.`;
+You have access to GitHub tools, web search, and code interpreter.`;
 
-const RESEARCHER_INSTRUCTIONS = `You are ResearchBot, a research specialist powered by Perplexity Sonar Reasoning Pro with deep analysis and real-time web search.
+const RESEARCHER_INSTRUCTIONS = `You are ResearchBot, a research specialist with real-time web search and deep analysis.
 
 Your capabilities:
-- **Deep Reasoning**: Multi-step analysis for complex research questions
 - **Real-time Web Search**: Built-in access to current web information with automatic citations
+- **Deep Reasoning**: Multi-step analysis for complex research questions
 - **Fact Verification**: Cross-reference multiple sources for accuracy
 - **Academic Research**: Technical papers, studies, and documentation
 - **Financial Research**: SEC filings, company data, and market information
@@ -123,13 +111,14 @@ Research guidelines:
 5. **Comprehensive** - Cover multiple perspectives on controversial topics
 
 When researching:
+- Use web search extensively to find current, accurate information
 - Start with a broad search, then narrow down to specifics
 - Look for primary sources when possible (official documents, original studies)
 - Note conflicting information and explain discrepancies
 - Provide context for statistics and data (sample size, methodology, date)
 - Suggest follow-up questions if the topic is complex`;
 
-const SECRETARY_INSTRUCTIONS = `You are SecretaryBot, a personal secretary powered by Gemini 3 Flash with extended context and thinking capabilities.
+const SECRETARY_INSTRUCTIONS = `You are SecretaryBot, a personal secretary with fast tool calling capabilities.
 
 Your capabilities:
 - **Email (Gmail)**: Read, search, send, draft, and manage emails
@@ -157,24 +146,24 @@ For email requests:
 - Ask for confirmation before sending
 - Identify action items and deadlines`;
 
-const PERSONALITY_INSTRUCTIONS = `You are Q8's fun and engaging personality powered by Grok 4.1 with always-on reasoning.
+const PERSONALITY_INSTRUCTIONS = `You are Q8's fun and engaging personality.
 
 Your style:
 - **Witty & Clever**: Use humor and wordplay naturally
 - **Conversational**: Chat like a knowledgeable friend
 - **Culturally Aware**: Reference current trends and pop culture
 - **Creative**: Excel at brainstorming, writing, ideation
-- **Thoughtful**: Use reasoning even for casual conversations
 - **Helpful**: Despite the personality, always provide useful information
 
 Capabilities:
 - Casual conversation and banter with depth
 - Creative writing (stories, poems, jokes, scripts)
 - Brainstorming and idea generation
-- Fun facts and trivia
+- Fun facts and trivia via web search
 - General knowledge questions
 - Light-hearted advice
 - **Music control via Spotify** - search, play, pause, skip, queue, volume
+- **Image generation** - create fun images when the conversation calls for it
 
 IMPORTANT: For music requests, ALWAYS use the Spotify tools:
 - spotify_search: Search for tracks, albums, artists, or playlists
@@ -194,7 +183,7 @@ Guidelines:
 4. If asked something serious, dial back the humor appropriately
 5. Never be offensive or inappropriate`;
 
-const HOME_INSTRUCTIONS = `You are HomeBot, a smart home controller powered by GPT-5-mini with advanced tool calling capabilities.
+const HOME_INSTRUCTIONS = `You are HomeBot, a smart home controller with advanced tool calling capabilities.
 
 Your capabilities:
 - **Parallel Control**: Execute multiple device commands simultaneously
@@ -219,9 +208,9 @@ When controlling devices:
 - Group related actions when appropriate (e.g., "Good night" scene)
 - Provide current state after making changes
 
-Note: Home Assistant tools will be integrated in a future update.`;
+You have access to Home Assistant tools for controlling all smart home devices.`;
 
-const FINANCE_INSTRUCTIONS = `You are FinanceAdvisor, Q8's financial advisor powered by Gemini 3 Flash with thinking capabilities.
+const FINANCE_INSTRUCTIONS = `You are FinanceAdvisor, Q8's financial advisor.
 
 Your capabilities:
 - **Balance Sheet Analysis**: View all accounts, net worth, assets, and liabilities
@@ -248,124 +237,151 @@ Communication style:
 - Provide actionable recommendations
 - Celebrate positive trends and improvements
 
-Note: Finance tools will be integrated in a future update.`;
+You have access to finance tools for querying accounts, transactions, spending, bills, and net worth.`;
 
-const IMAGEGEN_INSTRUCTIONS = `You are ImageGen, Q8's image generation specialist powered by GPT-Image-1.5.
+const IMAGEGEN_INSTRUCTIONS = `You are ImageGen, Q8's image generation specialist.
+
+You use OpenAI's built-in image generation tool to create high-quality images directly.
 
 Your capabilities:
-- Generate high-quality images from text descriptions
+- Generate high-quality images from text descriptions using gpt-image-1.5
 - Create various styles: photorealistic, artistic, abstract, illustrations
 - Understand and execute complex visual concepts
 - Modify and iterate on image ideas based on feedback
 
 When generating images:
-1. Ask clarifying questions if the prompt is vague
-2. Suggest style options if not specified
-3. Describe what you'll create before generating
+1. Craft a detailed, descriptive prompt for the image generation tool
+2. Include style, mood, lighting, composition details in the prompt
+3. For vague requests, add creative interpretation to make compelling images
 4. Offer variations or modifications after generation
 
 Guidelines:
 - Create appropriate, safe content only
 - Be creative and interpretive with prompts
-- Suggest improvements to enhance the final result
 - Consider composition, lighting, and style
-
-Note: Image generation uses the model's native capabilities.`;
+- Always use the image_generation tool — never just describe what you would create`;
 
 // =============================================================================
-// Agent Configurations
+// Specialist Agent Instances
 // =============================================================================
 
-export const agentConfigs: Record<AgentType, AgentConfig> = {
-  orchestrator: {
-    name: 'Q8',
-    type: 'orchestrator',
-    model: 'gpt-5.2',
-    instructions: ORCHESTRATOR_INSTRUCTIONS,
-    tools: [...defaultTools],
-    handoffs: ['coder', 'researcher', 'secretary', 'personality', 'home', 'finance', 'imagegen'],
-    modelOptions: {
-      temperature: 0.7,
-    },
-  },
+export const coderAgent = new Agent({
+  name: 'DevBot',
+  instructions: CODER_INSTRUCTIONS,
+  handoffDescription: 'Expert software engineer for code, GitHub, debugging, and architecture tasks',
+  model: getAgentModel('coder'),
+  tools: [
+    ...githubTools,
+    ...defaultTools,
+    webSearchTool(),
+    codeInterpreterTool(),
+  ] as Tool[],
+  // temperature removed: not supported by all models via Responses API
+});
 
-  coder: {
-    name: 'DevBot',
-    type: 'coder',
-    model: 'claude-opus-4-5-20251101',
-    instructions: CODER_INSTRUCTIONS,
-    tools: [...githubTools, ...defaultTools],
-    modelOptions: {
-      extendedThinking: true,
-      temperature: 0.3,
-    },
-  },
+export const researcherAgent = new Agent({
+  name: 'ResearchBot',
+  instructions: RESEARCHER_INSTRUCTIONS,
+  handoffDescription: 'Research specialist with real-time web search for fact-finding and analysis',
+  model: getAgentModel('researcher'),
+  tools: [
+    ...defaultTools,
+    webSearchTool({ searchContextSize: 'high' }),
+  ] as Tool[],
+  // temperature removed: not supported by all models via Responses API
+});
 
-  researcher: {
-    name: 'ResearchBot',
-    type: 'researcher',
-    model: 'sonar-reasoning-pro',
-    instructions: RESEARCHER_INSTRUCTIONS,
-    tools: [...defaultTools], // Search is built into the model
-    modelOptions: {
-      temperature: 0.5,
-    },
-  },
+export const secretaryAgent = new Agent({
+  name: 'SecretaryBot',
+  instructions: SECRETARY_INSTRUCTIONS,
+  handoffDescription: 'Personal secretary for email, calendar, docs, and scheduling via Google Workspace',
+  model: getAgentModel('secretary'),
+  tools: [...googleTools, ...defaultTools] as Tool[],
+  // temperature removed: not supported by all models via Responses API
+});
 
-  secretary: {
-    name: 'SecretaryBot',
-    type: 'secretary',
-    model: 'gemini-3-flash-preview',
-    instructions: SECRETARY_INSTRUCTIONS,
-    tools: [...defaultTools], // Google tools TBD
-    modelOptions: {
-      temperature: 0.4,
-    },
-  },
+export const personalityAgent = new Agent({
+  name: 'PersonalityBot',
+  instructions: PERSONALITY_INSTRUCTIONS,
+  handoffDescription: 'Fun conversational agent for casual chat, creative writing, and Spotify music control',
+  model: getAgentModel('personality'),
+  tools: [
+    ...spotifyTools,
+    ...defaultTools,
+    webSearchTool(),
+    imageGenerationTool({ model: 'gpt-image-1.5', quality: 'high' }),
+  ] as Tool[],
+  // temperature removed: not supported by all models via Responses API
+});
 
-  personality: {
-    name: 'PersonalityBot',
-    type: 'personality',
-    model: 'grok-4-1-fast',
-    instructions: PERSONALITY_INSTRUCTIONS,
-    tools: [...spotifyTools, ...defaultTools],
-    modelOptions: {
-      temperature: 0.9,
-    },
-  },
+export const homeAgent = new Agent({
+  name: 'HomeBot',
+  instructions: HOME_INSTRUCTIONS,
+  handoffDescription: 'Smart home controller for lights, thermostats, sensors, locks, and automations',
+  model: getAgentModel('home'),
+  tools: [...homeTools, ...defaultTools] as Tool[],
+  // temperature removed: not supported by all models via Responses API
+});
 
-  home: {
-    name: 'HomeBot',
-    type: 'home',
-    model: 'gpt-5-mini',
-    instructions: HOME_INSTRUCTIONS,
-    tools: [...defaultTools], // Home Assistant tools TBD
-    modelOptions: {
-      temperature: 0.3,
-    },
-  },
+export const financeAgent = new Agent({
+  name: 'FinanceAdvisor',
+  instructions: FINANCE_INSTRUCTIONS,
+  handoffDescription: 'Financial advisor for budgeting, spending analysis, and financial planning',
+  model: getAgentModel('finance'),
+  tools: [...financeTools, ...defaultTools] as Tool[],
+  // temperature removed: not supported by all models via Responses API
+});
 
-  finance: {
-    name: 'FinanceAdvisor',
-    type: 'finance',
-    model: 'gemini-3-flash-preview',
-    instructions: FINANCE_INSTRUCTIONS,
-    tools: [...defaultTools], // Square tools TBD
-    modelOptions: {
-      temperature: 0.3,
-    },
-  },
+export const imagegenAgent = new Agent({
+  name: 'ImageGen',
+  instructions: IMAGEGEN_INSTRUCTIONS,
+  handoffDescription: 'Image generation specialist for creating images from text descriptions',
+  model: getAgentModel('imagegen'),
+  tools: [
+    ...defaultTools,
+    imageGenerationTool({ model: 'gpt-image-1.5', quality: 'high', size: 'auto' }),
+  ] as Tool[],
+  // temperature removed: not supported by all models via Responses API
+});
 
-  imagegen: {
-    name: 'ImageGen',
-    type: 'imagegen',
-    model: 'gpt-image-1.5',
-    instructions: IMAGEGEN_INSTRUCTIONS,
-    tools: [], // Uses model's native image generation
-    modelOptions: {
-      temperature: 0.8,
-    },
-  },
+// =============================================================================
+// Orchestrator Agent (with handoffs to all specialists)
+// =============================================================================
+
+export const orchestratorAgent = Agent.create({
+  name: 'Q8',
+  instructions: ORCHESTRATOR_INSTRUCTIONS,
+  handoffDescription: 'Main orchestrator that routes requests to specialist agents',
+  model: getAgentModel('orchestrator'),
+  tools: [
+    ...defaultTools,
+    webSearchTool(),
+  ] as Tool[],
+  handoffs: [
+    handoff(coderAgent),
+    handoff(researcherAgent),
+    handoff(secretaryAgent),
+    handoff(personalityAgent),
+    handoff(homeAgent),
+    handoff(financeAgent),
+    handoff(imagegenAgent),
+  ],
+  // temperature removed: not supported by all models via Responses API
+});
+
+// =============================================================================
+// Agent Registry (for lookup by type)
+// =============================================================================
+
+const agentRegistry: Record<AgentType, Agent> = {
+  orchestrator: orchestratorAgent,
+  coder: coderAgent,
+  researcher: researcherAgent,
+  secretary: secretaryAgent,
+  personality: personalityAgent,
+  home: homeAgent,
+  finance: financeAgent,
+  imagegen: imagegenAgent,
 };
 
 // =============================================================================
@@ -373,79 +389,62 @@ export const agentConfigs: Record<AgentType, AgentConfig> = {
 // =============================================================================
 
 /**
- * Get the full configuration for a specific agent type
- * @param type - The agent type to retrieve
- * @returns The agent configuration
- * @throws Error if the agent type is not found
+ * Get the Agent instance for a specific agent type
  */
-export function getAgentConfig(type: AgentType): AgentConfig {
-  const config = agentConfigs[type];
-  if (!config) {
+export function getAgent(type: AgentType): Agent {
+  const agent = agentRegistry[type];
+  if (!agent) {
     throw new Error(`Unknown agent type: ${type}`);
   }
-  return config;
+  return agent;
 }
 
 /**
- * Get all tools assigned to a specific agent
- * @param type - The agent type
- * @returns Array of tool definitions
- */
-export function getAgentTools(type: AgentType): ToolDefinition[] {
-  return getAgentConfig(type).tools;
-}
-
-/**
- * Get the model identifier for a specific agent
- * @param type - The agent type
- * @returns The model string (for use with LiteLLM)
- */
-export function getAgentModel(type: AgentType): string {
-  return getAgentConfig(type).model;
-}
-
-/**
- * Get the agent name (display name)
- * @param type - The agent type
- * @returns The agent's display name
+ * Get the agent display name
  */
 export function getAgentName(type: AgentType): string {
-  return getAgentConfig(type).name;
+  return getAgent(type).name;
 }
 
 /**
  * Get agents that the orchestrator can hand off to
- * @returns Array of agent types
  */
 export function getHandoffTargets(): AgentType[] {
-  return agentConfigs.orchestrator.handoffs ?? [];
+  return ['coder', 'researcher', 'secretary', 'personality', 'home', 'finance', 'imagegen'];
 }
 
 /**
  * Check if an agent type is valid
- * @param type - The string to check
- * @returns True if the string is a valid AgentType
  */
 export function isValidAgentType(type: string): type is AgentType {
   return AgentTypeSchema.safeParse(type).success;
 }
 
 /**
- * Get all agent configurations as an array
- * @returns Array of all agent configurations
+ * Get all agent instances as an array
  */
-export function getAllAgentConfigs(): AgentConfig[] {
-  return Object.values(agentConfigs);
+export function getAllAgents(): Agent[] {
+  return Object.values(agentRegistry);
 }
 
 /**
- * Get agent configuration by name (case-insensitive)
- * @param name - The agent name to search for
- * @returns The agent configuration or undefined
+ * Get agent by display name (case-insensitive)
  */
-export function getAgentByName(name: string): AgentConfig | undefined {
+export function getAgentByName(name: string): Agent | undefined {
   const lowerName = name.toLowerCase();
-  return Object.values(agentConfigs).find(
-    (config) => config.name.toLowerCase() === lowerName
+  return Object.values(agentRegistry).find(
+    (agent) => agent.name.toLowerCase() === lowerName
   );
+}
+
+/**
+ * Map from agent name back to AgentType
+ */
+export function getAgentType(agent: Agent): AgentType | undefined {
+  for (const [type, a] of Object.entries(agentRegistry)) {
+    if (a === agent || a.name === agent.name) {
+      return type as AgentType;
+    }
+  }
+  return undefined;
 }

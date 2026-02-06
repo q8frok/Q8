@@ -62,9 +62,9 @@ interface StreamingChatPanelProps {
   className?: string;
 
   /**
-   * Initial state for using new Agents SDK (can be toggled in UI)
+   * Initial state for using legacy orchestration (SDK is default)
    */
-  useNewSdkDefault?: boolean;
+  useLegacyDefault?: boolean;
 }
 
 /**
@@ -83,14 +83,14 @@ export const StreamingChatPanel = forwardRef<StreamingChatPanelRef, StreamingCha
       sidebarOpen = false,
       onToggleSidebar,
       className,
-      useNewSdkDefault = false,
+      useLegacyDefault = false,
     },
     ref
   ) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<ChatInputRef>(null);
-  const [useNewSdk, setUseNewSdk] = useState(useNewSdkDefault);
+  const [useLegacy, setUseLegacy] = useState(useLegacyDefault);
 
   const {
     messages,
@@ -108,9 +108,9 @@ export const StreamingChatPanel = forwardRef<StreamingChatPanelRef, StreamingCha
     userId,
     threadId,
     userProfile,
-    useNewSdk,
+    useLegacy,
     onRouting: (agent, reason) => {
-      logger.info('Chat routing to agent', { agent, reason, useNewSdk });
+      logger.info('Chat routing to agent', { agent, reason, useLegacy });
     },
     onToolExecution: (tool) => {
       logger.debug('Tool executed', { tool: tool.tool, status: tool.status });
@@ -191,19 +191,19 @@ export const StreamingChatPanel = forwardRef<StreamingChatPanelRef, StreamingCha
         </div>
 
         <div className="flex items-center gap-2">
-          {/* SDK Toggle */}
+          {/* SDK / Legacy Toggle */}
           <Button
-            variant={useNewSdk ? 'default' : 'ghost'}
+            variant={useLegacy ? 'ghost' : 'default'}
             size="sm"
-            onClick={() => setUseNewSdk(!useNewSdk)}
+            onClick={() => setUseLegacy(!useLegacy)}
             className={cn(
               'text-xs h-7 gap-1.5 transition-all',
-              useNewSdk && 'bg-neon-primary/20 text-neon-primary border-neon-primary/30 hover:bg-neon-primary/30'
+              !useLegacy && 'bg-neon-primary/20 text-neon-primary border-neon-primary/30 hover:bg-neon-primary/30'
             )}
-            title={useNewSdk ? 'Using new Agents SDK' : 'Using legacy orchestration'}
+            title={useLegacy ? 'Using legacy orchestration' : 'Using Agents SDK'}
           >
-            <Sparkles className={cn('h-3 w-3', useNewSdk && 'animate-pulse')} />
-            {useNewSdk ? 'SDK' : 'Legacy'}
+            <Sparkles className={cn('h-3 w-3', !useLegacy && 'animate-pulse')} />
+            {useLegacy ? 'Legacy' : 'SDK'}
           </Button>
 
           {messages.length > 0 && (

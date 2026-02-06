@@ -1,6 +1,13 @@
 /**
  * OpenAI Agents SDK Implementation
- * Replaces MCP proxy architecture with direct API calls
+ *
+ * Uses @openai/agents for:
+ * - Agent definitions with handoffs
+ * - Tool execution via SDK tool() format
+ * - Streaming via run(agent, input, { stream: true })
+ *
+ * Custom 3-tier router preserved for initial agent selection.
+ * Handoffs handled natively by the SDK.
  */
 
 // Router exports
@@ -19,73 +26,30 @@ export {
   type ParsedRoutingDecision,
 } from './router';
 
-// Agent configurations
+// Agent instances (@openai/agents SDK Agent class)
 export {
   AgentTypeSchema,
-  agentConfigs,
-  getAgentConfig,
-  getAgentTools,
-  getAgentModel,
+  orchestratorAgent,
+  coderAgent,
+  researcherAgent,
+  secretaryAgent,
+  personalityAgent,
+  homeAgent,
+  financeAgent,
+  imagegenAgent,
+  getAgent,
   getAgentName,
   getHandoffTargets,
   isValidAgentType,
-  getAllAgentConfigs,
+  getAllAgents,
   getAgentByName,
+  getAgentType,
   type AgentType,
-  type AgentConfig,
 } from './agents';
 
-// Handoff pattern exports
+// Runner exports (SDK-powered streaming)
 export {
-  // Handoff creation functions
-  createHandoffToAgent,
-  handoffToCoder,
-  handoffToResearcher,
-  handoffToSecretary,
-  handoffToPersonality,
-  handoffToHome,
-  handoffToFinance,
-  handoffToImageGen,
-  handoffToOrchestrator,
-  // Handoff decision making
-  decideHandoff,
-  HANDOFF_CONFIDENCE_THRESHOLD,
-  // Handoff execution
-  executeHandoff,
-  // Utility functions
-  canHandoff,
-  formatHandoffMessage,
-  getHandoffTargetName,
-  isHandoffTarget,
-  getValidHandoffTargets,
-  // Types
-  type Handoff,
-  type HandoffDecision,
-  type HandoffResult,
-  type CoderHandoffContext,
-  type ResearcherHandoffContext,
-  type SecretaryHandoffContext,
-  type PersonalityHandoffContext,
-  type HomeHandoffContext,
-  type FinanceHandoffContext,
-  type ImageGenHandoffContext,
-} from './handoffs';
-
-// Runner exports
-export {
-  // Main entry points
   streamMessage,
-  runAgent,
-  // Tool execution
-  executeTool,
-  // Utility functions
-  toOpenAITools,
-  buildSystemPrompt,
-  // Types
   type RunContext,
-  type ToolExecutionResult,
   type StreamMessageOptions,
 } from './runner';
-
-// These will be uncommented as files are created
-// export * from './triage';

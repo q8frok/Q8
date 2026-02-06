@@ -1,17 +1,9 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import {
-  Code2,
-  Search,
-  Calendar,
-  Home,
-  DollarSign,
-  MessageCircle,
-  Cpu,
-  Bot,
-} from 'lucide-react';
+import { MessageCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getAgentDisplayConfig, type AgentRole } from '@/lib/agents/display-config';
 import type { ExtendedAgentType } from '@/lib/agents/orchestration';
 
 interface AgentMarkerProps {
@@ -22,67 +14,17 @@ interface AgentMarkerProps {
   className?: string;
 }
 
-/**
- * Agent configuration for display
- */
-type AgentConfig = {
-  name: string;
-  icon: typeof Bot;
-  color: string;
-  bgColor: string;
-};
-
-const DEFAULT_CONFIG: AgentConfig = {
-  name: 'Q8',
-  icon: MessageCircle,
-  color: 'text-neon-primary',
-  bgColor: 'bg-neon-primary/10',
-};
-
-const AGENT_CONFIG: Record<string, AgentConfig> = {
-  coder: {
-    name: 'DevBot',
-    icon: Code2,
-    color: 'text-emerald-400',
-    bgColor: 'bg-emerald-500/10',
-  },
-  researcher: {
-    name: 'ResearchBot',
-    icon: Search,
-    color: 'text-blue-400',
-    bgColor: 'bg-blue-500/10',
-  },
-  secretary: {
-    name: 'SecretaryBot',
-    icon: Calendar,
-    color: 'text-purple-400',
-    bgColor: 'bg-purple-500/10',
-  },
-  home: {
-    name: 'HomeBot',
-    icon: Home,
-    color: 'text-orange-400',
-    bgColor: 'bg-orange-500/10',
-  },
-  finance: {
-    name: 'FinanceAdvisor',
-    icon: DollarSign,
-    color: 'text-green-400',
-    bgColor: 'bg-green-500/10',
-  },
-  personality: {
-    name: 'Q8',
-    icon: MessageCircle,
-    color: 'text-neon-primary',
-    bgColor: 'bg-neon-primary/10',
-  },
-  orchestrator: {
-    name: 'Q8',
-    icon: Cpu,
-    color: 'text-neon-primary',
-    bgColor: 'bg-neon-primary/10',
-  },
-};
+/** Map display-config fields to the local shape (color = iconColor) */
+function getMarkerConfig(agent: string) {
+  const role = agent as AgentRole;
+  const display = getAgentDisplayConfig(role);
+  return {
+    name: display.name,
+    icon: display.icon ?? MessageCircle,
+    color: display.iconColor,
+    bgColor: display.bgColor.replace('/20', '/10'),
+  };
+}
 
 /**
  * AgentMarker - Shows which agent is handling the response
@@ -95,7 +37,7 @@ export function AgentMarker({
   showDetails = false,
   className,
 }: AgentMarkerProps) {
-  const config = AGENT_CONFIG[agent] ?? DEFAULT_CONFIG;
+  const config = getMarkerConfig(agent);
   const Icon = config.icon;
 
   return (
@@ -144,7 +86,7 @@ export function AgentSegmentDivider({
   toAgent,
   reason,
 }: AgentSegmentDividerProps) {
-  const toConfig = AGENT_CONFIG[toAgent] ?? DEFAULT_CONFIG;
+  const toConfig = getMarkerConfig(toAgent);
   const ToIcon = toConfig.icon;
 
   return (
@@ -187,7 +129,7 @@ export function CompactAgentBadge({
   agent: string;
   className?: string;
 }) {
-  const config = AGENT_CONFIG[agent] ?? DEFAULT_CONFIG;
+  const config = getMarkerConfig(agent);
   const Icon = config.icon;
 
   return (

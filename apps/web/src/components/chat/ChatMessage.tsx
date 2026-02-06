@@ -141,7 +141,7 @@ export const ChatMessage = memo(function ChatMessage({
   const isBot = !isUser;
 
   // Get agent configuration
-  const agentConfig = getAgentConfig(role);
+  const agentConfig = getAgentDisplayConfig(role);
 
   // Handle copy to clipboard
   const handleCopy = useCallback(() => {
@@ -309,11 +309,6 @@ export const ChatMessage = memo(function ChatMessage({
 });
 
 ChatMessage.displayName = 'ChatMessage';
-
-// Helper: Get agent configuration - uses centralized display config
-function getAgentConfig(role: AgentRole) {
-  return getAgentDisplayConfig(role);
-}
 
 // Helper: Format timestamp
 function formatTimestamp(date: Date): string {

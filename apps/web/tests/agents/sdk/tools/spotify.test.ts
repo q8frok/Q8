@@ -4,6 +4,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import type { FunctionTool } from '@openai/agents';
 
 // Import functions and types - will be created after tests
 import {
@@ -945,14 +946,15 @@ describe('spotifyTools', () => {
   });
 
   it('all tools have required properties', () => {
-    for (const tool of spotifyTools) {
-      expect(tool).toHaveProperty('name');
-      expect(tool).toHaveProperty('description');
-      expect(tool).toHaveProperty('parameters');
-      expect(tool).toHaveProperty('execute');
-      expect(typeof tool.name).toBe('string');
-      expect(typeof tool.description).toBe('string');
-      expect(typeof tool.execute).toBe('function');
+    for (const t of spotifyTools) {
+      const ft = t as FunctionTool;
+      expect(ft).toHaveProperty('name');
+      expect(ft).toHaveProperty('description');
+      expect(ft).toHaveProperty('parameters');
+      expect(ft).toHaveProperty('invoke');
+      expect(typeof ft.name).toBe('string');
+      expect(typeof ft.description).toBe('string');
+      expect(typeof ft.invoke).toBe('function');
     }
   });
 
@@ -963,44 +965,44 @@ describe('spotifyTools', () => {
   });
 
   it('includes spotify_search tool', () => {
-    const tool = spotifyTools.find((t) => t.name === 'spotify_search');
-    expect(tool).toBeDefined();
-    expect(tool?.description).toContain('Search');
+    const t = spotifyTools.find((t) => t.name === 'spotify_search') as FunctionTool;
+    expect(t).toBeDefined();
+    expect(t.description).toContain('Search');
   });
 
   it('includes spotify_now_playing tool', () => {
-    const tool = spotifyTools.find((t) => t.name === 'spotify_now_playing');
-    expect(tool).toBeDefined();
-    expect(tool?.description).toContain('playing');
+    const t = spotifyTools.find((t) => t.name === 'spotify_now_playing') as FunctionTool;
+    expect(t).toBeDefined();
+    expect(t.description).toContain('playing');
   });
 
   it('includes spotify_play_pause tool', () => {
-    const tool = spotifyTools.find((t) => t.name === 'spotify_play_pause');
-    expect(tool).toBeDefined();
-    expect(tool?.description).toContain('playback');
+    const t = spotifyTools.find((t) => t.name === 'spotify_play_pause') as FunctionTool;
+    expect(t).toBeDefined();
+    expect(t.description).toContain('playback');
   });
 
   it('includes spotify_next_previous tool', () => {
-    const tool = spotifyTools.find((t) => t.name === 'spotify_next_previous');
-    expect(tool).toBeDefined();
-    expect(tool?.description).toContain('next');
+    const t = spotifyTools.find((t) => t.name === 'spotify_next_previous') as FunctionTool;
+    expect(t).toBeDefined();
+    expect(t.description).toContain('next');
   });
 
   it('includes spotify_add_to_queue tool', () => {
-    const tool = spotifyTools.find((t) => t.name === 'spotify_add_to_queue');
-    expect(tool).toBeDefined();
-    expect(tool?.description).toContain('queue');
+    const t = spotifyTools.find((t) => t.name === 'spotify_add_to_queue') as FunctionTool;
+    expect(t).toBeDefined();
+    expect(t.description).toContain('queue');
   });
 
   it('includes spotify_get_devices tool', () => {
-    const tool = spotifyTools.find((t) => t.name === 'spotify_get_devices');
-    expect(tool).toBeDefined();
-    expect(tool?.description).toContain('devices');
+    const t = spotifyTools.find((t) => t.name === 'spotify_get_devices') as FunctionTool;
+    expect(t).toBeDefined();
+    expect(t.description).toContain('devices');
   });
 
   it('includes spotify_set_volume tool', () => {
-    const tool = spotifyTools.find((t) => t.name === 'spotify_set_volume');
-    expect(tool).toBeDefined();
-    expect(tool?.description).toContain('volume');
+    const t = spotifyTools.find((t) => t.name === 'spotify_set_volume') as FunctionTool;
+    expect(t).toBeDefined();
+    expect(t.description).toContain('volume');
   });
 });

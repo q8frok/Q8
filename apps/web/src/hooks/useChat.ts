@@ -100,8 +100,8 @@ interface UseChatOptions {
       };
     };
   };
-  /** Use new Agents SDK instead of legacy orchestration */
-  useNewSdk?: boolean;
+  /** Use legacy orchestration instead of Agents SDK (SDK is default) */
+  useLegacy?: boolean;
   onMessage?: (message: StreamingMessage) => void;
   onToolExecution?: (tool: ToolExecution) => void;
   onRouting?: (agent: AgentType, reason: string, confidence: number) => void;
@@ -123,7 +123,7 @@ export function useChat(options: UseChatOptions) {
     userId,
     threadId: initialThreadId,
     userProfile,
-    useNewSdk,
+    useLegacy,
     onMessage,
     onToolExecution,
     onRouting,
@@ -276,6 +276,14 @@ export function useChat(options: UseChatOptions) {
     abortControllerRef.current = new AbortController();
 
     try {
+      // Build conversation history from recent messages (last 20)
+      const conversationHistory = state.messages
+        .slice(-20)
+        .map(m => ({
+          role: m.role as 'user' | 'assistant',
+          content: m.content,
+        }));
+
       const response = await fetch('/api/chat/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -284,7 +292,8 @@ export function useChat(options: UseChatOptions) {
           userId,
           threadId: state.threadId,
           userProfile,
-          useNewSdk,
+          useLegacy,
+          conversationHistory,
         }),
         signal: abortControllerRef.current.signal,
       });
@@ -339,7 +348,7 @@ export function useChat(options: UseChatOptions) {
     }
   // Note: processStreamEvent is intentionally not in deps to avoid re-creating sendMessage
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, state.threadId, userProfile, useNewSdk, onError]);
+  }, [userId, state.threadId, userProfile, useLegacy, onError]);
 
   /**
    * Process a stream event

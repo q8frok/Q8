@@ -1,7 +1,9 @@
 /**
  * Streaming Chat API Route
  * Server-sent events (SSE) for real-time response streaming
- * Uses unified orchestration service with optional new SDK support via feature flag
+ *
+ * Uses @openai/agents SDK by default for streaming orchestration.
+ * Legacy orchestration available as opt-in fallback via USE_LEGACY_ORCHESTRATION=true.
  */
 
 import { NextRequest } from 'next/server';
@@ -15,10 +17,9 @@ export const runtime = 'nodejs';
 export const maxDuration = 60; // Allow longer streaming responses
 
 /**
- * Feature flag for new Agents SDK
- * Can be enabled via environment variable or per-request override
+ * Opt-in to legacy orchestration system (default: use SDK)
  */
-const USE_AGENTS_SDK = process.env.USE_AGENTS_SDK === 'true';
+const USE_LEGACY = process.env.USE_LEGACY_ORCHESTRATION === 'true';
 
 interface StreamRequest {
   message: string;
@@ -33,8 +34,10 @@ interface StreamRequest {
   forceAgent?: ExtendedAgentType;
   /** Show tool execution events (default: true) */
   showToolExecutions?: boolean;
-  /** Override feature flag to use new Agents SDK (for testing) */
-  useNewSdk?: boolean;
+  /** Override to use legacy orchestration system (for testing/fallback) */
+  useLegacy?: boolean;
+  /** Recent conversation history for context */
+  conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>;
 }
 
 /**
@@ -198,7 +201,7 @@ export async function POST(request: NextRequest) {
   (async () => {
     try {
       const body = (await request.json()) as StreamRequest;
-      const { message, threadId, userProfile, forceAgent, showToolExecutions = true, useNewSdk } = body;
+      const { message, threadId, userProfile, forceAgent, showToolExecutions = true, useLegacy, conversationHistory } = body;
       const userId = user.id; // Use authenticated user ID
 
       if (!message) {
@@ -210,36 +213,35 @@ export async function POST(request: NextRequest) {
         return;
       }
 
-      // Determine which orchestration system to use
-      // Request body override takes precedence over environment variable
-      const useSDK = useNewSdk ?? USE_AGENTS_SDK;
+      // SDK is default; legacy is opt-in via env var or request body
+      const useLegacyOrchestration = useLegacy ?? USE_LEGACY;
 
       logger.debug('[Stream API] Processing message', {
         userId,
         threadId,
-        useSDK,
+        useLegacy: useLegacyOrchestration,
         forceAgent,
       });
 
       // Get the event stream from the appropriate orchestration system
       // Both systems produce OrchestrationEvent streams with the same format
-      const eventStream: AsyncGenerator<OrchestrationEvent> = useSDK
-        ? streamMessageSDK({
-            message,
-            userId,
-            threadId,
-            userProfile,
-            // SDK uses AgentType which is a subset of ExtendedAgentType
-            forceAgent: forceAgent as AgentType | undefined,
-            showToolExecutions,
-          })
-        : streamMessageLegacy({
+      const eventStream: AsyncGenerator<OrchestrationEvent> = useLegacyOrchestration
+        ? streamMessageLegacy({
             message,
             userId,
             threadId,
             userProfile,
             forceAgent,
             showToolExecutions,
+          })
+        : streamMessageSDK({
+            message,
+            userId,
+            threadId,
+            userProfile,
+            forceAgent: forceAgent as AgentType | undefined,
+            showToolExecutions,
+            conversationHistory,
           });
 
       for await (const event of eventStream) {

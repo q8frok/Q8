@@ -3,22 +3,13 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Bot,
-  Code2,
-  Search,
-  Calendar,
-  Sparkles,
-  Home,
   ArrowRight,
-  DollarSign,
-  ImageIcon,
   Loader2,
   CheckCircle2,
   AlertCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-type AgentRole = 'orchestrator' | 'coder' | 'researcher' | 'secretary' | 'personality' | 'home' | 'finance' | 'imagegen';
+import { getAgentDisplayConfig, type AgentRole } from '@/lib/agents/display-config';
 
 type HandoffState = 'pending' | 'thinking' | 'active' | 'complete';
 
@@ -65,80 +56,19 @@ interface AgentHandoffProps {
 }
 
 /**
- * Default agent configuration (fallback)
+ * Get agent configuration for handoff display
+ * Derives borderColor from bgColor pattern (bg-X-500/20 → border-X-500/30)
  */
-const defaultAgentConfig = {
-  name: 'Q8',
-  icon: Bot,
-  bgColor: 'bg-gray-500/20',
-  iconColor: 'text-gray-400',
-  borderColor: 'border-gray-500/30',
-};
-
-/**
- * Get agent configuration
- */
-function getAgentConfig(role: AgentRole | string | undefined) {
-  const configs: Record<string, typeof defaultAgentConfig> = {
-    orchestrator: {
-      name: 'Q8',
-      icon: Bot,
-      bgColor: 'bg-purple-500/20',
-      iconColor: 'text-purple-400',
-      borderColor: 'border-purple-500/30',
-    },
-    coder: {
-      name: 'DevBot',
-      icon: Code2,
-      bgColor: 'bg-blue-500/20',
-      iconColor: 'text-blue-400',
-      borderColor: 'border-blue-500/30',
-    },
-    researcher: {
-      name: 'ResearchBot',
-      icon: Search,
-      bgColor: 'bg-green-500/20',
-      iconColor: 'text-green-400',
-      borderColor: 'border-green-500/30',
-    },
-    secretary: {
-      name: 'SecretaryBot',
-      icon: Calendar,
-      bgColor: 'bg-orange-500/20',
-      iconColor: 'text-orange-400',
-      borderColor: 'border-orange-500/30',
-    },
-    personality: {
-      name: 'Q8',
-      icon: Sparkles,
-      bgColor: 'bg-pink-500/20',
-      iconColor: 'text-pink-400',
-      borderColor: 'border-pink-500/30',
-    },
-    home: {
-      name: 'HomeBot',
-      icon: Home,
-      bgColor: 'bg-cyan-500/20',
-      iconColor: 'text-cyan-400',
-      borderColor: 'border-cyan-500/30',
-    },
-    finance: {
-      name: 'Finance Advisor',
-      icon: DollarSign,
-      bgColor: 'bg-emerald-500/20',
-      iconColor: 'text-emerald-400',
-      borderColor: 'border-emerald-500/30',
-    },
-    imagegen: {
-      name: 'ImageGen',
-      icon: ImageIcon,
-      bgColor: 'bg-pink-500/20',
-      iconColor: 'text-pink-400',
-      borderColor: 'border-pink-500/30',
-    },
+function getHandoffConfig(role: AgentRole | string | undefined) {
+  const display = getAgentDisplayConfig((role || 'orchestrator') as AgentRole);
+  const borderColor = display.bgColor.replace('bg-', 'border-').replace('/20', '/30');
+  return {
+    name: display.name,
+    icon: display.icon,
+    bgColor: display.bgColor,
+    iconColor: display.iconColor,
+    borderColor,
   };
-
-  return configs[role || ''] || defaultAgentConfig;
 }
 
 /**
@@ -171,8 +101,8 @@ export function AgentHandoff({
   className,
 }: AgentHandoffProps) {
   const [internalState, setInternalState] = useState<HandoffState>(state);
-  const fromConfig = getAgentConfig(from);
-  const toConfig = getAgentConfig(to);
+  const fromConfig = getHandoffConfig(from);
+  const toConfig = getHandoffConfig(to);
 
   // Handle state transitions
   useEffect(() => {
@@ -323,7 +253,7 @@ interface AgentBadgeProps {
 }
 
 export function AgentBadge({ agent, isActive = false, className }: AgentBadgeProps) {
-  const config = getAgentConfig(agent);
+  const config = getHandoffConfig(agent);
 
   return (
     <motion.div

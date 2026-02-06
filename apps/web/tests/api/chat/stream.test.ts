@@ -4,8 +4,8 @@
  * Tests for POST /api/chat/stream covering:
  * - Authentication checks (401 for unauthenticated)
  * - Validation (error event for missing message)
- * - Feature flag functionality (USE_AGENTS_SDK)
- * - Request body override for SDK selection
+ * - Feature flag functionality (USE_LEGACY_ORCHESTRATION)
+ * - Request body override for SDK/legacy selection
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -170,7 +170,7 @@ describe('POST /api/chat/stream', () => {
     });
   });
 
-  it('uses legacy orchestration by default (useNewSdk not set)', async () => {
+  it('uses SDK by default (useLegacy not set)', async () => {
     const request = new NextRequest('http://localhost:3000/api/chat/stream', {
       method: 'POST',
       body: JSON.stringify({ message: 'Hello Q8' }),
@@ -183,17 +183,17 @@ describe('POST /api/chat/stream', () => {
     // Wait for the stream to complete
     await parseSSEResponse(response);
 
-    // Legacy should be called, SDK should not (default behavior)
-    expect(mockStreamMessageLegacy).toHaveBeenCalledTimes(1);
-    expect(mockStreamMessageSDK).not.toHaveBeenCalled();
+    // SDK should be called by default, legacy should not
+    expect(mockStreamMessageSDK).toHaveBeenCalledTimes(1);
+    expect(mockStreamMessageLegacy).not.toHaveBeenCalled();
   });
 
-  it('uses new SDK when useNewSdk is true in request body', async () => {
+  it('uses SDK when useLegacy is explicitly false', async () => {
     const request = new NextRequest('http://localhost:3000/api/chat/stream', {
       method: 'POST',
       body: JSON.stringify({
         message: 'Hello Q8',
-        useNewSdk: true,
+        useLegacy: false,
       }),
       headers: { 'Content-Type': 'application/json' },
     });
@@ -204,17 +204,17 @@ describe('POST /api/chat/stream', () => {
     // Wait for the stream to complete
     await parseSSEResponse(response);
 
-    // SDK should be called when useNewSdk is true
+    // SDK should be called when useLegacy is false
     expect(mockStreamMessageSDK).toHaveBeenCalledTimes(1);
     expect(mockStreamMessageLegacy).not.toHaveBeenCalled();
   });
 
-  it('uses legacy when useNewSdk is explicitly false', async () => {
+  it('uses legacy when useLegacy is true', async () => {
     const request = new NextRequest('http://localhost:3000/api/chat/stream', {
       method: 'POST',
       body: JSON.stringify({
         message: 'Hello Q8',
-        useNewSdk: false,
+        useLegacy: true,
       }),
       headers: { 'Content-Type': 'application/json' },
     });
@@ -224,7 +224,7 @@ describe('POST /api/chat/stream', () => {
 
     await parseSSEResponse(response);
 
-    // Legacy should be called when useNewSdk is false
+    // Legacy should be called when useLegacy is true
     expect(mockStreamMessageLegacy).toHaveBeenCalledTimes(1);
     expect(mockStreamMessageSDK).not.toHaveBeenCalled();
   });
@@ -272,7 +272,7 @@ describe('POST /api/chat/stream', () => {
     const response = await POST(request);
     await parseSSEResponse(response);
 
-    expect(mockStreamMessageLegacy).toHaveBeenCalledWith(
+    expect(mockStreamMessageSDK).toHaveBeenCalledWith(
       expect.objectContaining({
         message: 'Check my PRs',
         userId: 'user-123',
@@ -290,7 +290,7 @@ describe('POST /api/chat/stream', () => {
 
   it('handles errors from orchestration service gracefully', async () => {
     // Create an async generator that throws
-    mockStreamMessageLegacy.mockImplementation(async function* () {
+    mockStreamMessageSDK.mockImplementation(async function* () {
       throw new Error('LLM service unavailable');
     });
 
@@ -357,7 +357,6 @@ describe('POST /api/chat/stream', () => {
       body: JSON.stringify({
         message: 'Check my PRs',
         forceAgent: 'coder',
-        useNewSdk: true,
       }),
       headers: { 'Content-Type': 'application/json' },
     });
