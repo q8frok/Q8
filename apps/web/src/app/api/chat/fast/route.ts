@@ -19,7 +19,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { fastTalk, shouldBypassFastTalker } from '@/lib/agents/fast-talker';
-import { processMessage } from '@/lib/agents/orchestration/service';
+import { executeChat } from '@/lib/agents/sdk/chat-service';
 import { route } from '@/lib/agents/orchestration/router';
 import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
 import { chatMessageSchema, validationErrorResponse } from '@/lib/validations';
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
         agent: routing.agent,
       });
 
-      const response = await processMessage({
+      const response = await executeChat({
         message,
         userId,
         threadId: conversationId,

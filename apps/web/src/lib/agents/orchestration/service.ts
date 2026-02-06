@@ -468,6 +468,10 @@ Re-author this response in Q8's voice:`,
 /**
  * Process a message through the orchestration system (non-streaming)
  */
+/**
+ * @deprecated Legacy orchestration path for backwards compatibility.
+ * Prefer executeChat from @/lib/agents/sdk/chat-service for chat endpoints.
+ */
 export async function processMessage(
   request: OrchestrationRequest
 ): Promise<OrchestrationResponse> {
@@ -821,6 +825,10 @@ export async function processMessage(
 /**
  * Create a streaming orchestration generator
  * Returns an async generator of OrchestrationEvents
+ */
+/**
+ * @deprecated Legacy orchestration stream path for backwards compatibility.
+ * Prefer executeChatStream from @/lib/agents/sdk/chat-service for chat endpoints.
  */
 export async function* streamMessage(
   request: OrchestrationRequest
