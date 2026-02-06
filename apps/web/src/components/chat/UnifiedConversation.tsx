@@ -54,6 +54,7 @@ export const UnifiedConversation = forwardRef<UnifiedConversationRef, UnifiedCon
       isLoading,
       isStreaming,
       routingReason,
+      runState,
       error,
       threadId: currentThreadId,
       mode,
@@ -172,6 +173,7 @@ export const UnifiedConversation = forwardRef<UnifiedConversationRef, UnifiedCon
           isStreaming={isStreaming}
           activeAgent={activeAgent}
           routingReason={routingReason}
+          runState={runState}
           error={error}
           onSend={handleSend}
           onMentionInsert={handleMentionInsert}

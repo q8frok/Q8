@@ -12,7 +12,7 @@ import { MessageAvatar } from './MessageAvatar';
 import { MessageBubble } from './MessageBubble';
 import { SpeakingIndicator } from './SpeakingIndicator';
 import { getAgentConfig, formatTimestamp, type AgentRole } from './messageUtils';
-import type { ToolExecution, Citation, MemoryContext, GeneratedImage } from '@/hooks/useChat';
+import type { ToolExecution, Citation, MemoryContext, GeneratedImage, RunMetadata, HandoffInfo } from '@/hooks/useChat';
 
 interface StreamingMessageProps {
   id: string;
@@ -25,6 +25,8 @@ interface StreamingMessageProps {
   memoriesUsed?: MemoryContext[];
   images?: GeneratedImage[];
   imageAnalysis?: string;
+  handoff?: HandoffInfo;
+  run?: RunMetadata;
   timestamp: Date;
   className?: string;
   onAction?: (action: 'copy' | 'regenerate' | 'thumbsUp' | 'thumbsDown', messageId: string) => void;
@@ -50,6 +52,8 @@ export const StreamingMessage = memo(function StreamingMessage({
   memoriesUsed = [],
   images = [],
   imageAnalysis,
+  handoff,
+  run,
   timestamp,
   className,
   onAction,
@@ -138,6 +142,21 @@ export const StreamingMessage = memo(function StreamingMessage({
         </AnimatePresence>
 
         {memoryContexts.length > 0 && <MemoryContextBadge memories={memoryContexts} />}
+
+        {isBot && (handoff || run) && (
+          <div className="mb-2 flex flex-wrap gap-2 text-xs text-text-muted">
+            {handoff && (
+              <span className="rounded-full border border-border-subtle bg-muted/20 px-2 py-0.5">
+                Handoff: {handoff.from} → {handoff.to}
+              </span>
+            )}
+            {run && (
+              <span className="rounded-full border border-border-subtle bg-muted/20 px-2 py-0.5">
+                Run {run.state.replace('_', ' ')}
+              </span>
+            )}
+          </div>
+        )}
 
         {toolExecutions.length > 0 && (
           <ToolExecutionList

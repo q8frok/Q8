@@ -35,6 +35,8 @@ interface StreamRequest {
  * No longer filters events - all event types are now supported by the frontend
  */
 type StreamEvent =
+  | { type: 'run_created'; runId: string; state: 'queued'; timestamp: string }
+  | { type: 'run_state'; runId: string; state: 'queued' | 'running' | 'awaiting_tool' | 'completed' | 'failed' | 'cancelled'; timestamp: string }
   | { type: 'routing'; agent: string; reason: string; confidence: number; source: string }
   | { type: 'agent_start'; agent: string }
   | { type: 'handoff'; from: string; to: string; reason: string }
@@ -189,6 +191,16 @@ export async function POST(request: NextRequest) {
 
   // Process in background
   (async () => {
+    const runId = crypto.randomUUID();
+    const emitRunState = async (state: 'queued' | 'running' | 'awaiting_tool' | 'completed' | 'failed' | 'cancelled') => {
+      await writer.write(encoder.encode(encodeSSE({
+        type: 'run_state',
+        runId,
+        state,
+        timestamp: new Date().toISOString(),
+      })));
+    };
+
     try {
       const body = (await request.json()) as StreamRequest;
       const { message, threadId, userProfile, forceAgent, showToolExecutions = true, conversationHistory } = body;
@@ -202,6 +214,14 @@ export async function POST(request: NextRequest) {
         await writer.close();
         return;
       }
+
+      await writer.write(encoder.encode(encodeSSE({
+        type: 'run_created',
+        runId,
+        state: 'queued',
+        timestamp: new Date().toISOString(),
+      })));
+      await emitRunState('queued');
 
       logger.debug('[Stream API] Processing message', {
         userId,
@@ -221,10 +241,33 @@ export async function POST(request: NextRequest) {
       });
 
       for await (const event of eventStream) {
+        if (event.type === 'agent_start') {
+          await emitRunState('running');
+        }
+
+        if (event.type === 'tool_start') {
+          await emitRunState('awaiting_tool');
+        }
+
+        if (event.type === 'tool_end') {
+          await emitRunState('running');
+        }
+
         const streamEvent = toStreamEvent(event);
         await writer.write(encoder.encode(encodeSSE(streamEvent)));
+
+        if (event.type === 'done') {
+          await emitRunState('completed');
+        }
       }
     } catch (error) {
+      const state: 'cancelled' | 'failed' = request.signal.aborted ? 'cancelled' : 'failed';
+      try {
+        await emitRunState(state);
+      } catch {
+        // Writer may already be closed if client disconnected
+      }
+
       logger.error('[Stream API] Error', { error: error });
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       try {

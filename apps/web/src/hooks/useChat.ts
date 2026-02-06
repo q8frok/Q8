@@ -54,6 +54,16 @@ export interface WidgetAction {
   data?: Record<string, unknown>;
 }
 
+export type RunState = 'queued' | 'running' | 'awaiting_tool' | 'completed' | 'failed' | 'cancelled';
+
+export interface RunMetadata {
+  runId: string;
+  state: RunState;
+  startedAt: Date;
+  updatedAt: Date;
+  endedAt?: Date;
+}
+
 export interface StreamingMessage {
   id: string;
   role: 'user' | 'assistant';
@@ -67,6 +77,7 @@ export interface StreamingMessage {
   images?: GeneratedImage[];
   handoff?: HandoffInfo;
   imageAnalysis?: string;
+  run?: RunMetadata;
 }
 
 export interface ChatState {
@@ -79,6 +90,11 @@ export interface ChatState {
   pendingHandoff: HandoffInfo | null;
   error: string | null;
   threadId: string | null;
+  runState: RunState | null;
+  runId: string | null;
+  runStartedAt: Date | null;
+  runUpdatedAt: Date | null;
+  runEndedAt: Date | null;
 }
 
 interface UseChatOptions {
@@ -149,10 +165,34 @@ export function useChat(options: UseChatOptions) {
     pendingHandoff: null,
     error: null,
     threadId: initialThreadId || null,
+    runState: null,
+    runId: null,
+    runStartedAt: null,
+    runUpdatedAt: null,
+    runEndedAt: null,
   });
 
   // Track if we should skip the next message load (when thread is created during streaming)
   const skipNextLoadRef = useRef(false);
+  const getRunStoreKey = useCallback((threadId: string) => `q8_run_metadata_${threadId}`, []);
+
+  const saveRunMetadata = useCallback((threadId: string, messageId: string, run: RunMetadata) => {
+    if (typeof window === 'undefined') return;
+    try {
+      const key = getRunStoreKey(threadId);
+      const current = localStorage.getItem(key);
+      const parsed = current ? JSON.parse(current) as Record<string, unknown> : {};
+      parsed[messageId] = {
+        ...run,
+        startedAt: run.startedAt.toISOString(),
+        updatedAt: run.updatedAt.toISOString(),
+        endedAt: run.endedAt?.toISOString(),
+      };
+      localStorage.setItem(key, JSON.stringify(parsed));
+    } catch (error) {
+      logger.warn('Failed to persist run metadata', { threadId, messageId, error });
+    }
+  }, [getRunStoreKey]);
 
   // Load existing messages when threadId changes
   useEffect(() => {
@@ -192,32 +232,70 @@ export function useChat(options: UseChatOptions) {
       if (!response.ok) throw new Error('Failed to load messages');
 
       const data = await response.json();
+      let persistedRuns: Record<string, {
+        runId: string;
+        state: RunState;
+        startedAt: string;
+        updatedAt: string;
+        endedAt?: string;
+      }> = {};
+
+      if (typeof window !== 'undefined') {
+        const stored = localStorage.getItem(getRunStoreKey(threadId));
+        if (stored) {
+          persistedRuns = JSON.parse(stored) as typeof persistedRuns;
+        }
+      }
+
       const loadedMessages: StreamingMessage[] = (data.messages || []).map((m: {
         id: string;
         role: 'user' | 'assistant';
         content: string;
         agent_name?: string;
         tool_executions?: ToolExecution[];
+        metadata?: Record<string, unknown>;
         created_at: string;
-      }) => ({
-        id: m.id,
-        role: m.role,
-        content: m.content,
-        agent: m.agent_name as AgentType | undefined,
-        isStreaming: false,
-        toolExecutions: m.tool_executions || [],
-        timestamp: new Date(m.created_at),
-      }));
+      }) => {
+        const persistedRun = persistedRuns[m.id];
+        const runMetadata = (persistedRun || (m.metadata?.run as Record<string, unknown> | undefined));
+        const run = runMetadata && typeof runMetadata.runId === 'string' && typeof runMetadata.state === 'string'
+          ? {
+              runId: runMetadata.runId,
+              state: runMetadata.state as RunState,
+              startedAt: runMetadata.startedAt ? new Date(String(runMetadata.startedAt)) : new Date(m.created_at),
+              updatedAt: runMetadata.updatedAt ? new Date(String(runMetadata.updatedAt)) : new Date(m.created_at),
+              endedAt: runMetadata.endedAt ? new Date(String(runMetadata.endedAt)) : undefined,
+            }
+          : undefined;
+
+        return {
+          id: m.id,
+          role: m.role,
+          content: m.content,
+          agent: m.agent_name as AgentType | undefined,
+          isStreaming: false,
+          toolExecutions: m.tool_executions || [],
+          timestamp: new Date(m.created_at),
+          run,
+        };
+      });
+
+      const latestRun = [...loadedMessages].reverse().find(message => message.role === 'assistant' && message.run)?.run;
 
       setState(prev => ({
         ...prev,
         messages: loadedMessages,
         threadId,
+        runState: latestRun?.state || null,
+        runId: latestRun?.runId || null,
+        runStartedAt: latestRun?.startedAt || null,
+        runUpdatedAt: latestRun?.updatedAt || null,
+        runEndedAt: latestRun?.endedAt || null,
       }));
     } catch (err) {
       logger.error('Failed to load messages', { threadId, error: err });
     }
-  }, []);
+  }, [getRunStoreKey]);
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const streamingMessageRef = useRef<StreamingMessage | null>(null);
@@ -250,6 +328,11 @@ export function useChat(options: UseChatOptions) {
       error: null,
       currentAgent: null,
       routingReason: null,
+      runState: 'queued',
+      runId: null,
+      runStartedAt: new Date(),
+      runUpdatedAt: new Date(),
+      runEndedAt: null,
     }));
 
     // Create assistant message placeholder
@@ -393,15 +476,69 @@ export function useChat(options: UseChatOptions) {
       widgetId?: string;
       action?: string;
       data?: Record<string, unknown>;
+      runId?: string;
+      state?: RunState;
+      timestamp?: string;
     },
     messageId: string
   ) => {
+
+    const timestamp = event.timestamp ? new Date(event.timestamp) : new Date();
+    const updateRunMetadata = (nextState: RunState, runId?: string) => {
+      setState(prev => {
+        const resolvedRunId = runId || prev.runId || `run_${Date.now()}`;
+        const startedAt = prev.runStartedAt || timestamp;
+        const endedAt = ['completed', 'failed', 'cancelled'].includes(nextState) ? timestamp : prev.runEndedAt;
+        const threadForPersistence = prev.threadId;
+
+        return {
+          ...prev,
+          runId: resolvedRunId,
+          runState: nextState,
+          runStartedAt: startedAt,
+          runUpdatedAt: timestamp,
+          runEndedAt: endedAt,
+          messages: prev.messages.map(m => {
+            if (m.id !== messageId) {
+              return m;
+            }
+
+            const run: RunMetadata = {
+              runId: resolvedRunId,
+              state: nextState,
+              startedAt: m.run?.startedAt || startedAt,
+              updatedAt: timestamp,
+              endedAt: ['completed', 'failed', 'cancelled'].includes(nextState) ? timestamp : m.run?.endedAt,
+            };
+
+            if (threadForPersistence) {
+              saveRunMetadata(threadForPersistence, messageId, run);
+            }
+
+            return { ...m, run };
+          }),
+        };
+      });
+    };
+
     switch (event.type) {
       case 'thread_created':
         if (event.threadId) {
           skipNextLoadRef.current = true;
           setState(prev => ({ ...prev, threadId: event.threadId! }));
           onThreadCreated?.(event.threadId);
+        }
+        break;
+
+      case 'run_created':
+        if (event.runId) {
+          updateRunMetadata('queued', event.runId);
+        }
+        break;
+
+      case 'run_state':
+        if (event.state) {
+          updateRunMetadata(event.state, event.runId);
         }
         break;
 
@@ -618,6 +755,7 @@ export function useChat(options: UseChatOptions) {
         break;
 
       case 'done':
+        updateRunMetadata('completed', event.runId);
         // Handle images from done event
         const doneImages = event.images?.map(img => ({
           id: `img_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
@@ -651,6 +789,7 @@ export function useChat(options: UseChatOptions) {
         break;
 
       case 'error':
+        updateRunMetadata('failed', event.runId);
         setState(prev => ({
           ...prev,
           isLoading: false,
@@ -682,7 +821,8 @@ export function useChat(options: UseChatOptions) {
     onError,
     onThreadCreated,
     onMemoryExtracted,
-    state.messages
+    state.messages,
+    saveRunMetadata
   ]);
 
   /**
@@ -695,6 +835,14 @@ export function useChat(options: UseChatOptions) {
         ...prev,
         isLoading: false,
         isStreaming: false,
+        runState: 'cancelled',
+        runUpdatedAt: new Date(),
+        runEndedAt: new Date(),
+        messages: prev.messages.map(m =>
+          m.isStreaming && m.run
+            ? { ...m, run: { ...m.run, state: 'cancelled', updatedAt: new Date(), endedAt: new Date() } }
+            : m
+        ),
       }));
     }
   }, []);
@@ -712,6 +860,11 @@ export function useChat(options: UseChatOptions) {
       routingReason: null,
       error: null,
       threadId: null,
+      runState: null,
+      runId: null,
+      runStartedAt: null,
+      runUpdatedAt: null,
+      runEndedAt: null,
     }));
   }, []);
 
