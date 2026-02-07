@@ -34,11 +34,13 @@ import {
   Github,
   Home,
   TrendingUp,
+  Plug,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Toggle } from '@/components/ui/toggle';
 import { MemoriesSettings } from './MemoriesSettings';
+import { IntegrationsSettings } from './IntegrationsSettings';
 import { logger } from '@/lib/logger';
 import type { UserPreferences } from '@/lib/memory/types';
 import {
@@ -57,7 +59,7 @@ interface SettingsPanelProps {
   onPreferencesChange?: (preferences: Partial<UserPreferences>) => void;
 }
 
-type SettingsTab = 'profile' | 'appearance' | 'display' | 'voice' | 'agents' | 'memories' | 'privacy' | 'shortcuts';
+type SettingsTab = 'profile' | 'appearance' | 'display' | 'voice' | 'agents' | 'integrations' | 'memories' | 'privacy' | 'shortcuts';
 
 const tabs: { id: SettingsTab; label: string; icon: typeof User }[] = [
   { id: 'profile', label: 'Profile', icon: User },
@@ -65,6 +67,7 @@ const tabs: { id: SettingsTab; label: string; icon: typeof User }[] = [
   { id: 'display', label: 'Display', icon: Eye },
   { id: 'voice', label: 'Voice', icon: Volume2 },
   { id: 'agents', label: 'Agents', icon: Brain },
+  { id: 'integrations', label: 'Integrations', icon: Plug },
   { id: 'memories', label: 'Memories', icon: Sparkles },
   { id: 'privacy', label: 'Privacy', icon: Shield },
   { id: 'shortcuts', label: 'Shortcuts', icon: Keyboard },
@@ -270,6 +273,10 @@ export function SettingsPanel({
                   preferences={preferences}
                   updatePreference={updatePreference}
                 />
+              )}
+
+              {activeTab === 'integrations' && (
+                <IntegrationsSettings userId={userId} />
               )}
 
               {activeTab === 'memories' && (
