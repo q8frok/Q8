@@ -132,34 +132,31 @@ export function AgentHandoff({
           className={cn('py-3', className)}
         >
           {/* Handoff Animation */}
-          <div className="flex items-center justify-center gap-4">
+          <div className="flex items-center justify-center gap-2 sm:gap-4">
             {/* From Agent */}
             <motion.div
               initial={{ scale: 1 }}
               animate={{ scale: [1, 0.9, 1] }}
               transition={{ duration: 0.5 }}
+              style={{ willChange: 'transform, opacity' }}
               className={cn(
-                'flex items-center gap-2 px-3 py-2 rounded-xl border',
+                'flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl border',
                 fromConfig.bgColor,
                 fromConfig.borderColor
               )}
             >
-              <fromConfig.icon className={cn('h-5 w-5', fromConfig.iconColor)} />
-              <span className="text-sm font-medium">{fromConfig.name}</span>
+              <fromConfig.icon className={cn('h-4 w-4 sm:h-5 sm:w-5', fromConfig.iconColor)} />
+              <span className="text-xs sm:text-sm font-medium">{fromConfig.name}</span>
             </motion.div>
 
-            {/* Arrow Animation */}
+            {/* Arrow Animation — simplified fade on mobile */}
             <motion.div
               initial={{ x: -10, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               transition={{ duration: 0.3, delay: 0.2 }}
+              style={{ willChange: 'transform' }}
             >
-              <motion.div
-                animate={{ x: [0, 5, 0] }}
-                transition={{ duration: 1, repeat: Infinity }}
-              >
-                <ArrowRight className="h-5 w-5 text-text-muted" />
-              </motion.div>
+              <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5 text-text-muted" />
             </motion.div>
 
             {/* To Agent */}
@@ -167,8 +164,9 @@ export function AgentHandoff({
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ duration: 0.3, delay: 0.3 }}
+              style={{ willChange: 'transform, opacity' }}
               className={cn(
-                'flex items-center gap-2 px-3 py-2 rounded-xl border',
+                'flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl border',
                 toConfig.bgColor,
                 toConfig.borderColor,
                 'ring-2 ring-offset-2 ring-offset-background',
@@ -189,7 +187,7 @@ export function AgentHandoff({
                   <toConfig.icon className={cn('h-5 w-5', toConfig.iconColor)} />
                 )}
               </motion.div>
-              <span className="text-sm font-medium">{toConfig.name}</span>
+              <span className="text-xs sm:text-sm font-medium">{toConfig.name}</span>
             </motion.div>
           </div>
 

@@ -54,7 +54,7 @@ export function ChatEmptyState({
           <button
             onClick={() => setViewMode('quick')}
             className={cn(
-              'flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all',
+              'flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium transition-all active:scale-[0.97]',
               viewMode === 'quick'
                 ? 'bg-surface-4 text-text-primary shadow-sm'
                 : 'text-text-muted hover:text-text-secondary'
@@ -66,7 +66,7 @@ export function ChatEmptyState({
           <button
             onClick={() => setViewMode('agents')}
             className={cn(
-              'flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all',
+              'flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium transition-all active:scale-[0.97]',
               viewMode === 'agents'
                 ? 'bg-surface-4 text-text-primary shadow-sm'
                 : 'text-text-muted hover:text-text-secondary'

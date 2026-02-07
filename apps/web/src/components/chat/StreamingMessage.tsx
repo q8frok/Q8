@@ -11,8 +11,9 @@ import { MessageActions } from './MessageActions';
 import { MessageAvatar } from './MessageAvatar';
 import { MessageBubble } from './MessageBubble';
 import { SpeakingIndicator } from './SpeakingIndicator';
+import { ThinkingIndicator } from './ThinkingIndicator';
 import { getAgentConfig, formatTimestamp, type AgentRole } from './messageUtils';
-import type { ToolExecution, Citation, MemoryContext, GeneratedImage, RunMetadata, HandoffInfo } from '@/hooks/useChat';
+import type { ToolExecution, Citation, MemoryContext, GeneratedImage, RunMetadata, HandoffInfo, PipelineState } from '@/hooks/useChat';
 
 interface StreamingMessageProps {
   id: string;
@@ -32,6 +33,9 @@ interface StreamingMessageProps {
   onAction?: (action: 'copy' | 'regenerate' | 'thumbsUp' | 'thumbsDown', messageId: string) => void;
   isSpeaking?: boolean;
   onStopSpeaking?: () => void;
+  isReasoning?: boolean;
+  pipelineState?: PipelineState;
+  pipelineDetail?: string | null;
 }
 
 /**
@@ -59,6 +63,9 @@ export const StreamingMessage = memo(function StreamingMessage({
   onAction,
   isSpeaking = false,
   onStopSpeaking,
+  isReasoning,
+  pipelineState,
+  pipelineDetail,
 }: StreamingMessageProps) {
   const [showActions, setShowActions] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
@@ -110,15 +117,15 @@ export const StreamingMessage = memo(function StreamingMessage({
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className={cn('flex gap-4 group', isUser ? 'flex-row-reverse' : 'flex-row', className)}
+      className={cn('flex gap-2.5 sm:gap-4 group', isUser ? 'flex-row-reverse' : 'flex-row', className)}
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}
     >
       <MessageAvatar agentConfig={agentConfig} isStreaming={isStreaming} />
 
-      <div className={cn('flex-1 max-w-2xl', isUser && 'flex flex-col items-end')}>
+      <div className={cn('flex-1 max-w-[85vw] sm:max-w-2xl min-w-0', isUser && 'flex flex-col items-end')}>
         {isBot && (
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-1.5 mb-1">
             <span className="text-sm font-medium">{agentConfig.name}</span>
             <span className="text-xs text-text-muted">{formatTimestamp(timestamp)}</span>
             {isStreaming && (
@@ -168,6 +175,18 @@ export const StreamingMessage = memo(function StreamingMessage({
 
         {imageData.length > 0 && <GeneratedImageDisplay images={imageData} />}
 
+        <AnimatePresence>
+          {isBot && isStreaming && pipelineState && pipelineState !== 'done' && (
+            <div className="mb-1">
+              <ThinkingIndicator
+                pipelineState={pipelineState}
+                pipelineDetail={pipelineDetail}
+                isReasoning={isReasoning}
+              />
+            </div>
+          )}
+        </AnimatePresence>
+
         <MessageBubble
           ref={contentRef}
           content={content}
@@ -175,6 +194,7 @@ export const StreamingMessage = memo(function StreamingMessage({
           isStreaming={isStreaming}
           imageAnalysis={imageAnalysis}
           citationSources={citationSources}
+          agentGlowClass={isBot ? agentConfig.glowColor : undefined}
         />
 
         {isBot && !isStreaming && content && (

@@ -50,7 +50,7 @@ export const ConversationInputArea = forwardRef<ConversationInputAreaRef, Conver
     }));
 
     return (
-      <div className="p-3 border-t border-border-subtle">
+      <div className="p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] border-t border-border-subtle bg-surface-1/80 backdrop-blur-md">
         {/* Cancel streaming button */}
         {isStreaming && (
           <div className="flex items-center justify-center mb-2">

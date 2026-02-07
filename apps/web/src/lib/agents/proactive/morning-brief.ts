@@ -8,8 +8,7 @@ import { supabaseAdmin } from '@/lib/supabase/server';
 import { logger } from '@/lib/logger';
 import OpenAI from 'openai';
 import { listCalendarEvents } from '@/lib/mcp/tools/google';
-import { getWeather } from '../tools/weather';
-import { getUserContext } from '../orchestration/user-context';
+import { getWeather } from '../sdk/tools/weather';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -461,16 +460,22 @@ function generateInsights(
  */
 export async function generateMorningBrief(userId: string): Promise<DailyBriefContent> {
   const now = new Date();
-  const userContext = await getUserContext(userId);
 
-  // Get user timezone from context or default
-  const timezone = (userContext.preferences?.timezone as string) || 'America/New_York';
-  const userName = (userContext.facts?.name as { value?: string })?.value || 'there';
+  // Fetch user profile from Supabase
+  const { data: profile } = await supabaseAdmin
+    .from('user_profiles')
+    .select('display_name, timezone, preferences')
+    .eq('user_id', userId)
+    .single();
+
+  const timezone = profile?.timezone || 'America/New_York';
+  const userName = profile?.display_name || 'there';
+  const userLocation = (profile?.preferences as Record<string, unknown>)?.location as { lat?: number; long?: number } | undefined;
 
   // Parallel data fetching
   const [calendarData, weatherData, tasksData] = await Promise.all([
     fetchCalendarEvents(userId, timezone),
-    fetchWeather(userContext),
+    fetchWeather(userLocation),
     fetchTasks(userId),
   ]);
 
@@ -615,22 +620,23 @@ async function fetchCalendarEvents(
  * Fetch weather data
  */
 async function fetchWeather(
-  userContext: Awaited<ReturnType<typeof getUserContext>>
+  location?: { lat?: number; long?: number } | null
 ): Promise<DailyBriefContent['weather'] | null> {
   try {
-    const location = userContext.facts?.location as { lat?: number; long?: number } | undefined;
     if (!location?.lat || !location?.long) {
       return null;
     }
 
-    const weather = await getWeather(location.lat, location.long);
+    const result = await getWeather({ lat: location.lat, lon: location.long });
+    if (!result.success) return null;
 
+    const w = result.weather;
     return {
-      temp: Math.round(weather.temp),
-      condition: weather.condition,
-      high: Math.round(weather.temp + 5), // Approximate
-      low: Math.round(weather.temp - 5),
-      description: weather.description,
+      temp: Math.round(w.temp),
+      condition: w.condition,
+      high: Math.round(w.tempMax),
+      low: Math.round(w.tempMin),
+      description: w.description,
     };
   } catch (error) {
     logger.warn('Failed to fetch weather for brief', { error });

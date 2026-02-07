@@ -23,12 +23,12 @@ export function VoiceInputArea({
   onSwitchToText,
 }: VoiceInputAreaProps) {
   return (
-    <div className="flex flex-col items-center gap-3 py-4">
+    <div className="flex flex-col items-center gap-4 py-6 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]">
       <motion.button
         onClick={onVoiceInteraction}
         disabled={isTranscribing}
         className={cn(
-          'relative h-16 w-16 rounded-full flex items-center justify-center transition-all',
+          'relative h-16 w-16 rounded-full flex items-center justify-center transition-all will-change-transform',
           'shadow-lg focus-ring',
           isRecording && 'bg-red-500 scale-110',
           isSpeaking && 'bg-green-500',
@@ -37,13 +37,22 @@ export function VoiceInputArea({
         )}
         whileTap={{ scale: 0.95 }}
       >
-        {/* Pulsing ring when recording */}
+        {/* Concentric ripple rings when recording */}
         {isRecording && (
-          <motion.div
-            className="absolute inset-0 rounded-full border-2 border-red-400"
-            animate={{ scale: [1, 1.3, 1], opacity: [0.8, 0, 0.8] }}
-            transition={{ duration: 1.5, repeat: Infinity }}
-          />
+          <>
+            <motion.div
+              className="absolute inset-0 rounded-full border-2 border-red-400"
+              animate={{ scale: [1, 1.4], opacity: [0.6, 0] }}
+              transition={{ duration: 1.5, repeat: Infinity, ease: 'easeOut' }}
+              style={{ willChange: 'transform, opacity' }}
+            />
+            <motion.div
+              className="absolute inset-0 rounded-full border border-red-400/50"
+              animate={{ scale: [1, 1.7], opacity: [0.4, 0] }}
+              transition={{ duration: 1.5, repeat: Infinity, ease: 'easeOut', delay: 0.3 }}
+              style={{ willChange: 'transform, opacity' }}
+            />
+          </>
         )}
 
         {isRecording ? (
@@ -56,7 +65,7 @@ export function VoiceInputArea({
       </motion.button>
 
       {/* Status text */}
-      <p className="text-sm text-text-muted text-center">
+      <p className="text-base sm:text-sm text-text-muted text-center font-medium">
         {isRecording && 'Listening... Release to send'}
         {isTranscribing && 'Processing...'}
         {isSpeaking && 'Speaking...'}

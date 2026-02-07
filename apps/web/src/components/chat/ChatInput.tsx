@@ -306,7 +306,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(function ChatI
             placeholder={placeholder}
             disabled={disabled}
             rows={1}
-            className="w-full bg-transparent border-0 outline-none resize-none max-h-32 placeholder:text-text-muted text-text-primary"
+            className="w-full min-h-[44px] bg-transparent border-0 outline-none resize-none max-h-32 placeholder:text-text-muted text-text-primary text-[15px] leading-relaxed"
           />
 
           {/* Character Count */}
@@ -352,7 +352,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(function ChatI
           onClick={handleSend}
           disabled={disabled || (!message.trim() && selectedFiles.length === 0)}
           aria-label={disabled ? 'Sending message' : 'Send message'}
-          className="flex-shrink-0 h-10 w-10 rounded-lg bg-neon-primary hover:bg-neon-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center transition-colors focus-ring"
+          className="flex-shrink-0 h-10 w-10 rounded-lg bg-neon-primary hover:bg-neon-primary/90 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center transition-all focus-ring"
         >
           {disabled ? (
             <Loader2 className="h-4 w-4 animate-spin text-white" />

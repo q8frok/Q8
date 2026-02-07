@@ -26,5 +26,9 @@ export * from './home';
 // Finance tools for Finance agent
 export * from './finance';
 
-// Image tools for ImageGen agent
-export * from './image';
+// NOTE: Image generation uses hosted imageGenerationTool() from @openai/agents.
+// Custom image tools (generate_image, edit_image, analyze_image) removed — they
+// depended on the legacy image-executor which has been deleted.
+
+// Oura Ring tools for Home agent
+export * from './oura';

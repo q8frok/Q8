@@ -99,7 +99,7 @@ export function ThreadSidebar({
       <div className="p-3 border-b border-border-subtle space-y-2">
         <button
           onClick={handleNewThread}
-          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-neon-primary/90 hover:bg-neon-primary text-white text-sm font-medium transition-colors focus-ring"
+          className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg bg-neon-primary/90 hover:bg-neon-primary active:scale-[0.98] text-white text-sm font-medium transition-all focus-ring"
         >
           <Plus className="h-4 w-4" />
           New Chat
@@ -113,13 +113,13 @@ export function ThreadSidebar({
             placeholder="Search..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 text-xs rounded-md bg-surface-2 border border-border-subtle focus:border-neon-primary/50 focus:outline-none transition-colors placeholder:text-text-muted/70"
+            className="w-full pl-8 pr-3 py-2 text-sm rounded-lg bg-surface-2 border border-border-subtle focus:border-neon-primary/50 focus:outline-none transition-colors placeholder:text-text-muted/70"
           />
         </div>
       </div>
 
       {/* Thread List */}
-      <div className="flex-1 overflow-y-auto scrollbar-thin" role="list" aria-label="Conversation threads">
+      <div className="flex-1 overflow-y-auto scrollbar-thin overscroll-contain" role="list" aria-label="Conversation threads">
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-5 w-5 animate-spin text-text-muted" />

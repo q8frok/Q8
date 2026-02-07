@@ -1,14 +1,16 @@
 /**
  * Orchestration Types
  * Shared types for the unified orchestration system
+ *
+ * NOTE: These types are consumed by the SDK runner, API routes, hooks, and UI.
+ * The legacy orchestration service has been removed; these types remain as the
+ * canonical event/routing contract between backend and frontend.
  */
 
-import type { AgentType } from '../model_factory';
-import type { EnrichedContext } from '../types';
+import type { AgentType } from '../sdk/agents';
 
 /**
  * Extended agent types including finance advisor and image generation
- * Note: AgentType from model_factory now includes 'imagegen'
  */
 export type ExtendedAgentType = AgentType;
 
@@ -80,7 +82,13 @@ export type OrchestrationEvent =
   | { type: 'thread_created'; threadId: string }
   | { type: 'memory_extracted'; count: number }
   | { type: 'widget_action'; widgetId: WidgetId; action: 'refresh' | 'update'; data?: Record<string, unknown> }
-  | { type: 'error'; message: string; recoverable?: boolean };
+  | { type: 'error'; message: string; recoverable?: boolean }
+  | { type: 'interruption_required'; tools: Array<{ name: string; args: Record<string, unknown>; id: string; description?: string }>; serializedState?: string }
+  | { type: 'interruption_resolved'; toolId: string; approved: boolean }
+  | { type: 'guardrail_triggered'; guardrail: string; message: string }
+  | { type: 'reasoning_start' }
+  | { type: 'reasoning_end'; durationMs?: number }
+  | { type: 'run_state'; state: 'routing' | 'thinking' | 'tool_executing' | 'composing' | 'done'; agent?: ExtendedAgentType; detail?: string };
 
 /**
  * Orchestration request input
@@ -174,98 +182,3 @@ export const DEFAULT_ROUTING_POLICY: RoutingPolicy = {
   maxLLMRoutingLatency: 500,
 };
 
-// =============================================================================
-// UNIFIED AGENT DEFINITION
-// =============================================================================
-
-import type { OpenAITool, ToolResult } from '../types';
-import type { ModelConfig } from '../model_factory';
-
-/**
- * Tool executor function signature
- * All tool executors follow this pattern for consistency
- */
-export type ToolExecutor = (
-  toolName: string,
-  args: Record<string, unknown>,
-  context?: { userId?: string; sessionId?: string }
-) => Promise<ToolResult>;
-
-/**
- * System prompt builder function
- * Allows dynamic prompt construction based on context
- */
-export type SystemPromptBuilder = (
-  context?: EnrichedContext,
-  additionalContext?: string
-) => string | Promise<string>;
-
-/**
- * Unified Agent Definition
- * Standard interface for all agent types in the swarm
- *
- * This interface ensures consistent structure across:
- * - Tool definitions and execution
- * - System prompt generation
- * - Model configuration
- * - Background processing capabilities
- */
-export interface AgentDefinition {
-  /** Unique agent identifier (matches ExtendedAgentType) */
-  id: ExtendedAgentType;
-
-  /** Display name for the agent */
-  name: string;
-
-  /** Brief description of agent capabilities */
-  description: string;
-
-  /** Model configuration (from model_factory) */
-  modelConfig: ModelConfig;
-
-  /** Base system prompt instructions */
-  instructions: string;
-
-  /** Dynamic system prompt builder (optional) */
-  buildSystemPrompt?: SystemPromptBuilder;
-
-  /** OpenAI-compatible tool definitions */
-  tools: OpenAITool[];
-
-  /** Tool execution function */
-  executeTool: ToolExecutor;
-
-  /** Whether this agent can process requests in background */
-  canBackground: boolean;
-
-  /** Maximum tokens for response (for cost management) */
-  maxResponseTokens?: number;
-
-  /** Tool-specific configuration */
-  toolConfig?: {
-    /** Default timeout for tool execution (ms) */
-    defaultTimeoutMs?: number;
-    /** Maximum concurrent tool calls */
-    maxConcurrentCalls?: number;
-    /** Tools that require user confirmation before execution */
-    confirmationRequired?: string[];
-  };
-
-  /** Agent-specific capabilities for routing */
-  capabilities: AgentCapability;
-}
-
-/**
- * Agent registry for dynamic agent lookup
- */
-export type AgentRegistry = Map<ExtendedAgentType, AgentDefinition>;
-
-/**
- * Create a partial agent definition (for building)
- */
-export type PartialAgentDefinition = Partial<AgentDefinition> & {
-  id: ExtendedAgentType;
-  name: string;
-  tools: OpenAITool[];
-  executeTool: ToolExecutor;
-};

@@ -78,7 +78,7 @@ export function AgentCarousel({
   return (
     <div className={cn('w-full max-w-lg', className)}>
       {/* Agent selector row */}
-      <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-2 scrollbar-hide">
+      <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-2 scrollbar-hide snap-x snap-mandatory scroll-pl-1">
         {availableAgents.map((agent) => (
           <AgentCardMini
             key={agent.id}

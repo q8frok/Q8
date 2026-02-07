@@ -15,7 +15,7 @@
  * Override via environment variables (see model_factory.ts ENV_OVERRIDES).
  */
 
-import type { AgentType } from '../model_factory';
+import type { AgentType } from './agents';
 
 // =============================================================================
 // Model Mapping

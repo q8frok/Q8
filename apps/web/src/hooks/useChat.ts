@@ -83,6 +83,11 @@ const KNOWN_EVENT_TYPES = new Set([
   'error',
   'run_created',
   'run_state',
+  'reasoning_start',
+  'reasoning_end',
+  'guardrail_triggered',
+  'interruption_required',
+  'interruption_resolved',
 ]);
 
 function parseVersionedEvent(raw: unknown): ParsedStreamEvent | null {
@@ -194,7 +199,11 @@ export interface StreamingMessage {
   handoff?: HandoffInfo;
   imageAnalysis?: string;
   run?: RunMetadata;
+  isReasoning?: boolean;
+  reasoningDurationMs?: number;
 }
+
+export type PipelineState = 'routing' | 'thinking' | 'tool_executing' | 'composing' | 'done' | null;
 
 export interface ChatState {
   messages: StreamingMessage[];
@@ -211,6 +220,8 @@ export interface ChatState {
   runStartedAt: Date | null;
   runUpdatedAt: Date | null;
   runEndedAt: Date | null;
+  pipelineState: PipelineState;
+  pipelineDetail: string | null;
 }
 
 interface UseChatOptions {
@@ -289,6 +300,8 @@ export function useChat(options: UseChatOptions) {
     runStartedAt: null,
     runUpdatedAt: null,
     runEndedAt: null,
+    pipelineState: null,
+    pipelineDetail: null,
   });
 
   // Track if we should skip the next message load (when thread is created during streaming)
@@ -411,6 +424,34 @@ export function useChat(options: UseChatOptions) {
   const abortControllerRef = useRef<AbortController | null>(null);
   const streamingMessageRef = useRef<StreamingMessage | null>(null);
 
+  // Delta batching: buffer content deltas in a ref, flush to state via RAF
+  const contentBufferRef = useRef('');
+  const rafIdRef = useRef<number | null>(null);
+  const activeMessageIdRef = useRef<string | null>(null);
+
+  const flushContentBuffer = useCallback(() => {
+    rafIdRef.current = null;
+    const buffered = contentBufferRef.current;
+    const msgId = activeMessageIdRef.current;
+    if (!buffered || !msgId) return;
+    contentBufferRef.current = '';
+    setState(prev => ({
+      ...prev,
+      messages: prev.messages.map(m =>
+        m.id === msgId
+          ? { ...m, content: m.content + buffered }
+          : m
+      ),
+    }));
+  }, []);
+
+  // Cleanup RAF on unmount
+  useEffect(() => {
+    return () => {
+      if (rafIdRef.current !== null) cancelAnimationFrame(rafIdRef.current);
+    };
+  }, []);
+
   const generateRequestId = (): string => {
     if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
       return crypto.randomUUID();
@@ -466,11 +507,15 @@ export function useChat(options: UseChatOptions) {
     };
 
     streamingMessageRef.current = assistantMessage;
+    activeMessageIdRef.current = assistantMessageId;
+    contentBufferRef.current = '';
 
     setState(prev => ({
       ...prev,
       messages: [...prev.messages, assistantMessage],
       isStreaming: true,
+      pipelineState: 'routing',
+      pipelineDetail: null,
     }));
 
     abortControllerRef.current = new AbortController();
@@ -808,18 +853,32 @@ export function useChat(options: UseChatOptions) {
 
       case 'content':
         if (event.delta) {
-          setState(prev => ({
-            ...prev,
-            messages: prev.messages.map(m =>
-              m.id === messageId
-                ? { ...m, content: m.content + event.delta }
-                : m
-            ),
-          }));
+          // Batch deltas in ref, flush via RAF for ~60fps renders instead of per-token
+          contentBufferRef.current += event.delta;
+          if (rafIdRef.current === null) {
+            rafIdRef.current = requestAnimationFrame(flushContentBuffer);
+          }
         }
         break;
 
       case 'done':
+        // Flush any remaining buffered content before finalizing
+        if (contentBufferRef.current && activeMessageIdRef.current === messageId) {
+          const remaining = contentBufferRef.current;
+          contentBufferRef.current = '';
+          if (rafIdRef.current !== null) {
+            cancelAnimationFrame(rafIdRef.current);
+            rafIdRef.current = null;
+          }
+          setState(prev => ({
+            ...prev,
+            messages: prev.messages.map(m =>
+              m.id === messageId ? { ...m, content: m.content + remaining } : m
+            ),
+          }));
+        }
+        activeMessageIdRef.current = null;
+
         updateRunMetadata('completed', event.runId as string);
         // Handle images from done event
         const doneImages = event.images?.map(img => ({
@@ -834,6 +893,8 @@ export function useChat(options: UseChatOptions) {
           isLoading: false,
           isStreaming: false,
           pendingHandoff: null,
+          pipelineState: 'done',
+          pipelineDetail: null,
           messages: prev.messages.map(m =>
             m.id === messageId
               ? {
@@ -853,13 +914,64 @@ export function useChat(options: UseChatOptions) {
         }
         break;
 
+      case 'run_state':
+        // Pipeline state indicator (routing → thinking → tool_executing → composing → done)
+        if (event.state) {
+          const pipeState = event.state as PipelineState;
+          setState(prev => ({
+            ...prev,
+            pipelineState: pipeState,
+            pipelineDetail: (event.detail as string) || null,
+          }));
+        }
+        break;
+
+      case 'reasoning_start':
+        setState(prev => ({
+          ...prev,
+          pipelineState: 'thinking',
+          pipelineDetail: 'Deep reasoning...',
+          messages: prev.messages.map(m =>
+            m.id === messageId ? { ...m, isReasoning: true } : m
+          ),
+        }));
+        break;
+
+      case 'reasoning_end':
+        setState(prev => ({
+          ...prev,
+          messages: prev.messages.map(m =>
+            m.id === messageId
+              ? { ...m, isReasoning: false, reasoningDurationMs: (event as ParsedStreamEvent).durationMs as number | undefined }
+              : m
+          ),
+        }));
+        break;
+
+      case 'guardrail_triggered':
+        // Guardrail blocks are followed by an error event, so just log
+        logger.warn('Guardrail triggered', {
+          guardrail: (event as ParsedStreamEvent).guardrail,
+          message: event.message,
+        });
+        break;
+
+      case 'interruption_required':
+      case 'interruption_resolved':
+        // Forward-compatible: log for now, confirmation UI in future
+        logger.info('HITL event received', { type: event.type });
+        break;
+
       case 'error':
         updateRunMetadata('failed', event.runId as string);
+        activeMessageIdRef.current = null;
         setState(prev => ({
           ...prev,
           isLoading: false,
           isStreaming: false,
           error: event.message || 'Unknown error',
+          pipelineState: null,
+          pipelineDetail: null,
           messages: prev.messages.map(m =>
             m.id === messageId
               ? { ...m, isStreaming: false, content: m.content || 'Error occurred' }
@@ -896,7 +1008,8 @@ export function useChat(options: UseChatOptions) {
     onThreadCreated,
     onMemoryExtracted,
     state.messages,
-    saveRunMetadata
+    saveRunMetadata,
+    flushContentBuffer
   ]);
 
   /**
@@ -905,10 +1018,18 @@ export function useChat(options: UseChatOptions) {
   const cancelStream = useCallback(() => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
+      activeMessageIdRef.current = null;
+      contentBufferRef.current = '';
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
       setState(prev => ({
         ...prev,
         isLoading: false,
         isStreaming: false,
+        pipelineState: null,
+        pipelineDetail: null,
         runState: 'cancelled',
         runUpdatedAt: new Date(),
         runEndedAt: new Date(),
@@ -939,6 +1060,8 @@ export function useChat(options: UseChatOptions) {
       runStartedAt: null,
       runUpdatedAt: null,
       runEndedAt: null,
+      pipelineState: null,
+      pipelineDetail: null,
     }));
   }, []);
 

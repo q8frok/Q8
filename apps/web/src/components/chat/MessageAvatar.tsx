@@ -19,7 +19,7 @@ export function MessageAvatar({ agentConfig, isStreaming = false }: MessageAvata
     <div className="flex-shrink-0">
       <motion.div
         className={cn(
-          'relative h-10 w-10 rounded-full flex items-center justify-center overflow-hidden',
+          'relative h-8 w-8 sm:h-10 sm:w-10 rounded-full flex items-center justify-center overflow-hidden',
           agentConfig.bgColor
         )}
         animate={isStreaming ? { scale: [1, 1.05, 1] } : {}}

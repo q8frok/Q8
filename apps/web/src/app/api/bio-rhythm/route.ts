@@ -7,9 +7,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
 import { getBioRhythmState } from '@/lib/integrations/oura';
-import { applyBioRhythmLighting } from '@/lib/agents/sub-agents/home';
 import { logger } from '@/lib/logger';
 
+// TODO: Phase 2 — Migrate bio-rhythm lighting to SDK home tools
 export const runtime = 'edge';
 
 /**
@@ -57,9 +57,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { lightEntityIds } = body as { lightEntityIds?: string[] };
 
-    const result = await applyBioRhythmLighting(user.id, lightEntityIds);
-
-    return NextResponse.json(result);
+    // TODO: Phase 2 — Migrate to SDK home tools
+    logger.info('[Bio-Rhythm] Lighting request', { userId: user.id, lightEntityIds });
+    return NextResponse.json({ success: false, message: 'Bio-rhythm lighting is being migrated to the new agent system.' });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[Bio-Rhythm] Apply lighting error', { userId: user.id, error: errorMessage });

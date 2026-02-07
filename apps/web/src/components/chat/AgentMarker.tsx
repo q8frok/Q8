@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { MessageCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getAgentDisplayConfig, type AgentRole } from '@/lib/agents/display-config';
-import type { ExtendedAgentType } from '@/lib/agents/orchestration';
+import type { ExtendedAgentType } from '@/lib/agents/orchestration/types';
 
 interface AgentMarkerProps {
   agent: ExtendedAgentType | string;

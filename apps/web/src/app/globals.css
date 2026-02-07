@@ -1007,6 +1007,36 @@ input[type="button"] {
 }
 
 /* ============================================
+   Chat Streaming Cursor (CSS-only, GPU-friendly)
+   ============================================ */
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.animate-cursor-blink {
+  animation: cursor-blink 0.8s step-end infinite;
+}
+
+/* ============================================
+   Chat Message Scroll Optimization
+   ============================================ */
+.chat-message-item {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 80px;
+}
+
+/* ============================================
+   P3 Wide-Gamut Color Enhancement (iPhone 17 Pro Max)
+   ============================================ */
+@media (color-gamut: p3) {
+  :root {
+    --color-neon-primary: color(display-p3 0.45 0.3 0.95);
+    --color-neon-accent: color(display-p3 0.3 0.85 0.4);
+  }
+}
+
+/* ============================================
    Mobile GPU Optimization
    ============================================ */
 @media (max-width: 768px) {

@@ -15,6 +15,9 @@ import {
   Home,
   Trash2,
   Star,
+  Activity,
+  CreditCard,
+  Minus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -36,7 +39,7 @@ interface GoogleAccount {
 
 interface ToolHealthStatus {
   name: string;
-  status: 'ok' | 'degraded' | 'error';
+  status: 'ok' | 'degraded' | 'error' | 'not_configured';
   message: string;
   latencyMs?: number;
 }
@@ -197,10 +200,18 @@ export function IntegrationsSettings({ userId: _userId }: IntegrationsSettingsPr
               label="Spotify"
               status={getToolStatus('spotify')}
               description="Music playback, search, and queue control"
-              actionLabel={getToolStatus('spotify')?.status === 'error' ? 'Re-authorize' : undefined}
-              onAction={getToolStatus('spotify')?.status === 'error' ? () => {
-                window.location.href = '/api/spotify/auth';
-              } : undefined}
+              actionLabel={
+                getToolStatus('spotify')?.status === 'error' ||
+                getToolStatus('spotify')?.status === 'not_configured'
+                  ? 'Set up'
+                  : undefined
+              }
+              onAction={
+                getToolStatus('spotify')?.status === 'error' ||
+                getToolStatus('spotify')?.status === 'not_configured'
+                  ? () => { window.location.href = '/api/spotify/auth'; }
+                  : undefined
+              }
             />
             <ServiceStatusRow
               icon={Github}
@@ -219,6 +230,18 @@ export function IntegrationsSettings({ userId: _userId }: IntegrationsSettingsPr
               label="Weather"
               status={getToolStatus('weather')}
               description="Current weather and forecasts"
+            />
+            <ServiceStatusRow
+              icon={CreditCard}
+              label="Square"
+              status={getToolStatus('square')}
+              description="Payment processing"
+            />
+            <ServiceStatusRow
+              icon={Activity}
+              label="Oura Ring"
+              status={getToolStatus('oura_ring')}
+              description="Health & sleep tracking"
             />
           </div>
         )}
@@ -374,21 +397,35 @@ interface ServiceStatusRowProps {
 }
 
 function ServiceStatusRow({ icon: Icon, label, status, description, actionLabel, onAction }: ServiceStatusRowProps) {
+  const s = status?.status;
   const statusColor =
-    status?.status === 'ok'
+    s === 'ok'
       ? 'text-emerald-400'
-      : status?.status === 'degraded'
+      : s === 'degraded'
         ? 'text-amber-400'
-        : 'text-red-400';
+        : s === 'not_configured'
+          ? 'text-text-muted'
+          : 'text-red-400';
 
   const statusIcon =
-    status?.status === 'ok' ? (
+    s === 'ok' ? (
       <Check className={cn('h-4 w-4', statusColor)} />
-    ) : status?.status === 'degraded' ? (
+    ) : s === 'degraded' ? (
       <RefreshCw className={cn('h-4 w-4', statusColor)} />
+    ) : s === 'not_configured' ? (
+      <Minus className={cn('h-4 w-4', statusColor)} />
     ) : (
       <X className={cn('h-4 w-4', statusColor)} />
     );
+
+  const statusLabel =
+    s === 'ok'
+      ? 'Connected'
+      : s === 'degraded'
+        ? 'Degraded'
+        : s === 'not_configured'
+          ? 'Not Configured'
+          : 'Error';
 
   return (
     <div className="flex items-center gap-3 rounded-lg border border-border-subtle p-3">
@@ -402,11 +439,7 @@ function ServiceStatusRow({ icon: Icon, label, status, description, actionLabel,
           <>
             {statusIcon}
             <span className={cn('text-xs', statusColor)}>
-              {status.status === 'ok'
-                ? 'Connected'
-                : status.status === 'degraded'
-                  ? 'Degraded'
-                  : 'Error'}
+              {statusLabel}
             </span>
             {actionLabel && onAction && (
               <button

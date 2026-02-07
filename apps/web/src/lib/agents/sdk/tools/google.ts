@@ -60,6 +60,16 @@ async function googleApi(
 
   if (!res.ok) {
     const text = await res.text();
+    if (res.status === 401) {
+      logger.error('[Google API] 401 Unauthorized — token expired or revoked', {
+        url: url.split('?')[0],
+        response: text.slice(0, 300),
+      });
+      throw new Error(
+        'Google API authentication failed. Your access token may have expired. ' +
+        'Please re-connect your Google account in Settings → Integrations.'
+      );
+    }
     throw new Error(`Google API ${res.status}: ${text.slice(0, 200)}`);
   }
 

@@ -75,6 +75,8 @@ export const UnifiedConversation = forwardRef<UnifiedConversationRef, UnifiedCon
       cancelStream,
       clearMessages,
       retryLast,
+      pipelineState,
+      pipelineDetail,
     } = useUnifiedChat({
       userId,
       threadId,
@@ -175,6 +177,8 @@ export const UnifiedConversation = forwardRef<UnifiedConversationRef, UnifiedCon
           routingReason={routingReason}
           error={error}
           runState={runState}
+          pipelineState={pipelineState}
+          pipelineDetail={pipelineDetail}
           onSend={handleSend}
           onMentionInsert={handleMentionInsert}
           onRetry={retryLast}

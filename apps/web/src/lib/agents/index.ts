@@ -1,51 +1,50 @@
 /**
  * Agent Module
- * Unified entry point for multi-agent orchestration
+ * Unified entry point for the OpenAI Agents SDK orchestration system.
  *
  * ARCHITECTURE:
- * All agent functionality is now centralized in lib/agents/orchestration/service.ts.
- * This file serves as a clean re-export layer.
+ * The active execution path is lib/agents/sdk/ which uses @openai/agents SDK.
+ * This file re-exports the SDK services and shared types.
  *
  * Usage:
- *   import { processMessage, streamMessage } from '@/lib/agents';
- *   // OR import directly from orchestration
- *   import { processMessage, streamMessage } from '@/lib/agents/orchestration';
+ *   import { executeChatStream } from '@/lib/agents';
+ *   import type { AgentType, OrchestrationEvent } from '@/lib/agents';
  */
 
 // ============================================================================
-// UNIFIED ORCHESTRATION SERVICE EXPORTS
+// SDK SERVICE EXPORTS
 // ============================================================================
 
-// Service functions
-export { processMessage, streamMessage } from './orchestration/service';
+export { executeChatStream, executeChat } from './sdk/chat-service';
+export { streamMessage } from './sdk/runner';
 
-// Types
+// ============================================================================
+// TYPE EXPORTS
+// ============================================================================
+
+// Agent types from SDK
+export type { AgentType } from './sdk/agents';
+
+// Orchestration event types (shared contract between backend & frontend)
 export type {
-  OrchestrationRequest,
-  OrchestrationResponse,
   OrchestrationEvent,
   ExtendedAgentType,
   RoutingDecision,
   ToolEvent,
   AgentCapability,
   RoutingPolicy,
+  ConversationMode,
+  InputMethod,
+  WidgetId,
 } from './orchestration/types';
 
 export { DEFAULT_ROUTING_POLICY } from './orchestration/types';
 
-// Router functions (for advanced usage)
-export { route, heuristicRoute, llmRoute, AGENT_CAPABILITIES } from './orchestration/router';
+// Model provider
+export { getAgentModel, getAgentModelName, getRouterModel } from './sdk/model-provider';
 
-// Metrics (for telemetry/debugging)
-export {
-  logRoutingTelemetry,
-  recordImplicitFeedback,
-  getRoutingMetrics,
-} from './orchestration/metrics';
+// Display config
+export { getAgentDisplayConfig, type AgentRole } from './display-config';
 
-// ============================================================================
-// MODEL & TYPE EXPORTS
-// ============================================================================
-
+// Shared types
 export * from './types';
-export * from './model_factory';

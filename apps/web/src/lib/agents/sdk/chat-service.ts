@@ -1,4 +1,4 @@
-import { type OrchestrationEvent, type ExtendedAgentType, type RoutingDecision, type ToolEvent } from '@/lib/agents/orchestration';
+import { type OrchestrationEvent, type ExtendedAgentType, type RoutingDecision, type ToolEvent } from '@/lib/agents/orchestration/types';
 import { streamMessage as streamMessageSDK, type AgentType } from '@/lib/agents/sdk';
 import { classifyError } from '@/lib/agents/sdk/utils/errors';
 import type { VersionedEvent } from '@/lib/agents/sdk/events';

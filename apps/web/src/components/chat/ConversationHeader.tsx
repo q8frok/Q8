@@ -43,8 +43,8 @@ export function ConversationHeader({
   const CurrentModeIcon = MODE_CONFIG[mode].icon;
 
   return (
-    <header className="flex items-center justify-between px-4 py-2 border-b border-border-subtle">
-      <div className="flex items-center gap-3">
+    <header className="sticky top-0 z-20 flex items-center justify-between px-3 sm:px-4 py-2 pt-[calc(0.5rem+env(safe-area-inset-top,0px))] border-b border-border-subtle bg-surface-1/80 backdrop-blur-md">
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0 overflow-hidden">
         {/* Sidebar Toggle */}
         {showSidebarToggle && (
           <Button
@@ -82,7 +82,7 @@ export function ConversationHeader({
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -10, scale: 0.95 }}
                 transition={{ duration: 0.15 }}
-                className="absolute top-full left-0 mt-2 z-50 bg-surface-2 border border-border-subtle rounded-xl shadow-lg p-2 min-w-[160px]"
+                className="absolute top-full left-0 mt-2 z-50 bg-surface-2 border border-border-subtle rounded-xl shadow-lg backdrop-blur-xl p-2 min-w-[160px]"
               >
                 {(Object.entries(MODE_CONFIG) as [ConversationMode, typeof MODE_CONFIG.text][]).map(
                   ([key, config]) => (

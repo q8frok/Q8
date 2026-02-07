@@ -237,7 +237,7 @@ export function AgentCardMini({
     <button
       onClick={onClick}
       className={cn(
-        'flex flex-col items-center gap-1.5 p-3 rounded-xl min-w-[80px]',
+        'flex flex-col items-center gap-1.5 p-3 rounded-xl min-w-[72px] snap-center',
         'border transition-all duration-200',
         isActive
           ? [agent.color.bg, agent.color.border, agent.color.text]

@@ -390,6 +390,8 @@ export function useUnifiedChat(options: UseUnifiedChatOptions): UseUnifiedChatRe
     runStartedAt: chat.runStartedAt,
     runUpdatedAt: chat.runUpdatedAt,
     runEndedAt: chat.runEndedAt,
+    pipelineState: chat.pipelineState,
+    pipelineDetail: chat.pipelineDetail,
 
     // Mode state
     mode,

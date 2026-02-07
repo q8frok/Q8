@@ -10,7 +10,7 @@
  */
 
 import { NextRequest } from 'next/server';
-import { type OrchestrationEvent, type ExtendedAgentType } from '@/lib/agents/orchestration';
+import { type OrchestrationEvent, type ExtendedAgentType } from '@/lib/agents/orchestration/types';
 import { executeChatStream, type ChatFailure, type ChatFailureClass } from '@/lib/agents/sdk/chat-service';
 import { classifyError } from '@/lib/agents/sdk/utils/errors';
 import {
@@ -21,6 +21,7 @@ import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth'
 import { fetchCanonicalConversationHistory } from '@/lib/server/chat-history';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { logger } from '@/lib/logger';
+import type { ChatMessageInsert } from '@/lib/supabase/types';
 
 // Use Node.js runtime for full compatibility with OpenAI and Supabase SDKs
 export const runtime = 'nodejs';
@@ -69,7 +70,7 @@ interface StreamRequest {
 
 type StreamEventBase =
   | { type: 'run_created'; runId: string; state: 'queued'; timestamp: string }
-  | { type: 'run_state'; runId: string; state: 'queued' | 'running' | 'awaiting_tool' | 'completed' | 'failed' | 'cancelled'; timestamp: string }
+  | { type: 'run_state'; state: string; agent?: string; detail?: string; runId?: string; timestamp?: string }
   | { type: 'routing'; agent: string; reason: string; confidence: number; source: string }
   | { type: 'agent_start'; agent: string }
   | { type: 'handoff'; from: string; to: string; reason: string }
@@ -95,6 +96,11 @@ type StreamEventBase =
   | { type: 'thread_created'; threadId: string }
   | { type: 'memory_extracted'; count: number }
   | { type: 'widget_action'; widgetId: string; action: string; data?: Record<string, unknown> }
+  | { type: 'interruption_required'; tools: Array<{ name: string; args: Record<string, unknown>; id: string; description?: string }>; serializedState?: string }
+  | { type: 'interruption_resolved'; toolId: string; approved: boolean }
+  | { type: 'guardrail_triggered'; guardrail: string; message: string }
+  | { type: 'reasoning_start' }
+  | { type: 'reasoning_end'; durationMs?: number }
   | { type: 'error'; message: string; recoverable?: boolean; failure?: ChatFailure };
 
 type StreamEvent = StreamEventBase & {
@@ -139,6 +145,18 @@ function toStreamEvent(event: OrchestrationEvent): StreamEventBase {
       return { type: 'memory_extracted', count: event.count };
     case 'widget_action':
       return { type: 'widget_action', widgetId: event.widgetId, action: event.action, data: event.data };
+    case 'interruption_required':
+      return { type: 'interruption_required', tools: event.tools, serializedState: event.serializedState };
+    case 'interruption_resolved':
+      return { type: 'interruption_resolved', toolId: event.toolId, approved: event.approved };
+    case 'guardrail_triggered':
+      return { type: 'guardrail_triggered', guardrail: event.guardrail, message: event.message };
+    case 'reasoning_start':
+      return { type: 'reasoning_start' };
+    case 'reasoning_end':
+      return { type: 'reasoning_end', durationMs: event.durationMs };
+    case 'run_state':
+      return { type: 'run_state', state: event.state, agent: event.agent, detail: event.detail };
     case 'done':
     case 'error':
       throw new Error(`Unexpected ${event.type} in passthrough mapping`);
@@ -238,7 +256,8 @@ export async function POST(request: NextRequest) {
 
   (async () => {
     let currentRouting = { agent: 'orchestrator', confidence: 0, rationale: 'Routing unavailable', source: 'fallback' };
-    const toolEndEvents: Array<{ tool: string; success: boolean }> = [];
+    const toolStartMap = new Map<string, { tool: string; args: Record<string, unknown>; startedAt: number }>();
+    const toolEndEvents: Array<{ id: string; tool: string; success: boolean; args: Record<string, unknown>; result?: unknown; duration?: number }> = [];
     let idempotencyId: string | null = null;
 
     const trace: EventTraceContext = {
@@ -275,6 +294,16 @@ export async function POST(request: NextRequest) {
         ))));
         await writer.close();
         return;
+      }
+
+      // --- Ensure thread exists in DB (FK required by idempotency + chat_messages) ---
+      if (threadId) {
+        const { error: threadUpsertError } = await supabaseAdmin
+          .from('threads')
+          .upsert({ id: threadId, user_id: userId }, { onConflict: 'id', ignoreDuplicates: true });
+        if (threadUpsertError) {
+          logger.warn('[Stream API] Failed to ensure thread exists', { threadId, error: threadUpsertError });
+        }
       }
 
       // --- Idempotency check (when both threadId and requestId are present) ---
@@ -340,6 +369,21 @@ export async function POST(request: NextRequest) {
         eventVersion: EVENT_SCHEMA_VERSION,
       });
 
+      // --- Persist user message (so follow-ups have history) ---
+      if (threadId) {
+        try {
+          await supabaseAdmin.from('chat_messages').insert({
+            id: crypto.randomUUID(),
+            thread_id: threadId,
+            user_id: userId,
+            role: 'user',
+            content: message,
+          } as ChatMessageInsert);
+        } catch (persistErr) {
+          logger.warn('[Stream API] Failed to persist user message', { threadId, error: persistErr });
+        }
+      }
+
       // --- Fetch server-canonical history (PR #7) ---
       const canonicalConversationHistory = threadId
         ? await fetchCanonicalConversationHistory(threadId)
@@ -377,6 +421,7 @@ export async function POST(request: NextRequest) {
           await emitRunState('running');
         }
         if (event.type === 'tool_start') {
+          toolStartMap.set(event.id, { tool: event.tool, args: event.args, startedAt: Date.now() });
           await emitRunState('awaiting_tool');
         }
         if (event.type === 'tool_end') {
@@ -396,7 +441,16 @@ export async function POST(request: NextRequest) {
         }
 
         if (event.type === 'tool_end') {
-          toolEndEvents.push({ tool: event.tool, success: event.success });
+          const startInfo = toolStartMap.get(event.id);
+          toolEndEvents.push({
+            id: event.id,
+            tool: event.tool,
+            success: event.success,
+            args: startInfo?.args ?? {},
+            result: event.result,
+            duration: event.duration ?? (startInfo ? Date.now() - startInfo.startedAt : undefined),
+          });
+          toolStartMap.delete(event.id);
           const mapped = toStreamEvent(event);
           await writer.write(encoder.encode(encodeSSE({ ...mapped, ...eventMeta })));
           continue;
@@ -404,6 +458,13 @@ export async function POST(request: NextRequest) {
 
         if (event.type === 'thread_created') {
           createdThread = true;
+          // Persist the new thread to the DB
+          const { error: newThreadErr } = await supabaseAdmin
+            .from('threads')
+            .upsert({ id: event.threadId, user_id: userId }, { onConflict: 'id', ignoreDuplicates: true });
+          if (newThreadErr) {
+            logger.warn('[Stream API] Failed to persist new thread', { threadId: event.threadId, error: newThreadErr });
+          }
           const mapped = toStreamEvent(event);
           await writer.write(encoder.encode(encodeSSE({ ...mapped, ...eventMeta })));
           continue;
@@ -427,6 +488,39 @@ export async function POST(request: NextRequest) {
             failure: null,
           };
           finalDoneEvent = doneBase;
+
+          // --- Persist assistant message with tool executions & metadata ---
+          const persistThreadId = event.threadId || threadId;
+          if (persistThreadId && event.fullContent) {
+            const persistedToolExecutions = toolEndEvents.map(t => ({
+              id: t.id,
+              tool: t.tool,
+              args: t.args,
+              status: (t.success ? 'completed' : 'failed') as 'completed' | 'failed',
+              result: t.result,
+              duration: t.duration,
+            }));
+            try {
+              await supabaseAdmin.from('chat_messages').insert({
+                id: crypto.randomUUID(),
+                thread_id: persistThreadId,
+                user_id: userId,
+                role: 'assistant',
+                content: event.fullContent,
+                agent_name: event.agent,
+                tool_executions: persistedToolExecutions.length > 0 ? persistedToolExecutions : undefined,
+                metadata: {
+                  runId: apiRunId,
+                  requestId: effectiveRequestId,
+                  agentSelection: currentRouting,
+                  toolSummary: doneBase.toolSummary,
+                },
+              } as ChatMessageInsert);
+            } catch (persistErr) {
+              logger.warn('[Stream API] Failed to persist assistant message', { threadId: persistThreadId, error: persistErr });
+            }
+          }
+
           await emitRunState('completed');
           await writer.write(encoder.encode(encodeSSE({ ...doneBase, ...eventMeta })));
           continue;
@@ -465,8 +559,21 @@ export async function POST(request: NextRequest) {
       const state: 'cancelled' | 'failed' = request.signal.aborted ? 'cancelled' : 'failed';
       try { await emitRunState(state); } catch { /* writer may be closed */ }
 
-      logger.error('[Stream API] Error', { requestId, runId: apiRunId, error });
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('[Stream API] Error', {
+        requestId,
+        runId: apiRunId,
+        error,
+        errorType: typeof error,
+        errorConstructor: error?.constructor?.name,
+        errorString: String(error),
+      });
+      const errorMessage = error instanceof Error
+        ? error.message
+        : typeof error === 'string'
+          ? error
+          : typeof error === 'object' && error !== null
+            ? JSON.stringify(error).slice(0, 500)
+            : 'Unknown error';
       const classification = classifyError(errorMessage);
       const failure: ChatFailure = {
         class: toFailureClass(classification.code),

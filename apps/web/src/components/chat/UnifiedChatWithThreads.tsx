@@ -164,24 +164,50 @@ export const UnifiedChatWithThreads = forwardRef<UnifiedChatWithThreadsRef, Unif
     }, [currentThreadId, refreshThreads]);
 
     return (
-      <div className={cn('flex h-full', className)}>
-        {/* Thread Sidebar */}
+      <div className={cn('flex h-full relative', className)}>
+        {/* Thread Sidebar — mobile: full overlay; desktop: inline panel */}
         <AnimatePresence initial={false}>
           {sidebarOpen && (
-            <motion.div
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 240, opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
-              transition={{ duration: 0.15 }}
-              className="h-full border-r border-border-subtle overflow-hidden flex-shrink-0 bg-surface-2/50"
-            >
-              <ThreadSidebar
-                userId={userId}
-                currentThreadId={currentThreadId}
-                onThreadSelect={handleThreadSelect}
-                onNewThread={handleNewThread}
+            <>
+              {/* Backdrop overlay (mobile only) */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                className="sm:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+                onClick={() => setSidebarOpen(false)}
               />
-            </motion.div>
+              <motion.div
+                initial={{ x: -280, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: -280, opacity: 0 }}
+                transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+                className="sm:hidden fixed inset-y-0 left-0 z-50 w-[280px] bg-surface-2 border-r border-border-subtle shadow-3 pt-safe-top pb-safe-bottom"
+              >
+                <ThreadSidebar
+                  userId={userId}
+                  currentThreadId={currentThreadId}
+                  onThreadSelect={(id) => { handleThreadSelect(id); setSidebarOpen(false); }}
+                  onNewThread={() => { handleNewThread(); setSidebarOpen(false); }}
+                />
+              </motion.div>
+              {/* Desktop inline sidebar */}
+              <motion.div
+                initial={{ width: 0, opacity: 0 }}
+                animate={{ width: 240, opacity: 1 }}
+                exit={{ width: 0, opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                className="hidden sm:block h-full border-r border-border-subtle overflow-hidden flex-shrink-0 bg-surface-2/50"
+              >
+                <ThreadSidebar
+                  userId={userId}
+                  currentThreadId={currentThreadId}
+                  onThreadSelect={handleThreadSelect}
+                  onNewThread={handleNewThread}
+                />
+              </motion.div>
+            </>
           )}
         </AnimatePresence>
 

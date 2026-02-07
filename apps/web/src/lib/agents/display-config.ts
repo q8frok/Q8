@@ -22,6 +22,8 @@ export interface AgentDisplayConfig {
   icon: LucideIcon;
   iconColor: string;
   bgColor: string;
+  /** Subtle glow shadow for assistant message bubbles */
+  glowColor?: string;
   description?: string;
   /** Model name for display purposes */
   model?: string;
@@ -37,6 +39,7 @@ export const AGENT_DISPLAY_CONFIG: Record<AgentRole, AgentDisplayConfig> = {
     icon: Bot,
     iconColor: 'text-neon-primary',
     bgColor: 'bg-neon-primary/20',
+    glowColor: 'shadow-[0_0_12px_rgba(139,92,246,0.15)]',
     description: 'Main routing agent',
     model: 'GPT-5.2',
   },
@@ -45,6 +48,7 @@ export const AGENT_DISPLAY_CONFIG: Record<AgentRole, AgentDisplayConfig> = {
     icon: Code2,
     iconColor: 'text-blue-500',
     bgColor: 'bg-blue-500/20',
+    glowColor: 'shadow-[0_0_12px_rgba(59,130,246,0.15)]',
     description: 'Code and development specialist',
     model: 'Claude Opus 4.5',
   },
@@ -53,6 +57,7 @@ export const AGENT_DISPLAY_CONFIG: Record<AgentRole, AgentDisplayConfig> = {
     icon: Search,
     iconColor: 'text-purple-500',
     bgColor: 'bg-purple-500/20',
+    glowColor: 'shadow-[0_0_12px_rgba(168,85,247,0.15)]',
     description: 'Web search and research',
     model: 'Sonar Reasoning Pro',
   },
@@ -61,6 +66,7 @@ export const AGENT_DISPLAY_CONFIG: Record<AgentRole, AgentDisplayConfig> = {
     icon: Calendar,
     iconColor: 'text-green-500',
     bgColor: 'bg-green-500/20',
+    glowColor: 'shadow-[0_0_12px_rgba(34,197,94,0.15)]',
     description: 'Email, calendar, and scheduling',
     model: 'Gemini 3 Flash',
   },
@@ -69,6 +75,7 @@ export const AGENT_DISPLAY_CONFIG: Record<AgentRole, AgentDisplayConfig> = {
     icon: Bot,
     iconColor: 'text-orange-500',
     bgColor: 'bg-orange-500/20',
+    glowColor: 'shadow-[0_0_12px_rgba(249,115,22,0.15)]',
     description: 'Casual conversation and creativity',
     model: 'Grok 4.1',
   },
@@ -77,6 +84,7 @@ export const AGENT_DISPLAY_CONFIG: Record<AgentRole, AgentDisplayConfig> = {
     icon: Home,
     iconColor: 'text-cyan-500',
     bgColor: 'bg-cyan-500/20',
+    glowColor: 'shadow-[0_0_12px_rgba(6,182,212,0.15)]',
     description: 'Smart home control',
     model: 'GPT-5-mini',
   },
@@ -85,6 +93,7 @@ export const AGENT_DISPLAY_CONFIG: Record<AgentRole, AgentDisplayConfig> = {
     icon: DollarSign,
     iconColor: 'text-emerald-500',
     bgColor: 'bg-emerald-500/20',
+    glowColor: 'shadow-[0_0_12px_rgba(16,185,129,0.15)]',
     description: 'Personal finance and budgeting',
     model: 'Gemini 3 Flash',
   },
@@ -93,6 +102,7 @@ export const AGENT_DISPLAY_CONFIG: Record<AgentRole, AgentDisplayConfig> = {
     icon: ImageIcon,
     iconColor: 'text-pink-500',
     bgColor: 'bg-pink-500/20',
+    glowColor: 'shadow-[0_0_12px_rgba(236,72,153,0.15)]',
     description: 'AI image generation and analysis',
     model: 'gpt-image-1.5',
   },

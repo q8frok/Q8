@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { requireAuth } from '@/lib/auth/api-auth';
-import { getModel } from '@/lib/agents/model_factory';
+import { getAgentModel } from '@/lib/agents/sdk/model-provider';
 import { errorResponse } from '@/lib/api/error-responses';
 import { logger } from '@/lib/logger';
 
@@ -53,16 +53,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const modelConfig = getModel('secretary');
-    const client = new OpenAI({
-      apiKey: modelConfig.apiKey,
-      baseURL: modelConfig.baseURL,
-    });
+    const model = getAgentModel('secretary');
+    const client = new OpenAI();
 
     const systemPrompt = OPERATION_PROMPTS[operation as NoteAIOperation];
 
     const completion = await client.chat.completions.create({
-      model: modelConfig.model,
+      model,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content },

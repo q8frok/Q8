@@ -1,9 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  financeAdvisorConfig,
-  executeFinanceAdvisorTool,
-  getFinancialContext,
-} from '@/lib/agents/sub-agents/finance-advisor';
+import OpenAI from 'openai';
 import {
   getAuthenticatedUser,
   unauthorizedResponse,
@@ -11,21 +7,10 @@ import {
 import { errorResponse } from '@/lib/api/error-responses';
 import { supabaseAdmin as supabase } from '@/lib/supabase/server';
 import { logger } from '@/lib/logger';
+import { getAgentModel } from '@/lib/agents/sdk/model-provider';
 
-// Message interface
-interface ChatMessage {
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-}
-
-interface ToolCall {
-  id: string;
-  type: 'function';
-  function: {
-    name: string;
-    arguments: string;
-  };
-}
+// TODO: Phase 4 — Migrate finance chat to SDK finance agent with proper tool execution.
+// This is a simplified direct-call version that replaces the legacy gemini-based sub-agent.
 
 /**
  * POST /api/finance/ai/chat
@@ -33,7 +18,6 @@ interface ToolCall {
  */
 export async function POST(request: NextRequest) {
   try {
-    // Authenticate user from session
     const user = await getAuthenticatedUser(request);
     if (!user) {
       return unauthorizedResponse();
@@ -47,150 +31,39 @@ export async function POST(request: NextRequest) {
       return errorResponse('Message required', 400);
     }
 
-    // Get financial context for the system prompt
-    const financialContext = await getFinancialContext(userId);
+    const client = new OpenAI();
+    const model = getAgentModel('finance');
 
-    // Build messages array
-    const messages: ChatMessage[] = [
-      {
-        role: 'system',
-        content: `${financeAdvisorConfig.instructions}\n\n${financialContext}`,
-      },
-      ...conversationHistory.slice(-10), // Keep last 10 messages for context
-      {
-        role: 'user',
-        content: message,
-      },
-    ];
+    const completion = await client.chat.completions.create({
+      model,
+      messages: [
+        {
+          role: 'system' as const,
+          content: 'You are a helpful financial advisor assistant. Answer questions about personal finance, budgeting, spending, and investments clearly and concisely.',
+        },
+        ...conversationHistory.slice(-10).map((m: { role: string; content: string }) => ({
+          role: m.role as 'user' | 'assistant',
+          content: m.content,
+        })),
+        { role: 'user' as const, content: message },
+      ],
+      max_tokens: 2048,
+      temperature: 0.7,
+    });
 
-    // Call the AI model
-    const response = await callFinanceModel(messages, userId);
+    const content = completion.choices[0]?.message?.content || 'I was unable to generate a response.';
 
-    // Store the conversation in the database for history
-    await storeConversation(userId, message, response.content);
+    await storeConversation(userId, message, content);
 
     return NextResponse.json({
-      response: response.content,
-      toolsUsed: response.toolsUsed,
+      response: content,
+      toolsUsed: [],
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
     logger.error('Finance chat error', { error });
     return errorResponse('Failed to process chat message', 500);
   }
-}
-
-/**
- * Call the finance model with tool support
- */
-async function callFinanceModel(
-  messages: ChatMessage[],
-  userId: string
-): Promise<{ content: string; toolsUsed: string[] }> {
-  const toolsUsed: string[] = [];
-
-  // Use OpenAI-compatible API (can be routed through LiteLLM)
-  const apiKey = process.env.GOOGLE_GENERATIVE_AI_KEY || process.env.OPENAI_API_KEY;
-  const baseUrl = process.env.LITELLM_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta/openai';
-
-  if (!apiKey) {
-    throw new Error('No AI API key configured');
-  }
-
-  // First call to get initial response or tool calls
-  let response = await fetch(`${baseUrl}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: 'gemini-2.0-flash',
-      messages,
-      tools: financeAdvisorConfig.openaiTools.map((t) => ({
-        type: 'function',
-        function: t.function,
-      })),
-      tool_choice: 'auto',
-      temperature: 0.7,
-      max_tokens: 2048,
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    logger.error('AI API error', { errorText });
-    throw new Error(`AI API error: ${response.status}`);
-  }
-
-  let result = await response.json();
-  let assistantMessage = result.choices?.[0]?.message;
-
-  // Handle tool calls in a loop (max 5 iterations)
-  let iterations = 0;
-  const maxIterations = 5;
-
-  while (assistantMessage?.tool_calls && iterations < maxIterations) {
-    iterations++;
-    const toolCalls = assistantMessage.tool_calls as ToolCall[];
-
-    // Add assistant message with tool calls to messages
-    messages.push({
-      role: 'assistant',
-      content: assistantMessage.content || '',
-    });
-
-    // Execute each tool call
-    for (const toolCall of toolCalls) {
-      const toolName = toolCall.function.name;
-      const toolArgs = JSON.parse(toolCall.function.arguments || '{}');
-
-      logger.info('[FinanceChat] Executing tool', { toolName, toolArgs });
-      toolsUsed.push(toolName);
-
-      const toolResult = await executeFinanceAdvisorTool(toolName, toolArgs, userId);
-
-      // Add tool result to messages
-      messages.push({
-        role: 'user', // Tool results are added as user messages in this format
-        content: `Tool ${toolName} result: ${JSON.stringify(toolResult)}`,
-      });
-    }
-
-    // Call the model again with tool results
-    response = await fetch(`${baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'gemini-2.0-flash',
-        messages,
-        tools: financeAdvisorConfig.openaiTools.map((t) => ({
-          type: 'function',
-          function: t.function,
-        })),
-        tool_choice: 'auto',
-        temperature: 0.7,
-        max_tokens: 2048,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      logger.error('AI API error on tool loop', { errorText });
-      throw new Error(`AI API error: ${response.status}`);
-    }
-
-    result = await response.json();
-    assistantMessage = result.choices?.[0]?.message;
-  }
-
-  return {
-    content: assistantMessage?.content || 'I apologize, I was unable to generate a response.',
-    toolsUsed,
-  };
 }
 
 /**

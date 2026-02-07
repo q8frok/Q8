@@ -41,6 +41,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Toggle } from '@/components/ui/toggle';
 import { MemoriesSettings } from '@/components/settings/MemoriesSettings';
+import { IntegrationsSettings } from '@/components/settings/IntegrationsSettings';
 import { AnimatedBackground } from '@/components/shared/AnimatedBackground';
 import { useAuth } from '@/hooks/useAuth';
 import { logger } from '@/lib/logger';
@@ -226,7 +227,7 @@ export default function SettingsPage() {
             )}
             {activeTab === 'memories' && <MemoriesSettings userId={userId} />}
             {activeTab === 'api-keys' && <ApiKeysSettings />}
-            {activeTab === 'integrations' && <IntegrationsSettings />}
+            {activeTab === 'integrations' && <IntegrationsSettings userId={userId} />}
             {activeTab === 'privacy' && (
               <PrivacySettings preferences={preferences} updatePreference={updatePreference} />
             )}
@@ -487,45 +488,7 @@ function ApiKeysSettings() {
   );
 }
 
-function IntegrationsSettings() {
-  const integrations = [
-    { name: 'GitHub', description: 'PRs, issues, code search', status: 'configured' },
-    { name: 'Google Workspace', description: 'Gmail, Calendar, Drive', status: 'not-configured' },
-    { name: 'Spotify', description: 'Music playback and search', status: 'not-configured' },
-    { name: 'Home Assistant', description: 'Smart home control', status: 'configured' },
-    { name: 'Square', description: 'Payment processing', status: 'not-configured' },
-    { name: 'Oura Ring', description: 'Health & sleep tracking', status: 'not-configured' },
-  ];
-
-  return (
-    <div className="space-y-6">
-      <h2 className="text-lg font-semibold mb-4">Integrations</h2>
-      <p className="text-sm text-text-muted mb-4">
-        Manage connected services. Integrations are configured via environment variables and MCP servers.
-      </p>
-      <div className="space-y-3">
-        {integrations.map((integration) => (
-          <div key={integration.name} className="setting-row">
-            <div className="setting-row-content">
-              <div className="setting-row-label">{integration.name}</div>
-              <div className="setting-row-description">{integration.description}</div>
-            </div>
-            <span
-              className={cn(
-                'text-xs px-2 py-1 rounded-full',
-                integration.status === 'configured'
-                  ? 'bg-neon-accent/10 text-neon-accent'
-                  : 'bg-surface-3 text-text-muted'
-              )}
-            >
-              {integration.status === 'configured' ? 'Connected' : 'Not configured'}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
+// IntegrationsSettings is now imported from @/components/settings/IntegrationsSettings
 
 function PrivacySettings({ preferences, updatePreference }: SettingsSectionProps) {
   const retentionOptions = [

@@ -32,6 +32,12 @@ export function classifyError(error: unknown): ErrorClassification {
   if (lowerMessage.includes('validation') || lowerMessage.includes('invalid')) {
     return { code: 'VALIDATION_ERROR', recoverable: false };
   }
+  if (lowerMessage.includes('api key') || lowerMessage.includes('missing_api_key') || lowerMessage.includes('not configured')) {
+    return { code: 'MISSING_API_KEY', recoverable: false };
+  }
+  if (lowerMessage.includes('500') || lowerMessage.includes('internal server error')) {
+    return { code: 'SERVER_ERROR', recoverable: true };
+  }
 
   return { code: 'UNKNOWN_ERROR', recoverable: false };
 }
@@ -50,8 +56,15 @@ export function getUserFriendlyError(toolName: string, _technicalError: string):
     drive: "Google Drive isn't accessible right now. Try re-authorizing if this persists.",
     youtube: "YouTube search isn't working. Please try again in a moment.",
     home: "Home Assistant isn't reachable. Check if your smart home hub is online.",
+    ha: "Home Assistant isn't reachable. Check if your smart home hub is online.",
     control: "I couldn't control that device. Make sure Home Assistant is running.",
+    discover: "I couldn't discover devices. Make sure Home Assistant is running.",
     weather: "Weather data isn't available right now. Please try again shortly.",
+    getweather: "Weather data isn't available right now. Please try again shortly.",
+    oura: "I couldn't fetch your Oura Ring data. Check that your Oura token is configured.",
+    finance: "I couldn't access your financial data. Please check your finance integration settings.",
+    generate: "Image generation encountered an issue. Please try again with a different prompt.",
+    calculate: "The calculation couldn't be completed. Please check the expression and try again.",
   };
 
   return (
@@ -82,12 +95,28 @@ export function getRecoverySuggestion(toolName: string, error: string): string {
     return 'The requested resource wasn\'t found. Double-check the details and try again.';
   }
 
+  if (lowerError.includes('api key') || lowerError.includes('not configured') || lowerError.includes('missing_api_key')) {
+    return 'This integration needs an API key. Check your settings to configure it.';
+  }
+  if (lowerError.includes('500') || lowerError.includes('internal server error')) {
+    return 'The service had an internal error. Try again in a moment.';
+  }
+
   // Tool-specific suggestions
   if (toolName.startsWith('spotify')) {
-    return 'Make sure Spotify is open on one of your devices.';
+    return 'Make sure Spotify is open on one of your devices and you have an active session.';
   }
-  if (toolName.startsWith('home') || toolName.startsWith('control')) {
+  if (toolName.startsWith('home') || toolName.startsWith('ha_') || toolName.startsWith('control') || toolName.startsWith('discover')) {
     return 'Check that Home Assistant is running and accessible on your network.';
+  }
+  if (toolName.startsWith('oura')) {
+    return 'Check that your Oura Ring personal access token is configured in settings.';
+  }
+  if (toolName.startsWith('finance')) {
+    return 'Check your finance integration settings and try again.';
+  }
+  if (toolName.startsWith('gmail') || toolName.startsWith('calendar') || toolName.startsWith('drive')) {
+    return 'Try re-authorizing your Google account in settings.';
   }
 
   return 'Please try again in a few moments. If the issue persists, check your settings.';

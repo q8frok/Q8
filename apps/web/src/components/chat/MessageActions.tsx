@@ -95,13 +95,13 @@ export function MessageActions({
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
           transition={{ duration: 0.15 }}
-          className={cn('flex items-center gap-1 mt-2', className)}
+          className={cn('flex items-center gap-1.5 mt-2 px-1.5 py-1 rounded-lg bg-surface-2/80 backdrop-blur-sm border border-border-subtle', className)}
         >
           {/* Copy */}
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7"
+            className="h-9 w-9"
             onClick={onCopy}
             title="Copy message"
           >
@@ -117,7 +117,7 @@ export function MessageActions({
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7"
+              className="h-9 w-9"
               onClick={onRegenerate}
               title="Regenerate response"
             >
@@ -130,7 +130,7 @@ export function MessageActions({
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7"
+              className="h-9 w-9"
               onClick={onThumbsUp}
               title="Good response"
             >
@@ -143,7 +143,7 @@ export function MessageActions({
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7"
+              className="h-9 w-9"
               onClick={onThumbsDown}
               title="Bad response"
             >

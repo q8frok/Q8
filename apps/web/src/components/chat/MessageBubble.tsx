@@ -1,7 +1,6 @@
 'use client';
 
 import { forwardRef } from 'react';
-import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { CitationList, type CitationSource } from './Citation';
 import { MarkdownRenderer } from './MarkdownRenderer';
@@ -12,6 +11,7 @@ interface MessageBubbleProps {
   isStreaming: boolean;
   imageAnalysis?: string;
   citationSources: CitationSource[];
+  agentGlowClass?: string;
 }
 
 /**
@@ -19,10 +19,8 @@ interface MessageBubbleProps {
  */
 function StreamingCursor() {
   return (
-    <motion.span
-      className="inline-block w-2 h-5 bg-neon-primary ml-0.5"
-      animate={{ opacity: [1, 0, 1] }}
-      transition={{ duration: 0.8, repeat: Infinity }}
+    <span
+      className="inline-block w-[3px] h-[18px] bg-neon-primary ml-0.5 align-text-bottom animate-cursor-blink will-change-[opacity]"
     />
   );
 }
@@ -32,23 +30,23 @@ function StreamingCursor() {
  * streaming cursor, image analysis, and citations.
  */
 export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
-  function MessageBubble({ content, isUser, isStreaming, imageAnalysis, citationSources }, ref) {
+  function MessageBubble({ content, isUser, isStreaming, imageAnalysis, citationSources, agentGlowClass }, ref) {
     return (
       <div
         ref={ref}
         className={cn(
-          'rounded-2xl px-4 py-3 relative',
+          'px-4 py-3 relative',
           isUser
-            ? 'surface-matte bg-neon-primary/10 border border-neon-primary/20'
-            : 'surface-matte'
+            ? 'rounded-2xl rounded-tr-md bg-gradient-to-br from-neon-primary/12 to-neon-primary/6 border border-neon-primary/20'
+            : cn('rounded-2xl rounded-tl-md surface-matte', agentGlowClass)
         )}
       >
         <div
           className={cn(
-            'prose prose-sm max-w-none',
+            'prose prose-sm sm:prose-base max-w-none',
             isUser && 'text-right',
-            'prose-p:text-text-primary prose-headings:text-text-primary',
-            'prose-code:text-neon-accent prose-code:bg-surface-3',
+            'prose-p:text-text-primary prose-p:leading-relaxed prose-headings:text-text-primary',
+            'prose-code:text-neon-accent prose-code:bg-surface-3 prose-code:text-[13px]',
             'prose-pre:surface-matte prose-pre:p-0'
           )}
         >

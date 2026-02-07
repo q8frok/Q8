@@ -104,6 +104,8 @@ export const StreamingChatPanel = forwardRef<StreamingChatPanelRef, StreamingCha
     cancelStream,
     clearMessages,
     retryLast,
+    pipelineState,
+    pipelineDetail,
   } = useChat({
     userId,
     threadId,
@@ -146,11 +148,11 @@ export const StreamingChatPanel = forwardRef<StreamingChatPanelRef, StreamingCha
   }, [messages, isStreaming]);
 
   // Handle send
-  const handleSend = (content: string) => {
+  const handleSend = useCallback((content: string) => {
     if (content.trim()) {
       sendMessage(content);
     }
-  };
+  }, [sendMessage]);
 
   // Handle mention insert from empty state
   const handleMentionInsert = useCallback((mention: string) => {
@@ -158,12 +160,11 @@ export const StreamingChatPanel = forwardRef<StreamingChatPanelRef, StreamingCha
   }, []);
 
   // Handle message action
-  const handleMessageAction = (action: string, _messageId: string) => {
+  const handleMessageAction = useCallback((action: string, _messageId: string) => {
     if (action === 'regenerate') {
       retryLast();
     }
-    // Other actions can be handled here
-  };
+  }, [retryLast]);
 
   return (
     <div className={cn('flex flex-col h-full', className)}>
@@ -251,6 +252,9 @@ export const StreamingChatPanel = forwardRef<StreamingChatPanelRef, StreamingCha
             toolExecutions={message.toolExecutions}
             timestamp={message.timestamp}
             onAction={handleMessageAction}
+            isReasoning={message.isReasoning}
+            pipelineState={message.isStreaming ? pipelineState : undefined}
+            pipelineDetail={message.isStreaming ? pipelineDetail : undefined}
           />
         ))}
 
@@ -278,7 +282,7 @@ export const StreamingChatPanel = forwardRef<StreamingChatPanelRef, StreamingCha
       </div>
 
       {/* Input Area */}
-      <div className="p-3 border-t border-border-subtle">
+      <div className="p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] border-t border-border-subtle bg-surface-1/80 backdrop-blur-md">
         {isStreaming && (
           <div className="flex items-center justify-center mb-2">
             <button

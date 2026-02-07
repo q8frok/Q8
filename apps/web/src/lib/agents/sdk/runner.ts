@@ -26,6 +26,7 @@ import {
   type SDKRoutingDecision,
 } from './router';
 import { classifyError } from './utils/errors';
+import { checkInputGuardrails } from './guardrails';
 import {
   withEventMetadata,
   type EventTraceContext,
@@ -106,22 +107,46 @@ function buildInput(
 }
 
 /**
- * Build dynamic instructions with user context appended
+ * Build dynamic instructions with user context appended.
+ * Computes human-readable local time from the user's timezone.
  */
 function buildUserContext(userProfile?: RunContext['userProfile']): string {
-  let context = '';
-  if (userProfile) {
-    const { name, timezone, communicationStyle } = userProfile;
-    if (name) context += `\nThe user's name is ${name}.`;
-    if (timezone) context += `\nThe user is in timezone: ${timezone}.`;
-    if (communicationStyle === 'concise') {
-      context += '\nThe user prefers concise, to-the-point responses.';
-    } else if (communicationStyle === 'detailed') {
-      context += '\nThe user prefers detailed, thorough responses.';
-    }
+  const parts: string[] = ['\n\n## User Context'];
+  const now = new Date();
+  const tz = userProfile?.timezone || 'UTC';
+
+  // Compute local time in human-readable format
+  try {
+    const localDate = now.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      timeZone: tz,
+    });
+    const localTime = now.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+      timeZone: tz,
+    });
+    parts.push(`- **Current time**: ${localDate}, ${localTime} (${tz})`);
+  } catch {
+    // Fallback if timezone is invalid
+    parts.push(`- **Current time**: ${now.toISOString()}`);
   }
-  context += `\n\nCurrent date and time: ${new Date().toISOString()}`;
-  return context;
+
+  if (userProfile?.name) {
+    parts.push(`- **User's name**: ${userProfile.name}`);
+  }
+
+  if (userProfile?.communicationStyle === 'concise') {
+    parts.push('- **Style preference**: Keep responses concise and to-the-point. Avoid lengthy explanations unless asked.');
+  } else if (userProfile?.communicationStyle === 'detailed') {
+    parts.push('- **Style preference**: Provide thorough, detailed responses with full explanations and examples.');
+  }
+
+  return parts.join('\n');
 }
 
 // =============================================================================
@@ -171,6 +196,22 @@ export async function* streamMessage(
   }
 
   try {
+    // Step 0: Input guardrails
+    const guardrailResult = checkInputGuardrails(message);
+    if (!guardrailResult.passed) {
+      yield withEventMetadata({
+        type: 'guardrail_triggered',
+        guardrail: guardrailResult.guardrail,
+        message: guardrailResult.message ?? 'Request blocked by safety check.',
+      }, traceContext);
+      yield withEventMetadata({
+        type: 'error',
+        message: guardrailResult.message ?? 'Request blocked by safety check.',
+        recoverable: false,
+      }, traceContext);
+      return;
+    }
+
     // Step 1: Route the message
     let routingDecision: SDKRoutingDecision;
 
@@ -184,6 +225,12 @@ export async function* streamMessage(
     } else {
       routingDecision = await route(message);
     }
+
+    yield withEventMetadata({
+      type: 'run_state',
+      state: 'routing',
+      detail: `Selecting capability for: "${message.slice(0, 60)}${message.length > 60 ? '…' : ''}"`,
+    }, traceContext);
 
     yield withEventMetadata({
       type: 'routing',
@@ -205,6 +252,12 @@ export async function* streamMessage(
     });
 
     yield withEventMetadata({ type: 'agent_start', agent: selectedType }, traceContext);
+    yield withEventMetadata({
+      type: 'run_state',
+      state: 'thinking',
+      agent: selectedType,
+      detail: `${baseAgent.name} is thinking...`,
+    }, traceContext);
 
     // Step 3: Run with streaming
     const prebuiltHistory = historyOverride ?? conversationHistory ?? [];
@@ -229,6 +282,8 @@ export async function* streamMessage(
     // Track state for event mapping
     let fullContent = '';
     let currentAgentType: AgentType = selectedType;
+    let hasEmittedComposing = false;
+    let reasoningStartTime: number | null = null;
     const toolStartTimes = new Map<string, number>();
     const toolNames = new Map<string, string>();
 
@@ -243,14 +298,43 @@ export async function* streamMessage(
       );
 
       if (mapped) {
+        // Emit run_state transitions based on event type
+        if (mapped.type === 'tool_start') {
+          yield withEventMetadata({
+            type: 'run_state',
+            state: 'tool_executing',
+            agent: currentAgentType,
+            detail: `Running ${mapped.tool}...`,
+          }, traceContext);
+        }
+
         // Track content accumulation
         if (mapped.type === 'content') {
           fullContent += mapped.delta;
+          // Emit 'composing' run_state on first content delta
+          if (!hasEmittedComposing) {
+            hasEmittedComposing = true;
+            yield withEventMetadata({
+              type: 'run_state',
+              state: 'composing',
+              agent: currentAgentType,
+            }, traceContext);
+          }
         }
 
         // Track agent changes
         if (mapped.type === 'handoff') {
           currentAgentType = mapped.to as AgentType;
+          hasEmittedComposing = false; // Reset for new agent
+        }
+
+        // Track reasoning events
+        if (mapped.type === 'reasoning_start') {
+          reasoningStartTime = Date.now();
+        }
+        if (mapped.type === 'reasoning_end' && reasoningStartTime) {
+          mapped.durationMs = Date.now() - reasoningStartTime;
+          reasoningStartTime = null;
         }
 
         yield withEventMetadata(mapped, traceContext);
@@ -276,13 +360,25 @@ export async function* streamMessage(
     });
 
     yield withEventMetadata({
+      type: 'run_state',
+      state: 'done',
+      agent: finalAgentType,
+    }, traceContext);
+
+    yield withEventMetadata({
       type: 'done',
       fullContent,
       agent: finalAgentType,
       threadId,
     }, traceContext);
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage = error instanceof Error
+      ? error.message
+      : typeof error === 'string'
+        ? error
+        : typeof error === 'object' && error !== null
+          ? JSON.stringify(error).slice(0, 500)
+          : String(error);
     const classification = classifyError(error) ?? { recoverable: false };
 
     logger.error('streamMessage failed', {
@@ -291,6 +387,8 @@ export async function* streamMessage(
       userId,
       threadId,
       error: errorMessage,
+      errorType: typeof error,
+      errorConstructor: (error as Record<string, unknown>)?.constructor?.name,
     });
 
     yield withEventMetadata({
@@ -316,15 +414,27 @@ function mapSdkEvent(
   toolNames: Map<string, string>,
 ): OrchestrationEvent | null {
   switch (event.type) {
-    // Raw model streaming - extract text deltas
+    // Raw model streaming - extract text deltas and reasoning events
     case 'raw_model_stream_event': {
-      const data = event.data;
-      if ('type' in data && data.type === 'output_text_delta') {
-        const delta = (data as { delta?: string }).delta;
+      const data = event.data as Record<string, unknown>;
+      const dataType = data.type as string | undefined;
+
+      // Text content delta
+      if (dataType === 'output_text_delta') {
+        const delta = data.delta as string | undefined;
         if (delta) {
           return { type: 'content', delta };
         }
       }
+
+      // Reasoning/thinking events (gpt-5.2 extended thinking)
+      if (dataType === 'reasoning_started' || dataType === 'reasoning') {
+        return { type: 'reasoning_start' };
+      }
+      if (dataType === 'reasoning_completed') {
+        return { type: 'reasoning_end' };
+      }
+
       return null;
     }
 

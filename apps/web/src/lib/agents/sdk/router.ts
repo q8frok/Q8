@@ -15,7 +15,7 @@ import OpenAI from 'openai';
 import { z } from 'zod';
 import { zodResponseFormat } from 'openai/helpers/zod';
 import { logger } from '@/lib/logger';
-import type { AgentType } from '../model_factory';
+import type { AgentType } from './agents';
 
 // =============================================================================
 // TYPES
@@ -180,12 +180,15 @@ const KEYWORD_PATTERNS: Record<RoutableAgent, { phrases: string[]; words: string
     phrases: [
       'turn on', 'turn off', 'set temperature', 'dim lights', 'smart home',
       'activate scene', 'lock door', 'unlock door', 'adjust thermostat',
-      'the lights', 'living room',
+      'the lights', 'living room', 'how did i sleep', 'sleep score',
+      'readiness score', 'oura ring', 'bio rhythm', 'sleep last night',
+      'sleep data', 'sleep quality',
     ],
     words: [
       'light', 'lights', 'lamp', 'thermostat', 'temperature', 'lock', 'door',
       'blinds', 'fan', 'hvac', 'scene', 'automation', 'device', 'sensor',
       'climate', 'brightness', 'dim', 'switch', 'degrees', 'movie', 'activate',
+      'sleep', 'oura', 'readiness', 'hrv', 'heartrate',
     ],
   },
   finance: {

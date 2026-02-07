@@ -159,8 +159,8 @@ function PresetChip({ preset, onSelect }: PresetChipProps) {
     <button
       onClick={() => onSelect(preset.prompt)}
       className={cn(
-        'group flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs',
-        'border transition-all duration-200',
+        'group flex items-center gap-2 px-4 py-2 sm:py-1.5 rounded-full text-xs',
+        'border transition-all duration-200 active:scale-[0.97]',
         'bg-surface-3 border-border-subtle',
         'hover:border-current',
         colors.text

@@ -383,16 +383,42 @@ export async function getAllGoogleTokens(userId: string): Promise<GoogleAccountT
 
     for (const account of data) {
       const expiresAt = account.token_expires_at ? new Date(account.token_expires_at) : null;
-      const isExpired = expiresAt && expiresAt < new Date();
+      const isExpired = expiresAt ? expiresAt < new Date() : false;
+      // If no expiry is stored, we can't know if the token is valid — treat as needing refresh
+      const needsRefresh = isExpired || !expiresAt;
 
       let accessToken = account.access_token;
+      let finalExpiresAt = expiresAt;
 
-      // Refresh expired tokens
-      if (isExpired && account.refresh_token) {
+      if (needsRefresh && account.refresh_token) {
+        logger.info('[Google Accounts] Token needs refresh', {
+          email: account.email,
+          reason: !expiresAt ? 'no expiry stored' : 'expired',
+          expiredAt: expiresAt?.toISOString(),
+        });
         const refreshResult = await refreshGoogleAccountToken(userId, account.id);
         if (refreshResult.accessToken) {
           accessToken = refreshResult.accessToken;
+          finalExpiresAt = refreshResult.expiresAt;
+        } else if (isExpired) {
+          // Token is definitely expired and refresh failed — skip
+          logger.warn('[Google Accounts] Token expired and refresh failed, skipping account', {
+            email: account.email,
+            error: refreshResult.error,
+          });
+          continue;
+        } else {
+          // No expiry stored, refresh failed — try the existing token as last resort
+          logger.warn('[Google Accounts] Refresh failed but token may still be valid, using existing', {
+            email: account.email,
+            error: refreshResult.error,
+          });
         }
+      } else if (isExpired && !account.refresh_token) {
+        logger.warn('[Google Accounts] Token expired with no refresh token, skipping account', {
+          email: account.email,
+        });
+        continue;
       }
 
       tokens.push({
@@ -401,7 +427,7 @@ export async function getAllGoogleTokens(userId: string): Promise<GoogleAccountT
         email: account.email,
         accessToken,
         refreshToken: account.refresh_token,
-        expiresAt,
+        expiresAt: finalExpiresAt,
         scopes: account.scopes || [],
       });
     }
@@ -467,12 +493,16 @@ export async function refreshGoogleAccountToken(
 
     if (!response.ok) {
       const errorText = await response.text();
-      logger.error('[Google Accounts] Token refresh failed', { error: errorText });
+      logger.error('[Google Accounts] Token refresh failed', {
+        accountId,
+        httpStatus: response.status,
+        error: errorText.slice(0, 500),
+      });
       return {
         accessToken: null,
         refreshToken: account.refresh_token,
         expiresAt: null,
-        error: 'Token refresh failed',
+        error: `Token refresh failed (HTTP ${response.status}): ${errorText.slice(0, 200)}`,
       };
     }
 

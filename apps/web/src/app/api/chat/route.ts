@@ -8,7 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { type ExtendedAgentType } from '@/lib/agents/orchestration';
+import { type ExtendedAgentType } from '@/lib/agents/orchestration/types';
 import { executeChat, ChatServiceError } from '@/lib/agents/sdk/chat-service';
 import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/auth/api-auth';
 import { chatMessageSchema, validationErrorResponse } from '@/lib/validations';
