@@ -6,6 +6,7 @@ import { SyncStatus } from '@/components/shared/SyncStatus';
 import { OfflineIndicator } from '@/components/shared/OfflineIndicator';
 import { PWAInitializer } from '@/components/pwa/PWAInitializer';
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
+import { inter } from '@/lib/fonts';
 
 export default function RootLayout({
   children,
@@ -13,7 +14,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className={inter.variable}>
       <head>
         <title>Q8 - The Omni-Model Personal Assistant</title>
         <meta name="description" content="Local-First Multi-Agent AI Dashboard" />

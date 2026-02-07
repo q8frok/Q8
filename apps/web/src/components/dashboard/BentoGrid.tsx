@@ -19,6 +19,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { staggerChildren } from '@/lib/animations/stagger';
 import {
   useWidgetOrder,
   useDashboardActions,
@@ -95,6 +96,8 @@ interface BentoItemProps {
   className?: string;
   /** Widget ID for drag-and-drop sorting. If not provided, item is not draggable. */
   id?: string;
+  /** Index for staggered entrance animation */
+  index?: number;
 }
 
 /**
@@ -108,6 +111,7 @@ export function BentoItem({
   rowSpan = 1,
   className,
   id,
+  index = 0,
 }: BentoItemProps) {
   const colSpanClasses: Record<number, string> = {
     1: 'col-span-1',
@@ -123,6 +127,8 @@ export function BentoItem({
     4: 'row-span-4',
   };
 
+  const stagger = staggerChildren(index);
+
   if (!id) {
     return (
       <motion.div
@@ -133,10 +139,10 @@ export function BentoItem({
           rowSpanClasses[rowSpan],
           className
         )}
-        initial={{ opacity: 0, scale: 0.98 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        transition={{ duration: 0.2, ease: 'easeOut' }}
+        initial={stagger.initial}
+        animate={stagger.animate}
+        exit={stagger.exit}
+        transition={stagger.transition}
       >
         {children}
       </motion.div>

@@ -11,6 +11,7 @@ import { motion, AnimatePresence, useMotionValue, useTransform, PanInfo } from '
 import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
 import { haptics } from '@/lib/pwa/haptics';
+import { springHeavy, springBouncy } from '@/lib/animations/springs';
 
 export type SnapPoint = 'closed' | 'peek' | 'half' | 'full';
 
@@ -33,12 +34,13 @@ interface BottomSheetProps {
   zIndex?: number;
 }
 
-const SPRING = { type: 'spring' as const, stiffness: 300, damping: 30 };
-const DISMISS_VELOCITY = 400; // px/s downward = close
+const SPRING = springHeavy;
+const DISMISS_VELOCITY = 400;
 
 /**
- * Draggable bottom sheet with 3 snap points.
- * Uses portal + scroll-lock. Safe-area-bottom padding built in.
+ * iOS-native-feel draggable bottom sheet with dynamic blur,
+ * corner radius animation, rubber-band overscroll, and
+ * enhanced drag indicator.
  */
 export function BottomSheet({
   snap,
@@ -54,6 +56,7 @@ export function BottomSheet({
   const sheetRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const lastSnapRef = useRef<SnapPoint>(snap);
+  const [isDragging, setIsDragging] = useState(false);
   const dragY = useMotionValue(0);
 
   useEffect(() => {
@@ -72,8 +75,7 @@ export function BottomSheet({
     };
   }, [snap]);
 
-  // Calculate snap positions as translateY from bottom
-  // 0 = fully open (top of screen + safe area)
+  // Calculate snap positions
   const getSnapY = useCallback(
     (s: SnapPoint): number => {
       if (typeof window === 'undefined') return 0;
@@ -86,7 +88,6 @@ export function BottomSheet({
         case 'half':
           return vh * 0.5;
         case 'full':
-          // Leave space for safe-area-top (approx 59px on iPhone with Dynamic Island)
           return 0;
         default:
           return vh;
@@ -94,6 +95,18 @@ export function BottomSheet({
     },
     [peekHeight]
   );
+
+  // Compute sheet progress: 0 = closed, 1 = full
+  const snapProgress = snap === 'closed' ? 0 : snap === 'peek' ? 0.15 : snap === 'half' ? 0.5 : 1;
+
+  // Dynamic blur: 0-20px as sheet moves from peek to full
+  const backdropBlur = snapProgress * 20;
+
+  // Dynamic corner radius: 24px at peek -> 0px at full
+  const cornerRadius = Math.max(24 * (1 - snapProgress), 0);
+
+  // Dynamic backdrop opacity
+  const backdropOpacity = snap === 'full' ? 0.6 : snap === 'half' ? 0.3 : 0;
 
   const snapToClosest = useCallback(
     (currentY: number, velocityY: number) => {
@@ -165,30 +178,24 @@ export function BottomSheet({
 
   const handleDragEnd = useCallback(
     (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+      setIsDragging(false);
       const currentY = getSnapY(snap) + info.offset.y;
       snapToClosest(currentY, info.velocity.y);
     },
     [snap, getSnapY, snapToClosest]
   );
 
-  // Trigger selection haptic while dragging
-  const handleDrag = useCallback(() => {
-    // Haptic on drag is handled sparingly via snap detection
+  const handleDragStart = useCallback(() => {
+    setIsDragging(true);
   }, []);
 
-  // Track snap changes for haptic on snap
+  // Track snap changes
   useEffect(() => {
-    if (lastSnapRef.current !== snap && snap !== 'closed') {
-      // Haptic already fired in snapToClosest
-    }
     lastSnapRef.current = snap;
   }, [snap]);
 
-  const _backdropOpacity = useTransform(
-    dragY,
-    [0, 1],
-    [0, 1]
-  );
+  // Unused but kept for type safety (useMotionValue + useTransform)
+  const _backdropOpacity = useTransform(dragY, [0, 1], [0, 1]);
 
   const isVisible = snap !== 'closed';
 
@@ -198,16 +205,20 @@ export function BottomSheet({
     <AnimatePresence>
       {isVisible && (
         <>
-          {/* Backdrop */}
+          {/* Backdrop with dynamic blur */}
           {showBackdrop && (snap === 'half' || snap === 'full') && (
             <motion.div
               key="bottom-sheet-backdrop"
               initial={{ opacity: 0 }}
-              animate={{ opacity: snap === 'full' ? 0.6 : 0.3 }}
+              animate={{ opacity: backdropOpacity }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="fixed inset-0 bg-black/50 backdrop-blur-sm"
-              style={{ zIndex: zIndex - 1 }}
+              className="fixed inset-0 bg-black/50"
+              style={{
+                zIndex: zIndex - 1,
+                backdropFilter: `blur(${backdropBlur}px)`,
+                WebkitBackdropFilter: `blur(${backdropBlur}px)`,
+              }}
               onClick={() => {
                 haptics.light();
                 onSnapChange('peek');
@@ -225,11 +236,11 @@ export function BottomSheet({
             transition={SPRING}
             drag="y"
             dragConstraints={{ top: 0, bottom: window.innerHeight }}
-            dragElastic={0.1}
-            onDrag={handleDrag}
+            dragElastic={{ top: 0.15, bottom: 0.3 }}
+            onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
             className={cn(
-              'fixed inset-x-0 top-0 flex flex-col bg-[var(--surface-2)] border-t border-[var(--border-subtle)] rounded-t-2xl shadow-lg',
+              'fixed inset-x-0 top-0 flex flex-col bg-[var(--surface-2)] border-t border-[var(--border-subtle)] shadow-lg',
               'lg:hidden',
               className
             )}
@@ -237,14 +248,23 @@ export function BottomSheet({
               height: '100vh',
               zIndex,
               paddingTop: 'env(safe-area-inset-top, 0px)',
+              borderTopLeftRadius: `${cornerRadius}px`,
+              borderTopRightRadius: `${cornerRadius}px`,
             }}
           >
-            {/* Drag Handle */}
+            {/* Enhanced Drag Handle - scales during active drag */}
             <div className="flex justify-center pt-2 pb-1 cursor-grab active:cursor-grabbing">
-              <div className="w-10 h-1 rounded-full bg-white/20" />
+              <motion.div
+                className="rounded-full bg-white/20"
+                animate={{
+                  width: isDragging ? 48 : 36,
+                  height: 5,
+                }}
+                transition={springBouncy}
+              />
             </div>
 
-            {/* Peek content (always visible when sheet is open) */}
+            {/* Peek content */}
             {peekContent && snap === 'peek' && (
               <div className="px-4 pb-2">
                 {peekContent}

@@ -4,6 +4,8 @@ import { useRef, forwardRef, useImperativeHandle } from 'react';
 import { Loader2 } from 'lucide-react';
 import { ChatInput, type ChatInputRef } from './ChatInput';
 import { VoiceInputArea } from './VoiceInputArea';
+import { useKeyboardAware } from '@/hooks/useKeyboardAware';
+import { springSnappy } from '@/lib/animations/springs';
 import type { ConversationMode } from '@/hooks/useUnifiedChat';
 
 interface ConversationInputAreaProps {
@@ -49,8 +51,16 @@ export const ConversationInputArea = forwardRef<ConversationInputAreaRef, Conver
       },
     }));
 
+    const { keyboardHeight } = useKeyboardAware();
+
     return (
-      <div className="p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] border-t border-border-subtle bg-surface-1/80 backdrop-blur-md">
+      <div
+        className="p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] border-t border-border-subtle bg-surface-1/80 backdrop-blur-md"
+        style={{
+          transform: keyboardHeight > 0 ? `translateY(-${keyboardHeight}px)` : 'none',
+          transition: `transform ${springSnappy.stiffness ? '0.25s' : '0s'} cubic-bezier(0.4, 0, 0.2, 1)`,
+        }}
+      >
         {/* Cancel streaming button */}
         {isStreaming && (
           <div className="flex items-center justify-center mb-2">

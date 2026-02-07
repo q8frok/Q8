@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Activity, BarChart3, Route, Zap, RefreshCw } from 'lucide-react';
-import { AnimatedBackground } from '@/components/shared/AnimatedBackground';
 import { AgentMetricsPanel } from '@/components/admin/AgentMetricsPanel';
 import { RoutingInsights } from '@/components/admin/RoutingInsights';
 import { ToolUsagePanel } from '@/components/admin/ToolUsagePanel';
@@ -36,7 +35,6 @@ export default function AdminPage() {
   if (isLoading || !userId) {
     return (
       <main className="min-h-screen relative flex items-center justify-center">
-        <AnimatedBackground />
         <div className="text-text-muted">Loading...</div>
       </main>
     );
@@ -44,8 +42,7 @@ export default function AdminPage() {
 
   return (
     <main className="min-h-screen relative">
-      <AnimatedBackground />
-      <div className="container mx-auto py-4 md:py-6 px-3 md:px-4 relative z-10 safe-area-container max-w-6xl">
+      <div className="container mx-auto py-4 md:py-6 px-3 md:px-4 safe-area-container max-w-6xl">
         {/* Header */}
         <header className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-3">

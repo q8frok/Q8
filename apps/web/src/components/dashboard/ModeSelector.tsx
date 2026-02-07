@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import { Coffee, Zap, LayoutGrid } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { springSnappy } from '@/lib/animations/springs';
 import {
   useCurrentMode,
   useDashboardActions,
@@ -38,7 +39,7 @@ export function ModeSelector() {
               <motion.div
                 layoutId="mode-indicator"
                 className="absolute inset-0 rounded-lg bg-neon-primary/20 border border-neon-primary/30"
-                transition={{ type: 'spring', bounce: 0.2, duration: 0.4 }}
+                transition={springSnappy}
               />
             )}
             <Icon className="relative h-3.5 w-3.5" />

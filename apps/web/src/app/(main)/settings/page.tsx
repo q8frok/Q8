@@ -42,7 +42,6 @@ import { Button } from '@/components/ui/button';
 import { Toggle } from '@/components/ui/toggle';
 import { MemoriesSettings } from '@/components/settings/MemoriesSettings';
 import { IntegrationsSettings } from '@/components/settings/IntegrationsSettings';
-import { AnimatedBackground } from '@/components/shared/AnimatedBackground';
 import { useAuth } from '@/hooks/useAuth';
 import { logger } from '@/lib/logger';
 import type { UserPreferences } from '@/lib/memory/types';
@@ -158,8 +157,7 @@ export default function SettingsPage() {
 
   return (
     <main className="min-h-screen relative">
-      <AnimatedBackground />
-      <div className="container mx-auto py-4 md:py-6 px-3 md:px-4 relative z-10 safe-area-container max-w-5xl">
+      <div className="container mx-auto py-4 md:py-6 px-3 md:px-4 safe-area-container max-w-5xl">
         {/* Header */}
         <header className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-3">

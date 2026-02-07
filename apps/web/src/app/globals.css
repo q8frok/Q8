@@ -88,6 +88,20 @@
     color-scheme: dark;
   }
 
+  /* Apple-style letter spacing for Inter */
+  h1, h2, h3, h4, h5, h6,
+  .text-2xl, .text-xl, .text-lg {
+    letter-spacing: -0.022em;
+  }
+
+  p, span, div, li, a, button, input, textarea, select, label {
+    letter-spacing: -0.011em;
+  }
+
+  .text-xs, .text-sm, caption, figcaption {
+    letter-spacing: 0em;
+  }
+
   body {
     background: var(--surface-1);
     color: var(--text-primary);
@@ -1053,4 +1067,33 @@ input[type="button"] {
   .animate-orb-2 {
     will-change: transform;
   }
+}
+
+/* ============================================
+   Reduced Motion - Accessibility
+   ============================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .animate-orb-1,
+  .animate-orb-2,
+  .animate-orb-3,
+  .animate-orb-4 {
+    animation: none !important;
+  }
+}
+
+/* ============================================
+   Content Visibility for Off-Screen Widgets
+   ============================================ */
+.surface-matte {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 200px;
 }

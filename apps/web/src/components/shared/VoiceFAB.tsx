@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Mic, Settings, BookOpen, MessageCircle, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { haptics } from '@/lib/pwa/haptics';
+import { springBouncy } from '@/lib/animations/springs';
 
 interface VoiceFABProps {
   onVoice: () => void;
@@ -13,7 +14,7 @@ interface VoiceFABProps {
   onChat?: () => void;
 }
 
-const SPRING = { type: 'spring' as const, stiffness: 400, damping: 35 };
+const SPRING = springBouncy;
 
 export function VoiceFAB({ onVoice, onSettings, onKnowledge, onChat }: VoiceFABProps) {
   const [expanded, setExpanded] = useState(false);

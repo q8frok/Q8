@@ -1,13 +1,16 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Settings, Mic, Command, BookOpen, MessageCircle, LayoutGrid } from 'lucide-react';
-import { AnimatePresence } from 'framer-motion';
-import Link from 'next/link';
+import { Command, MessageCircle, LayoutGrid, X } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { BentoGrid, BentoItem } from '@/components/dashboard/BentoGrid';
 import { ModeSelector } from '@/components/dashboard/ModeSelector';
+import { CollapsibleHeader } from '@/components/shared/CollapsibleHeader';
+import { TabBar } from '@/components/navigation/TabBar';
+import { useScrollCollapse } from '@/hooks/useScrollCollapse';
+import { useAdaptiveMode } from '@/hooks/useAdaptiveMode';
 import { useVisibleWidgets, useWidgetOrder } from '@/lib/stores/dashboard';
 // Light widgets - static imports (small bundle impact)
 import {
@@ -53,8 +56,6 @@ import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useAuth } from '@/hooks/useAuth';
 import { CommandPalette } from '@/components/CommandPalette';
 import { ToastProvider } from '@/components/ui/toast';
-import { AnimatedBackground } from '@/components/shared/AnimatedBackground';
-import { VoiceFAB } from '@/components/shared/VoiceFAB';
 import { BottomSheet, type SnapPoint } from '@/components/ui/BottomSheet';
 import { ChatProvider } from '@/contexts/ChatContext';
 import { WidgetUpdateProvider } from '@/contexts/WidgetUpdateContext';
@@ -71,6 +72,7 @@ function DashboardContent() {
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [chatSheetSnap, setChatSheetSnap] = useState<SnapPoint>('closed');
   const chatRef = useRef<UnifiedChatWithThreadsRef>(null);
+  const adaptiveMode = useAdaptiveMode();
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -104,6 +106,8 @@ function DashboardContent() {
     setChatSheetSnap('half');
   }, []);
 
+  const { progress, scrollRef } = useScrollCollapse(80);
+
   // Show loading state while auth is being verified
   if (isLoading || !userId) {
     return null; // ProtectedRoute handles loading state
@@ -111,61 +115,58 @@ function DashboardContent() {
 
   return (
     <main className="min-h-screen relative">
-      {/* Animated Background */}
-      <AnimatedBackground />
+      <div className="safe-area-container">
+        {/* iOS Collapsible Header */}
+        <CollapsibleHeader
+          title="Q8"
+          progress={progress}
+          trailing={
+            <div className="flex items-center gap-2">
+              {/* Command Palette Button - Hidden on mobile */}
+              <button
+                onClick={() => setIsCommandPaletteOpen(true)}
+                className="hidden md:flex items-center gap-2 px-3 py-2 rounded-xl bg-surface-3 hover:bg-surface-2 transition-colors border border-border-subtle"
+                title="Command Palette (⌘K)"
+              >
+                <Command className="h-4 w-4" />
+                <span className="text-sm">⌘K</span>
+              </button>
+              <UserProfile />
+            </div>
+          }
+        >
+          <ModeSelector />
+        </CollapsibleHeader>
 
-      <div className="container mx-auto py-4 md:py-6 px-3 md:px-4 relative z-10 safe-area-container">
-        {/* Header - optimized for 440pt */}
-        <header className="mb-4 md:mb-6 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white tracking-tight">
-              Q8
-            </h1>
-            <ModeSelector />
-          </div>
-          <div className="flex items-center gap-2 md:gap-3">
-            {/* Command Palette Button - Hidden on mobile */}
-            <button
-              onClick={() => setIsCommandPaletteOpen(true)}
-              className="hidden md:flex items-center gap-2 px-3 py-2 rounded-xl bg-surface-3 hover:bg-surface-2 transition-colors border border-border-subtle"
-              title="Command Palette (⌘K)"
+        <div ref={scrollRef} className="overflow-y-auto" style={{ height: 'calc(var(--vh, 1vh) * 100 - 49px)' }}>
+        <div className="container mx-auto px-3 md:px-4">
+
+        {/* Adaptive mode suggestion toast */}
+        <AnimatePresence>
+          {adaptiveMode && (
+            <motion.div
+              initial={{ opacity: 0, y: -10, height: 0 }}
+              animate={{ opacity: 1, y: 0, height: 'auto' }}
+              exit={{ opacity: 0, y: -10, height: 0 }}
+              className="mb-3 flex items-center gap-3 px-4 py-2.5 rounded-xl bg-surface-2 border border-border-subtle"
             >
-              <Command className="h-4 w-4" />
-              <span className="text-sm">⌘K</span>
-            </button>
-
-            {/* Knowledge Base Button - icon-only until md breakpoint */}
-            <Link
-              href="/knowledge"
-              className="flex items-center gap-2 p-2.5 md:px-3 md:py-2 rounded-xl bg-surface-3 hover:bg-surface-2 transition-colors border border-border-subtle"
-              title="Knowledge Base"
-            >
-              <BookOpen className="h-4 w-4" />
-              <span className="hidden md:inline text-sm">Knowledge</span>
-            </Link>
-
-            {/* Voice Mode Button - Hidden on mobile (available in FAB) */}
-            <button
-              onClick={() => chatRef.current?.switchMode('voice')}
-              className="hidden md:flex items-center gap-2 px-3 py-2 rounded-xl bg-neon-primary/20 hover:bg-neon-primary/30 transition-colors border border-neon-primary/30"
-              title="Switch to Voice Mode"
-            >
-              <Mic className="h-4 w-4" />
-              <span className="text-sm font-medium">Voice</span>
-            </button>
-
-            {/* Settings Button - hidden on mobile (available in FAB) */}
-            <Link
-              href="/settings"
-              className="hidden md:flex p-2.5 rounded-xl hover:bg-surface-3 transition-colors"
-              title="Settings (⌘.)"
-            >
-              <Settings className="h-5 w-5" />
-            </Link>
-
-            <UserProfile />
-          </div>
-        </header>
+              <span className="text-sm text-text-secondary flex-1">{adaptiveMode.label}</span>
+              <button
+                onClick={adaptiveMode.accept}
+                className="text-xs font-medium text-neon-primary px-3 py-1.5 rounded-lg bg-neon-primary/10 hover:bg-neon-primary/20 transition-colors"
+              >
+                Switch
+              </button>
+              <button
+                onClick={adaptiveMode.dismiss}
+                className="p-1 text-text-muted hover:text-text-primary transition-colors"
+                aria-label="Dismiss"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
           {/* Left Column - Dashboard Widgets */}
@@ -174,65 +175,65 @@ function DashboardContent() {
               <AnimatePresence mode="popLayout">
                 {widgetOrder
                   .filter((id) => visibleWidgets.includes(id))
-                  .map((widgetId) => {
+                  .map((widgetId, idx) => {
                     switch (widgetId) {
                       case 'daily-brief':
                         return (
-                          <BentoItem key="daily-brief" id="daily-brief" colSpan={2} rowSpan={2}>
+                          <BentoItem key="daily-brief" id="daily-brief" colSpan={2} rowSpan={2} index={idx}>
                             <DailyBriefWidget userId={userId} />
                           </BentoItem>
                         );
                       case 'clock':
                         return (
-                          <BentoItem key="clock" id="clock" colSpan={2} rowSpan={2}>
+                          <BentoItem key="clock" id="clock" colSpan={2} rowSpan={2} index={idx}>
                             <ClockWidget colSpan={2} rowSpan={2} />
                           </BentoItem>
                         );
                       case 'weather':
                         return (
-                          <BentoItem key="weather" id="weather" colSpan={2} rowSpan={2}>
+                          <BentoItem key="weather" id="weather" colSpan={2} rowSpan={2} index={idx}>
                             <WeatherWidget location="New York" unit="fahrenheit" showForecast={true} />
                           </BentoItem>
                         );
                       case 'tasks':
                         return (
-                          <BentoItem key="tasks" id="tasks" colSpan={2} rowSpan={2}>
+                          <BentoItem key="tasks" id="tasks" colSpan={2} rowSpan={2} index={idx}>
                             <TaskWidget />
                           </BentoItem>
                         );
                       case 'calendar':
                         return (
-                          <BentoItem key="calendar" id="calendar" colSpan={2} rowSpan={1}>
+                          <BentoItem key="calendar" id="calendar" colSpan={2} rowSpan={1} index={idx}>
                             <CalendarWidget maxItems={3} />
                           </BentoItem>
                         );
                       case 'quick-notes':
                         return (
-                          <BentoItem key="quick-notes" id="quick-notes" colSpan={2} rowSpan={2}>
+                          <BentoItem key="quick-notes" id="quick-notes" colSpan={2} rowSpan={2} index={idx}>
                             <QuickNotesWidget userId={userId} />
                           </BentoItem>
                         );
                       case 'content-hub':
                         return (
-                          <BentoItem key="content-hub" id="content-hub" colSpan={2} rowSpan={2}>
+                          <BentoItem key="content-hub" id="content-hub" colSpan={2} rowSpan={2} index={idx}>
                             <ContentHubWidget />
                           </BentoItem>
                         );
                       case 'github':
                         return (
-                          <BentoItem key="github" id="github" colSpan={2} rowSpan={2}>
+                          <BentoItem key="github" id="github" colSpan={2} rowSpan={2} index={idx}>
                             <GitHubPRWidget maxItems={5} />
                           </BentoItem>
                         );
                       case 'home':
                         return (
-                          <BentoItem key="home" id="home" colSpan={2} rowSpan={3}>
+                          <BentoItem key="home" id="home" colSpan={2} rowSpan={3} index={idx}>
                             <SmartHomeWidget />
                           </BentoItem>
                         );
                       case 'finance':
                         return (
-                          <BentoItem key="finance" id="finance" colSpan={2} rowSpan={2}>
+                          <BentoItem key="finance" id="finance" colSpan={2} rowSpan={2} index={idx}>
                             <FinanceHubWidget />
                           </BentoItem>
                         );
@@ -269,6 +270,8 @@ function DashboardContent() {
               />
             </div>
           </div>
+        </div>
+        </div>
         </div>
       </div>
 
@@ -315,12 +318,10 @@ function DashboardContent() {
         onOpenVoice={() => chatRef.current?.switchMode('voice')}
       />
 
-      {/* Mobile Voice FAB */}
-      <VoiceFAB
-        onVoice={() => chatRef.current?.switchMode('voice')}
-        onSettings={() => router.push('/settings')}
-        onKnowledge={() => router.push('/knowledge')}
-        onChat={openMobileChat}
+      {/* Mobile Tab Bar */}
+      <TabBar
+        onChatTap={openMobileChat}
+        onVoiceTap={() => chatRef.current?.switchMode('voice')}
       />
     </main>
   );

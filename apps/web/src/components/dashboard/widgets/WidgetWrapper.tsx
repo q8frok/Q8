@@ -188,6 +188,7 @@ export function WidgetWrapper({
       layout
       initial={{ opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1, scale: 1 }}
+      whileHover={{ y: -2, boxShadow: '0 8px 30px oklch(0% 0 0 / 0.25)' }}
       transition={{ duration: 0.2, ease: 'easeOut' }}
       className={cn(
         surfaceClass,

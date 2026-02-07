@@ -4,6 +4,7 @@ import { useState, useRef, useCallback, type ReactNode } from 'react';
 import { motion } from 'framer-motion';
 import { RefreshCw } from 'lucide-react';
 import { haptics } from '@/lib/pwa/haptics';
+import { springBouncy } from '@/lib/animations/springs';
 
 interface PullToRefreshProps {
   onRefresh: () => void | Promise<void>;
@@ -111,7 +112,7 @@ export function PullToRefresh({
           height: pulling || isActive ? Math.max(pullDistance, isActive ? 48 : 0) : 0,
           opacity: pulling || isActive ? 1 : 0,
         }}
-        transition={{ type: 'spring', stiffness: 400, damping: 35 }}
+        transition={springBouncy}
       >
         <motion.div
           animate={{

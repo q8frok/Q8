@@ -60,7 +60,8 @@
       "WebFetch(domain:ai-sdk.dev)",
       "WebFetch(domain:platform.openai.com)",
       "Bash(pushd:*)",
-      "Bash(popd:*)"
+      "Bash(popd:*)",
+      "mcp__plugin_claude-mem_mcp-search__search"
     ],
     "deny": []
   },
