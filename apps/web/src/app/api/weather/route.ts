@@ -51,10 +51,11 @@ async function fetchAirQuality(lat: number, lon: number) {
   const data = await res.json();
   const item = data.list?.[0];
   if (!item) return null;
-  const aqiLabels = ['good', 'fair', 'moderate', 'poor', 'very_poor'];
+  // Map OpenWeather 1-5 scale to AQI_CONFIG category keys
+  const aqiCategories = ['good', 'moderate', 'unhealthy-sensitive', 'unhealthy', 'very-unhealthy'] as const;
   return {
     aqi: item.main.aqi * 20, // 1-5 scale to ~0-100
-    category: aqiLabels[(item.main.aqi ?? 1) - 1] || 'unknown',
+    category: aqiCategories[(item.main.aqi ?? 1) - 1] || 'good',
     pm25: item.components?.pm2_5,
     pm10: item.components?.pm10,
     o3: item.components?.o3,

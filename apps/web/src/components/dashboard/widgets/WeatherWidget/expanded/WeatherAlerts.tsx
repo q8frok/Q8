@@ -52,7 +52,7 @@ export function WeatherAlerts({ alerts }: WeatherAlertsProps) {
       </div>
 
       {alerts.map((alert, index) => {
-        const config = ALERT_SEVERITY_CONFIG[alert.severity];
+        const config = ALERT_SEVERITY_CONFIG[alert.severity] ?? ALERT_SEVERITY_CONFIG.moderate;
         const isExpanded = expandedId === alert.id;
 
         return (

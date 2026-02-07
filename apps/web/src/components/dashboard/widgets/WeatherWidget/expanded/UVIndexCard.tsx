@@ -11,7 +11,7 @@ interface UVIndexCardProps {
 }
 
 export function UVIndexCard({ uvIndex }: UVIndexCardProps) {
-  const config = UV_CONFIG[uvIndex.category];
+  const config = UV_CONFIG[uvIndex.category] ?? UV_CONFIG.low;
   const uvPercent = Math.min(100, (uvIndex.value / 11) * 100);
 
   const getProtectionAdvice = () => {

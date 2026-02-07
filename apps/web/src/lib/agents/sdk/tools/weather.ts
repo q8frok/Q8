@@ -32,13 +32,17 @@ export interface WeatherData {
   humidity: number;
   pressure: number;
   windSpeed: number;
+  windGust?: number;
   windDeg: number;
   condition: string;
   description: string;
   icon: string;
   visibility: number;
   clouds: number;
+  sunrise: string;
+  sunset: string;
   cityName: string;
+  timezone?: number;
 }
 
 export interface GetWeatherSuccessResult {
@@ -116,6 +120,18 @@ export async function getWeather(
 
     const data = await response.json();
 
+    // Format Unix timestamps to readable time strings
+    const formatUnixTime = (unix: number, tzOffset: number): string => {
+      const date = new Date((unix + tzOffset) * 1000);
+      const utcHours = date.getUTCHours();
+      const utcMinutes = date.getUTCMinutes();
+      const period = utcHours >= 12 ? 'PM' : 'AM';
+      const hours12 = utcHours % 12 || 12;
+      return `${hours12}:${utcMinutes.toString().padStart(2, '0')} ${period}`;
+    };
+
+    const tzOffset = data.timezone || 0;
+
     const weather: WeatherData = {
       temp: data.main.temp,
       feelsLike: data.main.feels_like,
@@ -124,13 +140,17 @@ export async function getWeather(
       humidity: data.main.humidity,
       pressure: data.main.pressure,
       windSpeed: data.wind.speed,
+      windGust: data.wind.gust,
       windDeg: data.wind.deg || 0,
       condition: data.weather[0]?.main || 'Unknown',
       description: data.weather[0]?.description || 'Unknown',
       icon: data.weather[0]?.icon || '01d',
       visibility: data.visibility || 10000,
       clouds: data.clouds?.all || 0,
+      sunrise: data.sys?.sunrise ? formatUnixTime(data.sys.sunrise, tzOffset) : '6:00 AM',
+      sunset: data.sys?.sunset ? formatUnixTime(data.sys.sunset, tzOffset) : '6:00 PM',
       cityName: data.name,
+      timezone: tzOffset,
     };
 
     return { success: true, weather };

@@ -26,7 +26,7 @@ export function WeatherBackground({
     emoji = getWeatherEmoji(condition);
   } catch (_error) {
     // Fallback to default
-    background = { gradient: 'from-gray-400 via-gray-300 to-gray-200', particles: 'none' as const, intensity: 'medium' as const };
+    background = { gradient: 'from-gray-800 via-slate-700 to-gray-800', particles: 'none' as const, intensity: 'medium' as const };
     emoji = '☁️';
   }
 
@@ -35,7 +35,7 @@ export function WeatherBackground({
       {/* Gradient Background */}
       <div className={cn(
         'absolute inset-0 bg-gradient-to-br transition-all duration-1000',
-        background?.gradient || 'from-gray-400 via-gray-300 to-gray-200'
+        background?.gradient || 'from-gray-800 via-slate-700 to-gray-800'
       )} />
 
       {/* Weather Particles */}

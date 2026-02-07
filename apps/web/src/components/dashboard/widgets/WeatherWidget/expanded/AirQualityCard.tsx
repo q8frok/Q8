@@ -11,7 +11,7 @@ interface AirQualityCardProps {
 }
 
 export function AirQualityCard({ airQuality }: AirQualityCardProps) {
-  const config = AQI_CONFIG[airQuality.category];
+  const config = AQI_CONFIG[airQuality.category] ?? AQI_CONFIG.moderate;
   const aqiPercent = Math.min(100, (airQuality.aqi / 500) * 100);
 
   const pollutants = [

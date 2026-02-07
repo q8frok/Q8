@@ -30,29 +30,29 @@ export function getWeatherBackground(condition: string, isDay: boolean = true): 
   const backgrounds: Record<WeatherCondition, WeatherBackground> = {
     clear: {
       gradient: isDay
-        ? 'from-blue-400 via-cyan-300 to-blue-200'
+        ? 'from-blue-900 via-blue-800 to-cyan-900'
         : 'from-indigo-900 via-purple-900 to-blue-900',
       particles: 'none',
       intensity: 'light',
     },
     clouds: {
       gradient: isDay
-        ? 'from-gray-400 via-gray-300 to-gray-200'
-        : 'from-gray-800 via-gray-700 to-gray-600',
+        ? 'from-gray-800 via-slate-700 to-gray-800'
+        : 'from-gray-900 via-gray-800 to-gray-900',
       particles: 'none',
       intensity: 'medium',
     },
     rain: {
       gradient: isDay
-        ? 'from-slate-500 via-slate-400 to-slate-300'
-        : 'from-slate-800 via-slate-700 to-slate-600',
+        ? 'from-slate-800 via-blue-900 to-slate-800'
+        : 'from-slate-900 via-slate-800 to-blue-950',
       particles: 'rain',
       intensity: 'heavy',
     },
     drizzle: {
       gradient: isDay
-        ? 'from-slate-400 via-slate-300 to-slate-200'
-        : 'from-slate-700 via-slate-600 to-slate-500',
+        ? 'from-slate-700 via-blue-800 to-slate-700'
+        : 'from-slate-800 via-slate-700 to-blue-900',
       particles: 'rain',
       intensity: 'light',
     },
@@ -63,42 +63,42 @@ export function getWeatherBackground(condition: string, isDay: boolean = true): 
     },
     snow: {
       gradient: isDay
-        ? 'from-slate-300 via-slate-200 to-white'
-        : 'from-slate-600 via-slate-500 to-slate-400',
+        ? 'from-slate-700 via-blue-800 to-slate-700'
+        : 'from-slate-800 via-slate-700 to-blue-900',
       particles: 'snow',
       intensity: 'medium',
     },
     mist: {
       gradient: isDay
-        ? 'from-gray-300 via-gray-200 to-gray-100'
-        : 'from-gray-700 via-gray-600 to-gray-500',
+        ? 'from-gray-700 via-slate-700 to-gray-800'
+        : 'from-gray-800 via-gray-700 to-slate-800',
       particles: 'none',
       intensity: 'medium',
     },
     fog: {
-      gradient: 'from-gray-400 via-gray-300 to-gray-200',
+      gradient: 'from-gray-800 via-slate-700 to-gray-800',
       particles: 'none',
       intensity: 'heavy',
     },
     haze: {
       gradient: isDay
-        ? 'from-amber-200 via-orange-100 to-yellow-100'
-        : 'from-orange-900 via-amber-800 to-yellow-900',
+        ? 'from-amber-900 via-orange-900 to-yellow-950'
+        : 'from-orange-950 via-amber-900 to-yellow-950',
       particles: 'none',
       intensity: 'light',
     },
     dust: {
-      gradient: 'from-amber-400 via-orange-300 to-yellow-200',
+      gradient: 'from-amber-900 via-orange-900 to-yellow-950',
       particles: 'none',
       intensity: 'medium',
     },
     sand: {
-      gradient: 'from-orange-400 via-amber-300 to-yellow-200',
+      gradient: 'from-orange-950 via-amber-900 to-yellow-950',
       particles: 'none',
       intensity: 'medium',
     },
     smoke: {
-      gradient: 'from-gray-600 via-gray-500 to-gray-400',
+      gradient: 'from-gray-800 via-gray-700 to-gray-800',
       particles: 'none',
       intensity: 'heavy',
     },

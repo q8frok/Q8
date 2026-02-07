@@ -122,6 +122,7 @@ export function getSunPosition(
   currentTime: Date = new Date()
 ): { progress: number; isDay: boolean } {
   const parseTime = (timeStr: string): number => {
+    if (!timeStr || typeof timeStr !== 'string') return 0;
     const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)/i);
     if (!match || !match[1] || !match[2] || !match[3]) return 0;
     let hours = parseInt(match[1], 10);
