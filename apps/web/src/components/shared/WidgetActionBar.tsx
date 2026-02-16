@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSendToChat } from '@/contexts/ChatContext';
+import { toast } from '@/components/ui/toast';
 import { AskQ8Button } from './AskQ8Button';
 
 export type WidgetQuickActionExecution =
@@ -17,6 +18,7 @@ export type WidgetQuickActionExecution =
         method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
         body?: Record<string, unknown>;
       };
+      previewFields?: string[];
       onSuccessPrompt?: string;
       onErrorPrompt?: string;
     };
@@ -44,6 +46,25 @@ interface WidgetActionBarProps {
  * - One-click quick actions that dispatch to chat
  * - Optional deterministic workflow execution via API endpoints
  */
+function formatWorkflowResultPreview(
+  payload: unknown,
+  previewFields: string[] = []
+): string | undefined {
+  if (!payload || typeof payload !== 'object') return undefined;
+
+  const obj = payload as Record<string, unknown>;
+  const fields = previewFields.length > 0
+    ? previewFields
+    : ['status', 'message', 'count', 'updated', 'created', 'synced'];
+
+  const parts = fields
+    .filter((key) => key in obj)
+    .map((key) => `${key}: ${String(obj[key])}`)
+    .slice(0, 3);
+
+  return parts.length > 0 ? parts.join(' · ') : undefined;
+}
+
 export function WidgetActionBar({
   widgetLabel,
   context,
@@ -64,7 +85,7 @@ export function WidgetActionBar({
       return false;
     }
 
-    const { request, onSuccessPrompt, onErrorPrompt } = execution;
+    const { request, previewFields, onSuccessPrompt, onErrorPrompt } = execution;
 
     try {
       const res = await fetch(request.url, {
@@ -73,14 +94,26 @@ export function WidgetActionBar({
         body: request.body ? JSON.stringify(request.body) : undefined,
       });
 
+      let payload: unknown;
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        payload = await res.json();
+      }
+
       if (!res.ok) {
         throw new Error(`Workflow failed (${res.status})`);
       }
+
+      toast.success(
+        `${action.label} complete`,
+        formatWorkflowResultPreview(payload, previewFields) ?? `${widgetLabel} workflow executed successfully.`
+      );
 
       if (onSuccessPrompt) {
         sendToChat(onSuccessPrompt, {
           widget: widgetLabel,
           actionId: action.id,
+          workflowResult: payload,
           ...context,
           ...(action.context ?? {}),
         });
@@ -88,6 +121,11 @@ export function WidgetActionBar({
 
       return true;
     } catch {
+      toast.error(
+        `${action.label} failed`,
+        `Could not complete workflow from ${widgetLabel}.`
+      );
+
       sendToChat(
         onErrorPrompt ??
           `I triggered ${action.label} in ${widgetLabel}, but the workflow failed. Please diagnose and guide the next best fallback.`,

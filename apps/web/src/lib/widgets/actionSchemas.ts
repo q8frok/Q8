@@ -54,6 +54,7 @@ export function buildCalendarWidgetActionConfig(params: {
             url: '/api/calendar/sync',
             method: 'POST',
           },
+          previewFields: ['status', 'message', 'synced'],
           onSuccessPrompt:
             'Calendar sync completed. Review new/updated events and surface any conflicts or prep needs.',
         },
@@ -117,6 +118,7 @@ export function buildWorkOpsWidgetActionConfig(params: {
             url: '/api/lifeos/ingest/work-ops',
             method: 'POST',
           },
+          previewFields: ['status', 'message', 'updated'],
           onSuccessPrompt:
             'Work Ops ingest completed. Summarize updated operational risks, replies, and next actions.',
         },
@@ -154,6 +156,7 @@ export function buildAlertsWidgetActionConfig(params: {
             url: '/api/lifeos/alerts/generate',
             method: 'POST',
           },
+          previewFields: ['status', 'message', 'count'],
           onSuccessPrompt:
             'Alerts were regenerated. Triage the latest alerts by urgency and suggest next actions.',
         },
