@@ -36,6 +36,11 @@ import {
   TrendingUp,
   Key,
   Plug,
+  Briefcase,
+  ShieldCheck,
+  Activity,
+  Users,
+  AlertTriangle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -572,6 +577,13 @@ const WIDGET_ICONS: Record<DashboardWidgetId, typeof Clock> = {
   github: Github,
   home: Home,
   finance: TrendingUp,
+  'work-ops': Briefcase,
+  approvals: ShieldCheck,
+  health: Activity,
+  knowledge: Brain,
+  people: Users,
+  growth: TrendingUp,
+  alerts: AlertTriangle,
 };
 
 function DisplaySettings({ preferences, updatePreference }: SettingsSectionProps) {
