@@ -100,10 +100,15 @@
 - Added migration scaffold:
   - `027_lifeos_phase29_approval_grants.sql`
 
-## Phase 2 Closeout (remaining)
+## Phase 2 Closeout (completed)
 
-- Apply `027_lifeos_phase29_approval_grants.sql` in staging SQL editor.
-- Final release gate package:
-  - staging checklist
-  - rollback runbook
-  - prod cutover plan (fork branch -> PR -> controlled deploy)
+- `027_lifeos_phase29_approval_grants.sql` applied in staging SQL editor.
+- Runtime policy enforcement + yellow grant flow integrated and verified.
+
+## Phase 3 Step 1 (in progress)
+
+- Added release gate package:
+  - `docs/PHASE3_RELEASE_GATE.md`
+  - `docs/PHASE3_ROLLBACK_RUNBOOK.md`
+  - `docs/PHASE3_PROD_CUTOVER_PLAN.md`
+- Next: execute production preflight + migration-by-migration cutover with smoke checks.
