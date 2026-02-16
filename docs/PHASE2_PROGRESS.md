@@ -55,8 +55,21 @@
 - Upgraded Alerts API to DB-first (`alert_events`) with mock fallback
 - Approval actions now surface execution mode (`DB` vs `SIMULATION`) in widget UI
 
+## Step 2.7 (in progress)
+
+- Added pipeline helper module for shared ingest/generation logic:
+  - `src/lib/lifeos/pipeline.ts`
+- Added job run APIs:
+  - `POST /api/lifeos/jobs/phase27/run`
+  - `GET /api/lifeos/jobs/phase27/status`
+- Added migration scaffold:
+  - `025_lifeos_phase27_job_runs.sql`
+- Added widget controls:
+  - Work Ops: auto-check pipeline status + interval check + run ingest button
+  - Alerts: generate alerts button
+
 ## Next
 
-- Apply `024_lifeos_phase25.sql` in staging
-- Populate `work_ops_snapshots` from actual connectors
-- Persist evaluated alerts into `alert_events` on schedule
+- Apply `025_lifeos_phase27_job_runs.sql` in staging
+- Trigger `phase27/run` on schedule (cron) instead of client polling
+- Replace placeholder finance/home metrics with real connector reads

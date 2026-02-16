@@ -6,17 +6,46 @@ import { WidgetWrapper } from './WidgetWrapper';
 import type { WorkOpsSnapshot } from '@/types/workops';
 
 type Connector = { configured: boolean; status: string };
+type PipelineStatus = {
+  nextDueAt: string | null;
+  lastRun: { status: 'success' | 'failed'; finished_at: string; duration_ms: number } | null;
+};
 
 export function WorkOpsWidget() {
   const [data, setData] = useState<WorkOpsSnapshot | null>(null);
   const [connectors, setConnectors] = useState<Connector[]>([]);
+  const [jobStatus, setJobStatus] = useState<PipelineStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isIngesting, setIsIngesting] = useState(false);
 
   useEffect(() => {
     let mounted = true;
+
+    async function loadStatusAndMaybeRun() {
+      const statusRes = await fetch('/api/lifeos/jobs/phase27/status', { cache: 'no-store' });
+      if (!statusRes.ok) return null;
+      const statusJson = (await statusRes.json()) as PipelineStatus;
+      if (mounted) setJobStatus(statusJson);
+
+      if (statusJson?.nextDueAt) {
+        const due = new Date(statusJson.nextDueAt).getTime();
+        if (Date.now() >= due) {
+          await fetch('/api/lifeos/jobs/phase27/run', { method: 'POST' });
+          const refresh = await fetch('/api/lifeos/jobs/phase27/status', { cache: 'no-store' });
+          if (refresh.ok && mounted) {
+            const refreshed = (await refresh.json()) as PipelineStatus;
+            setJobStatus(refreshed);
+          }
+        }
+      }
+
+      return statusJson;
+    }
+
     async function load() {
       try {
+        await loadStatusAndMaybeRun();
+
         const [snapshotRes, sourceRes] = await Promise.all([
           fetch('/api/lifeos/work-ops', { cache: 'no-store' }),
           fetch('/api/lifeos/work-ops/sources', { cache: 'no-store' }),
@@ -35,9 +64,15 @@ export function WorkOpsWidget() {
         if (mounted) setIsLoading(false);
       }
     }
+
     load();
+    const timer = setInterval(() => {
+      loadStatusAndMaybeRun().catch(() => {});
+    }, 5 * 60 * 1000);
+
     return () => {
       mounted = false;
+      clearInterval(timer);
     };
   }, []);
 
@@ -71,6 +106,11 @@ export function WorkOpsWidget() {
         </div>
         <p className="text-xs text-text-muted">Today reservations: {data?.reservations.today ?? 0} · Catering this week: {data?.reservations.cateringEvents ?? 0}</p>
         <p className="text-xs text-neon-primary truncate">Next: {data?.nextAction ?? 'Loading next action...'}</p>
+        {jobStatus?.lastRun && (
+          <p className="text-[11px] text-text-muted">
+            Pipeline: {jobStatus.lastRun.status.toUpperCase()} · {jobStatus.lastRun.duration_ms}ms
+          </p>
+        )}
         <div>
           <button
             onClick={runIngest}
