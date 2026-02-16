@@ -40,6 +40,7 @@ interface UnifiedChatWithThreadsProps {
   };
   defaultMode?: ConversationMode;
   className?: string;
+  showInspector?: boolean;
 }
 
 // =============================================================================
@@ -47,7 +48,7 @@ interface UnifiedChatWithThreadsProps {
 // =============================================================================
 
 export const UnifiedChatWithThreads = forwardRef<UnifiedChatWithThreadsRef, UnifiedChatWithThreadsProps>(
-  function UnifiedChatWithThreads({ userId, userProfile, defaultMode = 'text', className }, ref) {
+  function UnifiedChatWithThreads({ userId, userProfile, defaultMode = 'text', className, showInspector = false }, ref) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [currentThreadId, setCurrentThreadId] = useState<string | null>(null);
     const conversationRef = useRef<UnifiedConversationRef>(null);
@@ -223,6 +224,7 @@ export const UnifiedChatWithThreads = forwardRef<UnifiedChatWithThreadsRef, Unif
             showSidebarToggle={true}
             sidebarOpen={sidebarOpen}
             onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+            showInspector={showInspector}
           />
         </div>
       </div>

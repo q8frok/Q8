@@ -7,7 +7,7 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { useChat, type ChatState, type StreamingMessage, type ToolExecution, type AgentType, type GeneratedImage } from './useChat';
+import { useChat, type ChatState, type StreamingMessage, type ToolExecution, type AgentType, type GeneratedImage, type RunInspectorEvent } from './useChat';
 import { useVoice, type Voice, type VoiceStatus } from './useVoice';
 import { createTTSStreamer, type TTSStreamer } from '@/lib/agents/tts-streamer';
 import type { ExtendedAgentType, ConversationMode, InputMethod } from '@/lib/agents/orchestration/types';
@@ -37,6 +37,9 @@ export interface UnifiedChatState extends Omit<ChatState, 'currentAgent'> {
 
   // TTS state
   ttsEnabled: boolean;
+
+  // Inspector timeline
+  inspectorEvents: RunInspectorEvent[];
 }
 
 export interface UseUnifiedChatOptions {
@@ -410,6 +413,9 @@ export function useUnifiedChat(options: UseUnifiedChatOptions): UseUnifiedChatRe
 
     // TTS state
     ttsEnabled,
+
+    // Inspector timeline
+    inspectorEvents: chat.inspectorEvents,
 
     // Unified actions
     send,

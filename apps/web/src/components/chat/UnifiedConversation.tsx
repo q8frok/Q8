@@ -9,6 +9,7 @@ import { AudioLevelIndicator } from '@/components/voice/AudioLevelIndicator';
 import { ConversationHeader } from './ConversationHeader';
 import { MessageList } from './MessageList';
 import { ConversationInputArea, type ConversationInputAreaRef } from './ConversationInputArea';
+import { RunInspectorPanel } from './RunInspectorPanel';
 import { logger } from '@/lib/logger';
 
 export interface UnifiedConversationRef {
@@ -30,6 +31,7 @@ interface UnifiedConversationProps {
   sidebarOpen?: boolean;
   onToggleSidebar?: () => void;
   className?: string;
+  showInspector?: boolean;
 }
 
 export const UnifiedConversation = forwardRef<UnifiedConversationRef, UnifiedConversationProps>(
@@ -44,6 +46,7 @@ export const UnifiedConversation = forwardRef<UnifiedConversationRef, UnifiedCon
       sidebarOpen = false,
       onToggleSidebar,
       className,
+      showInspector = false,
     },
     ref
   ) {
@@ -65,6 +68,7 @@ export const UnifiedConversation = forwardRef<UnifiedConversationRef, UnifiedCon
       activeAgent,
       agentStack,
       ttsEnabled,
+      inspectorEvents,
       send,
       switchMode,
       startRecording,
@@ -141,63 +145,71 @@ export const UnifiedConversation = forwardRef<UnifiedConversationRef, UnifiedCon
       [retryLast]
     );
     return (
-      <div className={cn('flex flex-col h-full', className)}>
-        <ConversationHeader
-          mode={mode}
-          activeAgent={activeAgent}
-          agentStack={agentStack}
-          isStreaming={isStreaming}
-          ttsEnabled={ttsEnabled}
-          messagesCount={messages.length}
-          showSidebarToggle={showSidebarToggle}
-          sidebarOpen={sidebarOpen}
-          onToggleSidebar={onToggleSidebar}
-          onSwitchMode={switchMode}
-          onToggleTTS={toggleTTS}
-          onClearMessages={clearMessages}
-        />
+      <div className={cn('flex h-full min-w-0', className)}>
+        <div className="flex flex-col flex-1 min-w-0">
+          <ConversationHeader
+            mode={mode}
+            activeAgent={activeAgent}
+            agentStack={agentStack}
+            isStreaming={isStreaming}
+            ttsEnabled={ttsEnabled}
+            messagesCount={messages.length}
+            showSidebarToggle={showSidebarToggle}
+            sidebarOpen={sidebarOpen}
+            onToggleSidebar={onToggleSidebar}
+            onSwitchMode={switchMode}
+            onToggleTTS={toggleTTS}
+            onClearMessages={clearMessages}
+          />
 
-        <AnimatePresence>
-          {(mode === 'voice' || mode === 'ambient') && (isRecording || isSpeaking) && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 48, opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="border-b border-border-subtle overflow-hidden"
-            >
-              <AudioLevelIndicator audioLevel={audioLevel} isRecording={isRecording} isSpeaking={isSpeaking} />
-            </motion.div>
-          )}
-        </AnimatePresence>
-        <MessageList
-          messages={messages}
-          isLoading={isLoading}
-          isStreaming={isStreaming}
-          activeAgent={activeAgent}
-          routingReason={routingReason}
-          error={error}
-          runState={runState}
-          pipelineState={pipelineState}
-          pipelineDetail={pipelineDetail}
-          onSend={handleSend}
-          onMentionInsert={handleMentionInsert}
-          onRetry={retryLast}
-          onMessageAction={handleMessageAction}
-        />
-        <ConversationInputArea
-          ref={inputAreaRef}
-          mode={mode}
-          isLoading={isLoading}
-          isStreaming={isStreaming}
-          isRecording={isRecording}
-          isTranscribing={isTranscribing}
-          isSpeaking={isSpeaking}
-          currentThreadId={currentThreadId}
-          onSend={handleSend}
-          onCancelStream={cancelStream}
-          onVoiceInteraction={handleVoiceInteraction}
-          onSwitchMode={switchMode}
-        />
+          <AnimatePresence>
+            {(mode === 'voice' || mode === 'ambient') && (isRecording || isSpeaking) && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 48, opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="border-b border-border-subtle overflow-hidden"
+              >
+                <AudioLevelIndicator audioLevel={audioLevel} isRecording={isRecording} isSpeaking={isSpeaking} />
+              </motion.div>
+            )}
+          </AnimatePresence>
+          <MessageList
+            messages={messages}
+            isLoading={isLoading}
+            isStreaming={isStreaming}
+            activeAgent={activeAgent}
+            routingReason={routingReason}
+            error={error}
+            runState={runState}
+            pipelineState={pipelineState}
+            pipelineDetail={pipelineDetail}
+            onSend={handleSend}
+            onMentionInsert={handleMentionInsert}
+            onRetry={retryLast}
+            onMessageAction={handleMessageAction}
+          />
+          <ConversationInputArea
+            ref={inputAreaRef}
+            mode={mode}
+            isLoading={isLoading}
+            isStreaming={isStreaming}
+            isRecording={isRecording}
+            isTranscribing={isTranscribing}
+            isSpeaking={isSpeaking}
+            currentThreadId={currentThreadId}
+            onSend={handleSend}
+            onCancelStream={cancelStream}
+            onVoiceInteraction={handleVoiceInteraction}
+            onSwitchMode={switchMode}
+          />
+        </div>
+
+        {showInspector && (
+          <div className="hidden xl:block w-[320px] flex-shrink-0">
+            <RunInspectorPanel events={inspectorEvents} />
+          </div>
+        )}
       </div>
     );
   }

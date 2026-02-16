@@ -205,6 +205,13 @@ export interface StreamingMessage {
 
 export type PipelineState = 'routing' | 'thinking' | 'tool_executing' | 'composing' | 'done' | null;
 
+export interface RunInspectorEvent {
+  id: string;
+  type: string;
+  timestamp: Date;
+  summary: string;
+}
+
 export interface ChatState {
   messages: StreamingMessage[];
   isLoading: boolean;
@@ -222,6 +229,7 @@ export interface ChatState {
   runEndedAt: Date | null;
   pipelineState: PipelineState;
   pipelineDetail: string | null;
+  inspectorEvents: RunInspectorEvent[];
 }
 
 interface UseChatOptions {
@@ -302,6 +310,7 @@ export function useChat(options: UseChatOptions) {
     runEndedAt: null,
     pipelineState: null,
     pipelineDetail: null,
+    inspectorEvents: [],
   });
 
   // Track if we should skip the next message load (when thread is created during streaming)
@@ -600,6 +609,21 @@ export function useChat(options: UseChatOptions) {
     event: ParsedStreamEvent,
     messageId: string
   ) => {
+    const pushInspectorEvent = (type: string, summary: string) => {
+      setState(prev => ({
+        ...prev,
+        inspectorEvents: [
+          ...prev.inspectorEvents,
+          {
+            id: `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+            type,
+            timestamp: new Date(),
+            summary,
+          },
+        ].slice(-200),
+      }));
+    };
+
     const updateRunMetadata = (newState: RunState, runId?: string) => {
       const now = new Date();
       const isTerminal = newState === 'completed' || newState === 'failed' || newState === 'cancelled';
@@ -635,12 +659,20 @@ export function useChat(options: UseChatOptions) {
       case 'run_created':
         if (event.runId) {
           updateRunMetadata('queued', event.runId as string);
+          pushInspectorEvent('run_created', `Run queued (${event.runId})`);
         }
         break;
 
       case 'run_state':
         if (event.state) {
           updateRunMetadata(event.state as RunState, event.runId as string);
+          const pipeState = event.state as PipelineState;
+          setState(prev => ({
+            ...prev,
+            pipelineState: pipeState,
+            pipelineDetail: (event.detail as string) || null,
+          }));
+          pushInspectorEvent('run_state', `Run is now ${String(event.state).replace('_', ' ')}`);
         }
         break;
 
@@ -668,6 +700,7 @@ export function useChat(options: UseChatOptions) {
         }));
         if (event.agent && event.reason) {
           onRouting?.(event.agent, event.reason, event.confidence ?? 0);
+          pushInspectorEvent('routing', `${event.agent} selected — ${event.reason}`);
         }
         setState(prev => ({
           ...prev,
@@ -685,6 +718,7 @@ export function useChat(options: UseChatOptions) {
             pendingHandoff: null,
           }));
           onAgentStart?.(event.agent);
+          pushInspectorEvent('agent_start', `${event.agent} started execution`);
         }
         break;
 
@@ -704,6 +738,7 @@ export function useChat(options: UseChatOptions) {
             ),
           }));
           onHandoff?.(handoff);
+          pushInspectorEvent('handoff', `${event.from} → ${event.to} (${event.reason})`);
         }
         break;
 
@@ -726,6 +761,7 @@ export function useChat(options: UseChatOptions) {
             ),
           }));
           onToolExecution?.(toolExecution);
+          pushInspectorEvent('tool_start', `${event.tool} started`);
         }
         break;
 
@@ -756,6 +792,7 @@ export function useChat(options: UseChatOptions) {
                 : m
             ),
           }));
+          pushInspectorEvent('tool_end', `${event.tool} ${event.success ? 'completed' : 'failed'}`);
         }
         break;
 
@@ -880,6 +917,7 @@ export function useChat(options: UseChatOptions) {
         activeMessageIdRef.current = null;
 
         updateRunMetadata('completed', event.runId as string);
+        pushInspectorEvent('done', `Run completed with ${event.agent || 'orchestrator'}`);
         // Handle images from done event
         const doneImages = event.images?.map(img => ({
           id: `img_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
@@ -914,18 +952,6 @@ export function useChat(options: UseChatOptions) {
         }
         break;
 
-      case 'run_state':
-        // Pipeline state indicator (routing → thinking → tool_executing → composing → done)
-        if (event.state) {
-          const pipeState = event.state as PipelineState;
-          setState(prev => ({
-            ...prev,
-            pipelineState: pipeState,
-            pipelineDetail: (event.detail as string) || null,
-          }));
-        }
-        break;
-
       case 'reasoning_start':
         setState(prev => ({
           ...prev,
@@ -935,6 +961,7 @@ export function useChat(options: UseChatOptions) {
             m.id === messageId ? { ...m, isReasoning: true } : m
           ),
         }));
+        pushInspectorEvent('reasoning_start', 'Deep reasoning started');
         break;
 
       case 'reasoning_end':
@@ -946,6 +973,7 @@ export function useChat(options: UseChatOptions) {
               : m
           ),
         }));
+        pushInspectorEvent('reasoning_end', 'Reasoning finished');
         break;
 
       case 'guardrail_triggered':
@@ -964,6 +992,7 @@ export function useChat(options: UseChatOptions) {
 
       case 'error':
         updateRunMetadata('failed', event.runId as string);
+        pushInspectorEvent('error', event.message || 'Unknown error');
         activeMessageIdRef.current = null;
         setState(prev => ({
           ...prev,
@@ -1062,6 +1091,7 @@ export function useChat(options: UseChatOptions) {
       runEndedAt: null,
       pipelineState: null,
       pipelineDetail: null,
+      inspectorEvents: [],
     }));
   }, []);
 
