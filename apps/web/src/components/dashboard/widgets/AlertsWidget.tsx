@@ -13,16 +13,27 @@ const severityClass: Record<AlertSeverity, string> = {
 
 export function AlertsWidget() {
   const [data, setData] = useState<AlertsResponse | null>(null);
+  const [thresholdCount, setThresholdCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
     async function load() {
       try {
-        const res = await fetch('/api/lifeos/alerts', { cache: 'no-store' });
-        if (!res.ok) return;
-        const json = (await res.json()) as AlertsResponse;
-        if (mounted) setData(json);
+        const [alertsRes, thresholdsRes] = await Promise.all([
+          fetch('/api/lifeos/alerts', { cache: 'no-store' }),
+          fetch('/api/lifeos/thresholds', { cache: 'no-store' }),
+        ]);
+
+        if (alertsRes.ok) {
+          const json = (await alertsRes.json()) as AlertsResponse;
+          if (mounted) setData(json);
+        }
+
+        if (thresholdsRes.ok) {
+          const thresholdsJson = (await thresholdsRes.json()) as { items?: unknown[] };
+          if (mounted) setThresholdCount((thresholdsJson.items ?? []).length);
+        }
       } finally {
         if (mounted) setIsLoading(false);
       }
@@ -38,6 +49,7 @@ export function AlertsWidget() {
   return (
     <WidgetWrapper title="Risk & Alerts" icon={AlertTriangle} colSpan={2} rowSpan={1} isLoading={isLoading}>
       <div className="p-4 space-y-2">
+        <p className="text-[11px] text-text-muted">Active thresholds: {thresholdCount}</p>
         {top.length === 0 ? (
           <p className="text-sm text-text-muted">No active alerts.</p>
         ) : (

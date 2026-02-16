@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { supabaseAdmin } from '@/lib/supabase/server';
 import type { ApprovalItem, ApprovalQueueResponse } from '@/types/approvals';
 
 function mockItems(): ApprovalItem[] {
@@ -30,10 +31,37 @@ function mockItems(): ApprovalItem[] {
   ];
 }
 
+function isMissingTableError(error: unknown): boolean {
+  const code = (error as { code?: string } | null)?.code;
+  return code === '42P01';
+}
+
 export async function GET() {
+  const { data, error } = await supabaseAdmin
+    .from('approval_queue')
+    .select('id,title,domain,severity,status,created_at')
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  if (error) {
+    if (isMissingTableError(error)) {
+      return NextResponse.json({ generatedAt: new Date().toISOString(), items: mockItems(), mode: 'mock' });
+    }
+    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  }
+
+  const items: ApprovalItem[] = (data ?? []).map((row) => ({
+    id: row.id,
+    title: row.title,
+    domain: row.domain,
+    severity: row.severity,
+    status: row.status,
+    createdAt: row.created_at,
+  }));
+
   const payload: ApprovalQueueResponse = {
     generatedAt: new Date().toISOString(),
-    items: mockItems(),
+    items,
   };
 
   return NextResponse.json(payload);
@@ -47,11 +75,31 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: 'id and action are required' }, { status: 400 });
   }
 
+  const status = action === 'approve' ? 'approved' : 'rejected';
+
+  const { error } = await supabaseAdmin
+    .from('approval_queue')
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq('id', id);
+
+  if (error) {
+    if (isMissingTableError(error)) {
+      return NextResponse.json({
+        ok: true,
+        id,
+        status,
+        actedAt: new Date().toISOString(),
+        mode: 'simulation',
+      });
+    }
+    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  }
+
   return NextResponse.json({
     ok: true,
     id,
-    status: action === 'approve' ? 'approved' : 'rejected',
+    status,
     actedAt: new Date().toISOString(),
-    mode: 'simulation',
+    mode: 'db',
   });
 }

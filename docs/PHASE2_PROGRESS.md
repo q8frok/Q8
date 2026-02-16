@@ -37,8 +37,16 @@
   - `AlertsWidget`
 - Wired dashboard to use these widgets for `work-ops` and `alerts` panels.
 
-## Next (Step 2.4)
+## Step 2.4 (in progress)
 
-- Add persistent approval queue storage (db-backed)
-- Connect Work Ops to real Gmail/Calendar/Square pipelines
-- Connect Alerts to unified threshold engine
+- Added DB-backed scaffold for approvals queue in API (`approval_queue` table with mock fallback)
+- Added threshold config API (`/api/lifeos/thresholds`) with DB + mock fallback
+- Added work-ops sources contract API (`/api/lifeos/work-ops/sources`)
+- Added migration scaffold:
+  - `infra/supabase/migrations/023_lifeos_phase2.sql`
+
+## Next
+
+- Apply migration in staging and switch APIs from mock fallback to DB mode
+- Connect Work Ops to real Gmail/Calendar/Square ingestion
+- Connect Alerts to threshold evaluation jobs
