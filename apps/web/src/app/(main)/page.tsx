@@ -53,6 +53,14 @@ const ApprovalCenterWidget = dynamic(
   () => import('@/components/dashboard/widgets/ApprovalCenterWidget').then(m => m.ApprovalCenterWidget),
   { loading: () => <WidgetSkeleton className="col-span-2 row-span-1" />, ssr: false }
 );
+const WorkOpsWidget = dynamic(
+  () => import('@/components/dashboard/widgets/WorkOpsWidget').then(m => m.WorkOpsWidget),
+  { loading: () => <WidgetSkeleton className="col-span-2 row-span-1" />, ssr: false }
+);
+const AlertsWidget = dynamic(
+  () => import('@/components/dashboard/widgets/AlertsWidget').then(m => m.AlertsWidget),
+  { loading: () => <WidgetSkeleton className="col-span-2 row-span-1" />, ssr: false }
+);
 // Heavy chat component - dynamic import
 const UnifiedChatWithThreads = dynamic(
   () => import('@/components/chat/UnifiedChatWithThreads').then(m => m.UnifiedChatWithThreads),
@@ -248,7 +256,7 @@ function DashboardContent() {
                       case 'work-ops':
                         return (
                           <BentoItem key="work-ops" id="work-ops" colSpan={2} rowSpan={1} index={idx}>
-                            <LifeOSDomainWidget kind="work-ops" />
+                            <WorkOpsWidget />
                           </BentoItem>
                         );
                       case 'approvals':
@@ -284,7 +292,7 @@ function DashboardContent() {
                       case 'alerts':
                         return (
                           <BentoItem key="alerts" id="alerts" colSpan={2} rowSpan={1} index={idx}>
-                            <LifeOSDomainWidget kind="alerts" />
+                            <AlertsWidget />
                           </BentoItem>
                         );
                       default:

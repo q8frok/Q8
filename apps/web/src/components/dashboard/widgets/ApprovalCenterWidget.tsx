@@ -14,6 +14,7 @@ const badgeClass: Record<ApprovalItem['severity'], string> = {
 export function ApprovalCenterWidget() {
   const [data, setData] = useState<ApprovalQueueResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [actingId, setActingId] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -38,6 +39,29 @@ export function ApprovalCenterWidget() {
     [data]
   );
 
+  async function act(id: string, action: 'approve' | 'reject') {
+    setActingId(id);
+    try {
+      await fetch('/api/lifeos/approvals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, action }),
+      });
+      setData((prev) =>
+        prev
+          ? {
+              ...prev,
+              items: prev.items.map((item) =>
+                item.id === id ? { ...item, status: action === 'approve' ? 'approved' : 'rejected' } : item
+              ),
+            }
+          : prev
+      );
+    } finally {
+      setActingId(null);
+    }
+  }
+
   return (
     <WidgetWrapper title="Approval Center" icon={ShieldCheck} colSpan={2} rowSpan={1} isLoading={isLoading}>
       <div className="p-4 space-y-2">
@@ -52,7 +76,23 @@ export function ApprovalCenterWidget() {
                   {item.severity.toUpperCase()}
                 </span>
               </div>
-              <div className="text-[11px] text-text-muted mt-1">{item.domain}</div>
+              <div className="text-[11px] text-text-muted mt-1 mb-2">{item.domain}</div>
+              <div className="flex gap-1.5">
+                <button
+                  onClick={() => act(item.id, 'approve')}
+                  disabled={actingId === item.id}
+                  className="text-[11px] px-2 py-1 rounded bg-emerald-500/20 text-emerald-300 disabled:opacity-50"
+                >
+                  Approve
+                </button>
+                <button
+                  onClick={() => act(item.id, 'reject')}
+                  disabled={actingId === item.id}
+                  className="text-[11px] px-2 py-1 rounded bg-rose-500/20 text-rose-300 disabled:opacity-50"
+                >
+                  Reject
+                </button>
+              </div>
             </div>
           ))
         )}

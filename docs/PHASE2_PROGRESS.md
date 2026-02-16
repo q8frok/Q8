@@ -18,8 +18,27 @@
 - Local URL: `http://localhost:3000`
 - Domain panels now show live scaffold metrics from API contract.
 
-## Next (Step 2.2)
+## Step 2.2 (completed)
 
-- Build Approval Center widget (queue table + status chips)
-- Add mock action queue API contract (`/api/lifeos/approvals`)
-- Connect dashboard panel to approval data source
+- Added Approval Center queue API contract:
+  - `GET /api/lifeos/approvals`
+  - `POST /api/lifeos/approvals` (approve/reject simulation)
+- Added Approval Center widget with action buttons:
+  - `apps/web/src/components/dashboard/widgets/ApprovalCenterWidget.tsx`
+
+## Step 2.3 (completed)
+
+- Added Work Ops API scaffold:
+  - `GET /api/lifeos/work-ops`
+- Added Alerts API scaffold:
+  - `GET /api/lifeos/alerts`
+- Added dedicated widgets:
+  - `WorkOpsWidget`
+  - `AlertsWidget`
+- Wired dashboard to use these widgets for `work-ops` and `alerts` panels.
+
+## Next (Step 2.4)
+
+- Add persistent approval queue storage (db-backed)
+- Connect Work Ops to real Gmail/Calendar/Square pipelines
+- Connect Alerts to unified threshold engine
