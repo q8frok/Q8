@@ -12,7 +12,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { logger } from '@/lib/logger';
 import { EVENT_SCHEMA_VERSION, hasSupportedEventVersion } from '@/lib/agents/sdk/events';
-import { CHAT_RELIABILITY, computeReconnectDelayMs, getChatReliability } from '@/lib/chat/reliability';
+import { computeReconnectDelayMs, getChatReliability } from '@/lib/chat/reliability';
 import { sseTransport } from '@/lib/chat/transport/sse-client';
 
 export type AgentType = 'orchestrator' | 'coder' | 'researcher' | 'secretary' | 'personality' | 'home' | 'finance' | 'imagegen';
