@@ -45,6 +45,20 @@ export function buildCalendarWidgetActionConfig(params: {
         prompt: 'Summarize my day from calendar and flag schedule risks.',
       },
       {
+        id: 'sync-calendar',
+        label: 'Sync now',
+        prompt: 'Calendar sync has been triggered. Review what changed and call out scheduling conflicts.',
+        execution: {
+          kind: 'workflow',
+          request: {
+            url: '/api/calendar/sync',
+            method: 'POST',
+          },
+          onSuccessPrompt:
+            'Calendar sync completed. Review new/updated events and surface any conflicts or prep needs.',
+        },
+      },
+      {
         id: 'prep-next',
         label: 'Prep next meeting',
         prompt: 'Help me prep for my next meeting with a quick briefing and checklist.',
@@ -94,6 +108,20 @@ export function buildWorkOpsWidgetActionConfig(params: {
         prompt: 'Build an operations plan for today based on current work ops metrics.',
       },
       {
+        id: 'run-ingest',
+        label: 'Run ingest',
+        prompt: 'Work Ops ingest finished. Summarize what changed and what requires action now.',
+        execution: {
+          kind: 'workflow',
+          request: {
+            url: '/api/lifeos/ingest/work-ops',
+            method: 'POST',
+          },
+          onSuccessPrompt:
+            'Work Ops ingest completed. Summarize updated operational risks, replies, and next actions.',
+        },
+      },
+      {
         id: 'reply-priorities',
         label: 'Reply priorities',
         prompt: 'Prioritize pending reservation or client replies and draft responses.',
@@ -115,6 +143,20 @@ export function buildAlertsWidgetActionConfig(params: {
         id: 'triage-alerts',
         label: 'Triage alerts',
         prompt: 'Triage current alerts by urgency and propose immediate actions.',
+      },
+      {
+        id: 'generate-alerts',
+        label: 'Generate',
+        prompt: 'Alerts were regenerated. Triage the latest alert set and recommend immediate actions.',
+        execution: {
+          kind: 'workflow',
+          request: {
+            url: '/api/lifeos/alerts/generate',
+            method: 'POST',
+          },
+          onSuccessPrompt:
+            'Alerts were regenerated. Triage the latest alerts by urgency and suggest next actions.',
+        },
       },
       {
         id: 'prevention-plan',
