@@ -1,7 +1,7 @@
 {
   "project": {
     "name": "Q8",
-    "root": "C:\\Users\\Minki\\Q8"
+    "root": "/Users/q8macmini/.openclaw/workspace/Q8"
   },
   "quality": {
     "alwaysTypecheck": true,
@@ -30,7 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "powershell -Command \"[console]::beep(800,200)\""
+            "command": "afplay /System/Library/Sounds/Glass.aiff >/dev/null 2>&1 || printf '\\a'"
           }
         ]
       }
