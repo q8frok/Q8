@@ -19,10 +19,14 @@ pnpm install
 
 ### 2. Environment Configuration
 
-Copy the environment template and fill in your API keys:
+Copy one of the environment templates and fill in your API keys:
 
 ```bash
+# Existing full template
 cp apps/web/.env.local.example apps/web/.env.local
+
+# Or minimum-required template for safe rollout
+cp apps/web/.env.local.required.example apps/web/.env.local
 ```
 
 Edit `apps/web/.env.local` and add your keys:
