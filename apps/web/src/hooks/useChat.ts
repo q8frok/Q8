@@ -12,6 +12,8 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { logger } from '@/lib/logger';
 import { EVENT_SCHEMA_VERSION, hasSupportedEventVersion } from '@/lib/agents/sdk/events';
+import { CHAT_RELIABILITY, computeReconnectDelayMs } from '@/lib/chat/reliability';
+import { splitSSEBuffer, readSSEDataLine } from '@/lib/chat/transport/sse';
 
 export type AgentType = 'orchestrator' | 'coder' | 'researcher' | 'secretary' | 'personality' | 'home' | 'finance' | 'imagegen';
 
@@ -236,6 +238,7 @@ export interface ChatState {
   reconnectAttempt: number;
   queuedMessages: number;
   sessionId: string | null;
+  recoveryNotice: string | null;
 }
 
 interface UseChatOptions {
@@ -322,6 +325,7 @@ export function useChat(options: UseChatOptions) {
     reconnectAttempt: 0,
     queuedMessages: 0,
     sessionId: null,
+    recoveryNotice: null,
   });
 
   // Track if we should skip the next message load (when thread is created during streaming)
@@ -473,8 +477,6 @@ export function useChat(options: UseChatOptions) {
   }, []);
 
   const OUTBOX_KEY = `q8_chat_outbox_${userId}`;
-  const MAX_RECONNECT_ATTEMPTS = 6;
-  const HEARTBEAT_INTERVAL_MS = 15000;
 
   const appendInspectorEvent = useCallback((type: string, summary: string) => {
     setState(prev => ({
@@ -649,20 +651,21 @@ export function useChat(options: UseChatOptions) {
 
         buffer += decoder.decode(value, { stream: true });
 
-        const lines = buffer.split('\n\n');
-        buffer = lines.pop() || '';
+        const { frames, rest } = splitSSEBuffer(buffer);
+        buffer = rest;
 
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
+        for (const frame of frames) {
+          const dataLine = readSSEDataLine(frame);
+          if (!dataLine) continue;
 
           try {
-            const raw = JSON.parse(line.slice(6));
+            const raw = JSON.parse(dataLine);
             const parsed = parseVersionedEvent(raw);
             if (parsed) {
               await processStreamEvent(parsed, assistantMessageId);
             }
           } catch (e) {
-            logger.warn('Failed to parse SSE event', { line, error: e });
+            logger.warn('Failed to parse SSE event', { frame, error: e });
           }
         }
       }
@@ -700,6 +703,7 @@ export function useChat(options: UseChatOptions) {
     if (!items.length) return;
 
     appendInspectorEvent('queue_flush_start', `Replaying ${items.length} queued message${items.length > 1 ? 's' : ''}`);
+    setState(prev => ({ ...prev, recoveryNotice: `Replaying ${items.length} queued message${items.length > 1 ? 's' : ''}...` }));
 
     for (const item of items) {
       const result = await sendMessage(item.content, {
@@ -715,6 +719,12 @@ export function useChat(options: UseChatOptions) {
         break;
       }
       dequeueOutbox();
+    }
+
+    const remaining = readOutbox().length;
+    if (remaining === 0) {
+      setState(prev => ({ ...prev, recoveryNotice: 'All queued messages sent successfully.' }));
+      appendInspectorEvent('queue_flush_complete', 'Queued message replay complete');
     }
   }, [state.isStreaming, readOutbox, sendMessage, dequeueOutbox, appendInspectorEvent]);
 
@@ -752,12 +762,12 @@ export function useChat(options: UseChatOptions) {
 
     const scheduleReconnect = () => {
       if (!active) return;
-      if (reconnectAttempt >= MAX_RECONNECT_ATTEMPTS) {
+      if (reconnectAttempt >= CHAT_RELIABILITY.maxReconnectAttempts) {
         setState(prev => ({ ...prev, connectionStatus: 'degraded', reconnectAttempt }));
         appendInspectorEvent('connection_degraded', 'Max reconnect attempts reached; staying in degraded mode');
         return;
       }
-      const delay = Math.min(2000 * (2 ** Math.max(reconnectAttempt - 1, 0)), 30000);
+      const delay = computeReconnectDelayMs(reconnectAttempt);
       reconnectTimeout = setTimeout(() => {
         void establishSession();
       }, delay);
@@ -779,7 +789,7 @@ export function useChat(options: UseChatOptions) {
         const recovered = reconnectAttempt > 0;
         reconnectAttempt = 0;
 
-        setState(prev => ({ ...prev, sessionId: data.sessionId, connectionStatus: 'connected', reconnectAttempt: 0 }));
+        setState(prev => ({ ...prev, sessionId: data.sessionId, connectionStatus: 'connected', reconnectAttempt: 0, recoveryNotice: recovered ? 'Connection restored.' : prev.recoveryNotice }));
         if (recovered) {
           appendInspectorEvent('connection_resumed', 'Session restored and reconnected');
         }
@@ -822,7 +832,7 @@ export function useChat(options: UseChatOptions) {
         appendInspectorEvent('heartbeat_missed', `Heartbeat missed (attempt ${reconnectAttempt})`);
         scheduleReconnect();
       }
-    }, HEARTBEAT_INTERVAL_MS);
+    }, CHAT_RELIABILITY.heartbeatIntervalMs);
 
     return () => {
       active = false;
@@ -831,6 +841,14 @@ export function useChat(options: UseChatOptions) {
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flushOutbox, state.sessionId, appendInspectorEvent]);
+
+  useEffect(() => {
+    if (!state.recoveryNotice) return;
+    const id = setTimeout(() => {
+      setState(prev => ({ ...prev, recoveryNotice: null }));
+    }, 6000);
+    return () => clearTimeout(id);
+  }, [state.recoveryNotice]);
 
   /**
    * Process a stream event

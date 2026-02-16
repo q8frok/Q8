@@ -84,6 +84,7 @@ export const UnifiedConversation = forwardRef<UnifiedConversationRef, UnifiedCon
       connectionStatus,
       reconnectAttempt,
       queuedMessages,
+      recoveryNotice,
     } = useUnifiedChat({
       userId,
       threadId,
@@ -190,6 +191,7 @@ export const UnifiedConversation = forwardRef<UnifiedConversationRef, UnifiedCon
             runState={runState}
             pipelineState={pipelineState}
             pipelineDetail={pipelineDetail}
+            recoveryNotice={recoveryNotice}
             onSend={handleSend}
             onMentionInsert={handleMentionInsert}
             onRetry={retryLast}

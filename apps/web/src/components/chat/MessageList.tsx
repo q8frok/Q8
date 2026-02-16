@@ -19,6 +19,7 @@ interface MessageListProps {
   runState: RunState | null;
   pipelineState?: PipelineState;
   pipelineDetail?: string | null;
+  recoveryNotice?: string | null;
   onSend: (content: string) => void;
   onMentionInsert: (mention: string) => void;
   onRetry: () => void;
@@ -35,6 +36,7 @@ export const MessageList = memo(function MessageList({
   runState,
   pipelineState,
   pipelineDetail,
+  recoveryNotice,
   onSend,
   onMentionInsert,
   onRetry,
@@ -89,6 +91,17 @@ export const MessageList = memo(function MessageList({
 
       {runState && (
         <div className="text-center text-xs text-text-muted">Run status: {runState.replace('_', ' ')}</div>
+      )}
+
+      {recoveryNotice && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          className="mx-auto w-fit rounded-full border border-neon-primary/30 bg-neon-primary/10 px-3 py-1 text-xs text-neon-primary"
+        >
+          {recoveryNotice}
+        </motion.div>
       )}
 
       {/* Messages */}

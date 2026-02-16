@@ -38,6 +38,8 @@ export interface UnifiedChatState extends Omit<ChatState, 'currentAgent'> {
   // TTS state
   ttsEnabled: boolean;
 
+  recoveryNotice: string | null;
+
   // Inspector timeline
   inspectorEvents: RunInspectorEvent[];
 }
@@ -399,6 +401,7 @@ export function useUnifiedChat(options: UseUnifiedChatOptions): UseUnifiedChatRe
     reconnectAttempt: chat.reconnectAttempt,
     queuedMessages: chat.queuedMessages,
     sessionId: chat.sessionId,
+    recoveryNotice: chat.recoveryNotice,
 
     // Mode state
     mode,
