@@ -19,6 +19,7 @@ export function ApprovalCenterWidget() {
   const [data, setData] = useState<ApprovalQueueResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [actingId, setActingId] = useState<string | null>(null);
+  const [lastMode, setLastMode] = useState<'db' | 'simulation' | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -62,11 +63,15 @@ export function ApprovalCenterWidget() {
   async function act(id: string, action: 'approve' | 'reject') {
     setActingId(id);
     try {
-      await fetch('/api/lifeos/approvals', {
+      const res = await fetch('/api/lifeos/approvals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, action }),
       });
+      const result = await res.json().catch(() => ({}));
+      if (result?.mode === 'db' || result?.mode === 'simulation') {
+        setLastMode(result.mode);
+      }
       const nextStatus: ApprovalItem['status'] = action === 'approve' ? 'approved' : 'rejected';
 
       setData((prev) =>
@@ -94,6 +99,9 @@ export function ApprovalCenterWidget() {
   return (
     <WidgetWrapper title="Approval Center" icon={ShieldCheck} colSpan={2} rowSpan={1} isLoading={isLoading}>
       <div className="p-4 space-y-2">
+        {lastMode && (
+          <p className="text-[11px] text-text-muted">Action mode: {lastMode.toUpperCase()}</p>
+        )}
         {pending.length === 0 ? (
           <p className="text-sm text-text-muted">No pending approvals.</p>
         ) : (

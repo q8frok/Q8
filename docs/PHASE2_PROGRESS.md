@@ -45,8 +45,18 @@
 - Added migration scaffold:
   - `infra/supabase/migrations/023_lifeos_phase2.sql`
 
+## Step 2.5 (in progress)
+
+- Added migration scaffold:
+  - `024_lifeos_phase25.sql` (work_ops_snapshots, alert_events)
+- Upgraded Work Ops API to DB-first (`work_ops_snapshots`) with mock fallback
+- Added alerts evaluation endpoint scaffold:
+  - `GET /api/lifeos/alerts/evaluate`
+- Upgraded Alerts API to DB-first (`alert_events`) with mock fallback
+- Approval actions now surface execution mode (`DB` vs `SIMULATION`) in widget UI
+
 ## Next
 
-- Apply migration in staging and switch APIs from mock fallback to DB mode
-- Connect Work Ops to real Gmail/Calendar/Square ingestion
-- Connect Alerts to threshold evaluation jobs
+- Apply `024_lifeos_phase25.sql` in staging
+- Populate `work_ops_snapshots` from actual connectors
+- Persist evaluated alerts into `alert_events` on schedule
