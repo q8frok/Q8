@@ -24,17 +24,38 @@ function startOfWeek() {
 }
 
 export async function runWorkOpsIngest() {
+  const nowIso = new Date().toISOString();
   const todayIso = startOfToday();
   const weekIso = startOfWeek();
 
-  const [{ count: todayCount }, { count: weekCount }, { count: cateringCount }] = await Promise.all([
+  const staffingFilter = 'title.ilike.%shift%,title.ilike.%staff%,title.ilike.%host%,title.ilike.%server%,title.ilike.%bartender%';
+
+  const [
+    { count: todayCount },
+    { count: weekCount },
+    { count: cateringCount },
+    { count: staffingScheduledCount },
+    { count: staffingClockedCount },
+  ] = await Promise.all([
     supabaseAdmin.from('calendar_events').select('id', { count: 'exact', head: true }).gte('start_time', todayIso),
     supabaseAdmin.from('calendar_events').select('id', { count: 'exact', head: true }).gte('start_time', weekIso),
     supabaseAdmin
       .from('calendar_events')
       .select('id', { count: 'exact', head: true })
-      .or('title.ilike.%catering%,description.ilike.%catering%')
+      .or('title.ilike.%catering%')
       .gte('start_time', weekIso),
+    supabaseAdmin
+      .from('calendar_events')
+      .select('id', { count: 'exact', head: true })
+      .or(staffingFilter)
+      .gte('start_time', todayIso)
+      .lt('start_time', new Date(new Date(todayIso).getTime() + 24 * 60 * 60 * 1000).toISOString()),
+    supabaseAdmin
+      .from('calendar_events')
+      .select('id', { count: 'exact', head: true })
+      .or(staffingFilter)
+      .lte('start_time', nowIso)
+      .gte('end_time', nowIso),
   ]);
 
   const { data: pendingApprovals } = await supabaseAdmin
@@ -45,10 +66,13 @@ export async function runWorkOpsIngest() {
   const pendingResponses = (pendingApprovals ?? []).filter((a) => a.domain === 'work-ops').length;
   const stockoutRisks = (pendingApprovals ?? []).filter((a) => a.domain === 'work-ops' && a.severity === 'red').length;
 
-  const staffingScheduled = 11;
-  const staffingClockedIn = 9;
+  const staffingScheduled = staffingScheduledCount ?? 0;
+  const staffingClockedIn = staffingClockedCount ?? 0;
   const staffingVarianceFlags = Math.max(staffingScheduled - staffingClockedIn, 0);
   const urgentVendorWindows = stockoutRisks > 0 ? 1 : 0;
+
+  const source = 'phase2.8_ingest';
+  const sourceRecordId = `${new Date().toISOString().slice(0, 13)}:00Z`;
 
   const payload = {
     reservations_this_week: weekCount ?? 0,
@@ -60,13 +84,40 @@ export async function runWorkOpsIngest() {
     staffing_variance_flags: staffingVarianceFlags,
     stockout_risks: stockoutRisks,
     urgent_vendor_windows: urgentVendorWindows,
-    source: 'phase2.7_ingest',
+    source,
+    source_record_id: sourceRecordId,
+    captured_at: nowIso,
+    ingestion_version: 'phase2.8',
   };
 
-  const { data, error } = await supabaseAdmin.from('work_ops_snapshots').insert(payload).select('*').single();
-  if (error) throw new Error(error.message);
+  const upsertResult = await supabaseAdmin
+    .from('work_ops_snapshots')
+    .upsert(payload, { onConflict: 'source,source_record_id' })
+    .select('*')
+    .single();
 
-  return data;
+  if (!upsertResult.error) {
+    return upsertResult.data;
+  }
+
+  // Backward-compatible fallback if staging schema has not applied 026 yet
+  const legacyPayload = {
+    reservations_this_week: payload.reservations_this_week,
+    reservations_today: payload.reservations_today,
+    pending_responses: payload.pending_responses,
+    catering_events: payload.catering_events,
+    staffing_scheduled: payload.staffing_scheduled,
+    staffing_clocked_in: payload.staffing_clocked_in,
+    staffing_variance_flags: payload.staffing_variance_flags,
+    stockout_risks: payload.stockout_risks,
+    urgent_vendor_windows: payload.urgent_vendor_windows,
+    source,
+  };
+
+  const legacyInsert = await supabaseAdmin.from('work_ops_snapshots').insert(legacyPayload).select('*').single();
+  if (legacyInsert.error) throw new Error(legacyInsert.error.message);
+
+  return legacyInsert.data;
 }
 
 function evaluateThreshold(operator: string, value: number, threshold: number): boolean {

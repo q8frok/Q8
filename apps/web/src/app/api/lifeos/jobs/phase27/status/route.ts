@@ -9,7 +9,7 @@ function isMissingTableError(error: unknown): boolean {
 }
 
 export async function GET() {
-  const { data, error } = await supabaseAdmin
+  const { data: latest, error } = await supabaseAdmin
     .from('lifeos_job_runs')
     .select('status,started_at,finished_at,duration_ms,details,created_at')
     .eq('job_name', 'phase2.7_pipeline')
@@ -24,16 +24,43 @@ export async function GET() {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 
-  if (!data) {
+  if (!latest) {
     return NextResponse.json({ ok: true, intervalMinutes: INTERVAL_MINUTES, lastRun: null, nextDueAt: null });
   }
 
-  const nextDue = new Date(new Date(data.finished_at).getTime() + INTERVAL_MINUTES * 60 * 1000).toISOString();
+  const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const { data: recentRuns, error: recentErr } = await supabaseAdmin
+    .from('lifeos_job_runs')
+    .select('status,duration_ms,created_at')
+    .eq('job_name', 'phase2.7_pipeline')
+    .gte('created_at', since24h)
+    .order('created_at', { ascending: false })
+    .limit(200);
+
+  if (recentErr && !isMissingTableError(recentErr)) {
+    return NextResponse.json({ ok: false, error: recentErr.message }, { status: 500 });
+  }
+
+  const recent = recentRuns ?? [];
+  const successCount = recent.filter((r) => r.status === 'success').length;
+  const successRate24h = recent.length > 0 ? Number(((successCount / recent.length) * 100).toFixed(1)) : null;
+  const avgDurationMs24h =
+    recent.length > 0 ? Math.round(recent.reduce((sum, r) => sum + (r.duration_ms ?? 0), 0) / recent.length) : null;
+  const consecutiveFailures = recent.findIndex((r) => r.status === 'success');
+  const consecutiveFailuresCount = consecutiveFailures === -1 ? recent.length : consecutiveFailures;
+
+  const nextDue = new Date(new Date(latest.finished_at).getTime() + INTERVAL_MINUTES * 60 * 1000).toISOString();
 
   return NextResponse.json({
     ok: true,
     intervalMinutes: INTERVAL_MINUTES,
-    lastRun: data,
+    lastRun: latest,
     nextDueAt: nextDue,
+    health24h: {
+      runs: recent.length,
+      successRatePct: successRate24h,
+      avgDurationMs: avgDurationMs24h,
+      consecutiveFailures: consecutiveFailuresCount,
+    },
   });
 }

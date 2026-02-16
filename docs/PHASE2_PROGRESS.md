@@ -68,16 +68,27 @@
   - Work Ops: auto-check pipeline status + interval check + run ingest button
   - Alerts: generate alerts button
 
-## Phase 2.8 Step 1 (in progress)
+## Phase 2.8 (completed in staging/dev)
 
-- Pipeline trigger now scheduled via OpenClaw cron every 30 minutes.
+- Pipeline trigger scheduled via OpenClaw cron every 30 minutes.
 - Replaced placeholder alert metrics in `src/lib/lifeos/pipeline.ts`:
-  - `dining_spend_delta_pct_7d` now computed from `finance_transactions` (current 7d vs previous 7d, dining-classified transactions).
-  - `night_scene_missed_count_24h` now derived from `alert_events` domain=`home` title match in last 24h.
-- `phase27/run` now stores computed metrics in `lifeos_job_runs.details.metrics` for observability.
+  - `dining_spend_delta_pct_7d` computed from `finance_transactions` (current 7d vs previous 7d, dining-classified transactions).
+  - `night_scene_missed_count_24h` derived from `alert_events` (domain=`home`, 24h window).
+- Replaced staffing placeholders with calendar-derived staffing signals:
+  - `staffing_scheduled` from today shift/staff events
+  - `staffing_clocked_in` from currently active shift/staff events
+- Added provenance/idempotency migration scaffold:
+  - `026_lifeos_phase28_provenance.sql` (`source_record_id`, `captured_at`, `ingestion_version`, unique index)
+- Added idempotent upsert + backward-compatible insert fallback in ingest pipeline.
+- Added run observability upgrades:
+  - `phase27/run` stores `details.metrics`
+  - `phase27/status` returns `health24h` (runs, success rate, avg duration, consecutive failures)
+- Added consecutive-failure guard:
+  - emits critical alert event after 2 consecutive pipeline failures.
 
-## Next
+## Next (Phase 2.9)
 
-- Add connector-specific provenance fields (`source`, `source_record_id`, `captured_at`) and idempotency keys.
-- Replace staffing placeholders with actual scheduling/clock-in connector data.
-- Add consecutive-failure alerting policy + dashboard health summary (success rate / avg duration / last error).
+- Apply `026_lifeos_phase28_provenance.sql` in staging SQL editor.
+- Enforce approval gate in runtime dispatcher (Green auto, Yellow ask once, Red always block).
+- Promote connector provenance across all domains (`source_record_id` everywhere ingestion writes).
+- Add production release gate + rollback checklist and runbook.
