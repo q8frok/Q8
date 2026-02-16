@@ -11,6 +11,7 @@ export function WorkOpsWidget() {
   const [data, setData] = useState<WorkOpsSnapshot | null>(null);
   const [connectors, setConnectors] = useState<Connector[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isIngesting, setIsIngesting] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -45,6 +46,20 @@ export function WorkOpsWidget() {
     [connectors]
   );
 
+  async function runIngest() {
+    setIsIngesting(true);
+    try {
+      await fetch('/api/lifeos/ingest/work-ops', { method: 'POST' });
+      const res = await fetch('/api/lifeos/work-ops', { cache: 'no-store' });
+      if (res.ok) {
+        const json = (await res.json()) as WorkOpsSnapshot;
+        setData(json);
+      }
+    } finally {
+      setIsIngesting(false);
+    }
+  }
+
   return (
     <WidgetWrapper title="Work Ops Command" icon={Briefcase} colSpan={2} rowSpan={1} isLoading={isLoading}>
       <div className="p-4 space-y-3">
@@ -56,6 +71,15 @@ export function WorkOpsWidget() {
         </div>
         <p className="text-xs text-text-muted">Today reservations: {data?.reservations.today ?? 0} · Catering this week: {data?.reservations.cateringEvents ?? 0}</p>
         <p className="text-xs text-neon-primary truncate">Next: {data?.nextAction ?? 'Loading next action...'}</p>
+        <div>
+          <button
+            onClick={runIngest}
+            disabled={isIngesting}
+            className="text-[11px] px-2 py-1 rounded bg-neon-primary/20 text-neon-primary disabled:opacity-50"
+          >
+            {isIngesting ? 'Ingesting…' : 'Run Ingest'}
+          </button>
+        </div>
       </div>
     </WidgetWrapper>
   );

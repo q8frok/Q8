@@ -15,6 +15,7 @@ export function AlertsWidget() {
   const [data, setData] = useState<AlertsResponse | null>(null);
   const [thresholdCount, setThresholdCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -46,6 +47,20 @@ export function AlertsWidget() {
 
   const top = useMemo(() => (data?.items ?? []).slice(0, 3), [data]);
 
+  async function generateAlerts() {
+    setIsGenerating(true);
+    try {
+      await fetch('/api/lifeos/alerts/generate', { method: 'POST' });
+      const res = await fetch('/api/lifeos/alerts', { cache: 'no-store' });
+      if (res.ok) {
+        const json = (await res.json()) as AlertsResponse;
+        setData(json);
+      }
+    } finally {
+      setIsGenerating(false);
+    }
+  }
+
   return (
     <WidgetWrapper title="Risk & Alerts" icon={AlertTriangle} colSpan={2} rowSpan={1} isLoading={isLoading}>
       <div className="p-4 space-y-2">
@@ -65,6 +80,15 @@ export function AlertsWidget() {
             </div>
           ))
         )}
+        <div>
+          <button
+            onClick={generateAlerts}
+            disabled={isGenerating}
+            className="text-[11px] px-2 py-1 rounded bg-neon-primary/20 text-neon-primary disabled:opacity-50"
+          >
+            {isGenerating ? 'Generating…' : 'Generate Alerts'}
+          </button>
+        </div>
       </div>
     </WidgetWrapper>
   );
