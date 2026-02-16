@@ -12,8 +12,8 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { logger } from '@/lib/logger';
 import { EVENT_SCHEMA_VERSION, hasSupportedEventVersion } from '@/lib/agents/sdk/events';
-import { CHAT_RELIABILITY, computeReconnectDelayMs } from '@/lib/chat/reliability';
-import { splitSSEBuffer, readSSEDataLine } from '@/lib/chat/transport/sse';
+import { CHAT_RELIABILITY, computeReconnectDelayMs, getChatReliability } from '@/lib/chat/reliability';
+import { sseTransport } from '@/lib/chat/transport/sse-client';
 
 export type AgentType = 'orchestrator' | 'coder' | 'researcher' | 'secretary' | 'personality' | 'home' | 'finance' | 'imagegen';
 
@@ -478,6 +478,8 @@ export function useChat(options: UseChatOptions) {
 
   const OUTBOX_KEY = `q8_chat_outbox_${userId}`;
 
+  const reliabilityConfig = getChatReliability();
+
   const appendInspectorEvent = useCallback((type: string, summary: string) => {
     setState(prev => ({
       ...prev,
@@ -621,54 +623,30 @@ export function useChat(options: UseChatOptions) {
     abortControllerRef.current = new AbortController();
 
     try {
-      const response = await fetch('/api/chat/stream', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: content,
-          threadId: effectiveThreadId,
-          requestId,
-          userProfile: effectiveProfile,
-        }),
+      await sseTransport.streamJson({
+        url: '/api/chat/stream',
+        init: {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: content,
+            threadId: effectiveThreadId,
+            requestId,
+            userProfile: effectiveProfile,
+          }),
+        },
         signal: abortControllerRef.current.signal,
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error: ${response.status}`);
-      }
-
-      const reader = response.body?.getReader();
-      if (!reader) {
-        throw new Error('No response body');
-      }
-
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-
-        const { frames, rest } = splitSSEBuffer(buffer);
-        buffer = rest;
-
-        for (const frame of frames) {
-          const dataLine = readSSEDataLine(frame);
-          if (!dataLine) continue;
-
+        onMessage: async (raw) => {
           try {
-            const raw = JSON.parse(dataLine);
             const parsed = parseVersionedEvent(raw);
             if (parsed) {
               await processStreamEvent(parsed, assistantMessageId);
             }
           } catch (e) {
-            logger.warn('Failed to parse SSE event', { frame, error: e });
+            logger.warn('Failed to parse SSE event', { raw, error: e });
           }
-        }
-      }
+        },
+      });
 
       return { sent: true, queued: false };
     } catch (error) {
@@ -762,12 +740,12 @@ export function useChat(options: UseChatOptions) {
 
     const scheduleReconnect = () => {
       if (!active) return;
-      if (reconnectAttempt >= CHAT_RELIABILITY.maxReconnectAttempts) {
+      if (reconnectAttempt >= reliabilityConfig.maxReconnectAttempts) {
         setState(prev => ({ ...prev, connectionStatus: 'degraded', reconnectAttempt }));
         appendInspectorEvent('connection_degraded', 'Max reconnect attempts reached; staying in degraded mode');
         return;
       }
-      const delay = computeReconnectDelayMs(reconnectAttempt);
+      const delay = computeReconnectDelayMs(reconnectAttempt, reliabilityConfig);
       reconnectTimeout = setTimeout(() => {
         void establishSession();
       }, delay);
@@ -832,7 +810,7 @@ export function useChat(options: UseChatOptions) {
         appendInspectorEvent('heartbeat_missed', `Heartbeat missed (attempt ${reconnectAttempt})`);
         scheduleReconnect();
       }
-    }, CHAT_RELIABILITY.heartbeatIntervalMs);
+    }, reliabilityConfig.heartbeatIntervalMs);
 
     return () => {
       active = false;

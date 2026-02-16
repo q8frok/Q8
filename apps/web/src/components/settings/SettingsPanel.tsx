@@ -48,6 +48,7 @@ import { MemoriesSettings } from './MemoriesSettings';
 import { IntegrationsSettings } from './IntegrationsSettings';
 import { logger } from '@/lib/logger';
 import type { UserPreferences } from '@/lib/memory/types';
+import { getChatReliability, setChatReliability } from '@/lib/chat/reliability';
 import {
   useCurrentMode,
   useVisibleWidgets,
@@ -672,6 +673,8 @@ function DisplaySettings({ preferences, updatePreference }: SettingsSectionProps
         </div>
       </div>
 
+      <ChatReliabilitySettings />
+
       <div className="setting-section">
         <h3 className="setting-section-header">Quick Toggle</h3>
         <p className="text-sm text-text-muted">
@@ -681,6 +684,83 @@ function DisplaySettings({ preferences, updatePreference }: SettingsSectionProps
 
       <DashboardModeSettings />
       <DashboardWidgetSettings />
+    </div>
+  );
+}
+
+function ChatReliabilitySettings() {
+  const [local, setLocal] = useState(() => getChatReliability());
+
+  const onSave = () => {
+    const saved = setChatReliability({
+      maxReconnectAttempts: Math.max(1, Number(local.maxReconnectAttempts) || 6),
+      heartbeatIntervalMs: Math.max(5000, Number(local.heartbeatIntervalMs) || 15000),
+      initialReconnectDelayMs: Math.max(500, Number(local.initialReconnectDelayMs) || 2000),
+      maxReconnectDelayMs: Math.max(1000, Number(local.maxReconnectDelayMs) || 30000),
+    });
+    setLocal(saved);
+  };
+
+  const reset = () => {
+    const saved = setChatReliability({
+      maxReconnectAttempts: 6,
+      heartbeatIntervalMs: 15000,
+      initialReconnectDelayMs: 2000,
+      maxReconnectDelayMs: 30000,
+    });
+    setLocal(saved);
+  };
+
+  return (
+    <div className="setting-section">
+      <h3 className="setting-section-header">Chat Reliability</h3>
+      <p className="text-sm text-text-muted mb-3">
+        Tune reconnect and heartbeat behavior for unstable networks.
+      </p>
+
+      <div className="grid grid-cols-2 gap-3">
+        <label className="text-sm text-text-secondary">
+          Max reconnect attempts
+          <input
+            className="mt-1 w-full rounded-lg border border-border-subtle bg-surface-3 px-3 py-2 text-sm"
+            type="number"
+            value={local.maxReconnectAttempts}
+            onChange={(e) => setLocal((prev) => ({ ...prev, maxReconnectAttempts: Number(e.target.value) }))}
+          />
+        </label>
+        <label className="text-sm text-text-secondary">
+          Heartbeat interval (ms)
+          <input
+            className="mt-1 w-full rounded-lg border border-border-subtle bg-surface-3 px-3 py-2 text-sm"
+            type="number"
+            value={local.heartbeatIntervalMs}
+            onChange={(e) => setLocal((prev) => ({ ...prev, heartbeatIntervalMs: Number(e.target.value) }))}
+          />
+        </label>
+        <label className="text-sm text-text-secondary">
+          Initial reconnect delay (ms)
+          <input
+            className="mt-1 w-full rounded-lg border border-border-subtle bg-surface-3 px-3 py-2 text-sm"
+            type="number"
+            value={local.initialReconnectDelayMs}
+            onChange={(e) => setLocal((prev) => ({ ...prev, initialReconnectDelayMs: Number(e.target.value) }))}
+          />
+        </label>
+        <label className="text-sm text-text-secondary">
+          Max reconnect delay (ms)
+          <input
+            className="mt-1 w-full rounded-lg border border-border-subtle bg-surface-3 px-3 py-2 text-sm"
+            type="number"
+            value={local.maxReconnectDelayMs}
+            onChange={(e) => setLocal((prev) => ({ ...prev, maxReconnectDelayMs: Number(e.target.value) }))}
+          />
+        </label>
+      </div>
+
+      <div className="mt-3 flex items-center gap-2">
+        <Button variant="neon" size="sm" onClick={onSave}>Apply</Button>
+        <Button variant="ghost" size="sm" onClick={reset}>Reset defaults</Button>
+      </div>
     </div>
   );
 }
