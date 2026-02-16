@@ -22,6 +22,7 @@ export async function POST() {
       details: {
         snapshotId: snapshot?.id,
         alertsCreated: alerts?.created ?? 0,
+        metrics: alerts?.metrics ?? {},
       },
     });
 
@@ -29,7 +30,12 @@ export async function POST() {
       throw new Error(runInsertErr.message);
     }
 
-    return NextResponse.json({ ok: true, mode: 'db', durationMs: finished - started, details: { alertsCreated: alerts?.created ?? 0 } });
+    return NextResponse.json({
+      ok: true,
+      mode: 'db',
+      durationMs: finished - started,
+      details: { alertsCreated: alerts?.created ?? 0, metrics: alerts?.metrics ?? {} },
+    });
   } catch (error) {
     const finished = Date.now();
 

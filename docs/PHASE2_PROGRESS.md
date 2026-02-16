@@ -68,8 +68,16 @@
   - Work Ops: auto-check pipeline status + interval check + run ingest button
   - Alerts: generate alerts button
 
+## Phase 2.8 Step 1 (in progress)
+
+- Pipeline trigger now scheduled via OpenClaw cron every 30 minutes.
+- Replaced placeholder alert metrics in `src/lib/lifeos/pipeline.ts`:
+  - `dining_spend_delta_pct_7d` now computed from `finance_transactions` (current 7d vs previous 7d, dining-classified transactions).
+  - `night_scene_missed_count_24h` now derived from `alert_events` domain=`home` title match in last 24h.
+- `phase27/run` now stores computed metrics in `lifeos_job_runs.details.metrics` for observability.
+
 ## Next
 
-- Apply `025_lifeos_phase27_job_runs.sql` in staging
-- Trigger `phase27/run` on schedule (cron) instead of client polling
-- Replace placeholder finance/home metrics with real connector reads
+- Add connector-specific provenance fields (`source`, `source_record_id`, `captured_at`) and idempotency keys.
+- Replace staffing placeholders with actual scheduling/clock-in connector data.
+- Add consecutive-failure alerting policy + dashboard health summary (success rate / avg duration / last error).
