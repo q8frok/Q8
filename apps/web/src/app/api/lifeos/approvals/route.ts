@@ -32,8 +32,8 @@ function mockItems(): ApprovalItem[] {
 }
 
 function isMissingTableError(error: unknown): boolean {
-  const code = (error as { code?: string } | null)?.code;
-  return code === '42P01';
+  const e = (error as { code?: string; message?: string } | null) ?? {};
+  return e.code === '42P01' || (e.message?.toLowerCase().includes('could not find the table') ?? false);
 }
 
 export async function GET() {
