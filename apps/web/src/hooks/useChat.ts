@@ -473,6 +473,23 @@ export function useChat(options: UseChatOptions) {
   }, []);
 
   const OUTBOX_KEY = `q8_chat_outbox_${userId}`;
+  const MAX_RECONNECT_ATTEMPTS = 6;
+  const HEARTBEAT_INTERVAL_MS = 15000;
+
+  const appendInspectorEvent = useCallback((type: string, summary: string) => {
+    setState(prev => ({
+      ...prev,
+      inspectorEvents: [
+        ...prev.inspectorEvents,
+        {
+          id: `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+          type,
+          timestamp: new Date(),
+          summary,
+        },
+      ].slice(-200),
+    }));
+  }, []);
 
   const generateRequestId = (): string => {
     if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -510,13 +527,17 @@ export function useChat(options: UseChatOptions) {
     const items = readOutbox();
     items.push(item);
     writeOutbox(items);
-  }, [readOutbox, writeOutbox]);
+    appendInspectorEvent('queue_enqueue', 'Message queued for retry while connection is unavailable');
+  }, [readOutbox, writeOutbox, appendInspectorEvent]);
 
   const dequeueOutbox = useCallback(() => {
     const items = readOutbox();
-    items.shift();
+    const shifted = items.shift();
     writeOutbox(items);
-  }, [readOutbox, writeOutbox]);
+    if (shifted) {
+      appendInspectorEvent('queue_dequeue', 'Queued message replayed successfully');
+    }
+  }, [readOutbox, writeOutbox, appendInspectorEvent]);
 
   const sendMessage = useCallback(async (
     content: string,
@@ -537,6 +558,7 @@ export function useChat(options: UseChatOptions) {
         enqueueOutbox({ id: `out_${Date.now()}`, content, threadId: effectiveThreadId, requestId, createdAt: new Date().toISOString(), userProfile: effectiveProfile });
         setState(prev => ({ ...prev, connectionStatus: 'offline', error: 'Offline: message queued and will send when connected.' }));
       }
+      appendInspectorEvent('connection_offline', 'Offline detected; queued outbound message');
       return { sent: false, queued: queueOnFailure };
     }
 
@@ -665,6 +687,7 @@ export function useChat(options: UseChatOptions) {
         error: shouldQueue ? 'Connection issue: message queued for retry.' : errorMessage,
         connectionStatus: 'reconnecting',
       }));
+      appendInspectorEvent('connection_error', shouldQueue ? 'Stream failed; message moved to retry queue' : `Stream failed: ${errorMessage}`);
       onError?.(errorMessage);
       return { sent: false, queued: shouldQueue };
     }
@@ -676,6 +699,8 @@ export function useChat(options: UseChatOptions) {
     const items = readOutbox();
     if (!items.length) return;
 
+    appendInspectorEvent('queue_flush_start', `Replaying ${items.length} queued message${items.length > 1 ? 's' : ''}`);
+
     for (const item of items) {
       const result = await sendMessage(item.content, {
         requestId: item.requestId,
@@ -686,11 +711,12 @@ export function useChat(options: UseChatOptions) {
       });
 
       if (!result.sent) {
+        appendInspectorEvent('queue_flush_pause', 'Replay paused due to connectivity issue');
         break;
       }
       dequeueOutbox();
     }
-  }, [state.isStreaming, readOutbox, sendMessage, dequeueOutbox]);
+  }, [state.isStreaming, readOutbox, sendMessage, dequeueOutbox, appendInspectorEvent]);
 
   useEffect(() => {
     const updateOnlineState = () => {
@@ -699,6 +725,7 @@ export function useChat(options: UseChatOptions) {
         ...prev,
         connectionStatus: online ? 'reconnecting' : 'offline',
       }));
+      appendInspectorEvent(online ? 'connection_online' : 'connection_offline', online ? 'Network restored; reconnecting session' : 'Network lost; switching to offline queue mode');
       if (online) {
         void flushOutbox();
       }
@@ -711,7 +738,7 @@ export function useChat(options: UseChatOptions) {
       window.removeEventListener('online', updateOnlineState);
       window.removeEventListener('offline', updateOnlineState);
     };
-  }, [flushOutbox]);
+  }, [flushOutbox, appendInspectorEvent]);
 
   useEffect(() => {
     const queue = readOutbox();
@@ -721,6 +748,20 @@ export function useChat(options: UseChatOptions) {
   useEffect(() => {
     let active = true;
     let reconnectAttempt = 0;
+    let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+
+    const scheduleReconnect = () => {
+      if (!active) return;
+      if (reconnectAttempt >= MAX_RECONNECT_ATTEMPTS) {
+        setState(prev => ({ ...prev, connectionStatus: 'degraded', reconnectAttempt }));
+        appendInspectorEvent('connection_degraded', 'Max reconnect attempts reached; staying in degraded mode');
+        return;
+      }
+      const delay = Math.min(2000 * (2 ** Math.max(reconnectAttempt - 1, 0)), 30000);
+      reconnectTimeout = setTimeout(() => {
+        void establishSession();
+      }, delay);
+    };
 
     const establishSession = async () => {
       if (typeof navigator !== 'undefined' && !navigator.onLine) {
@@ -734,8 +775,14 @@ export function useChat(options: UseChatOptions) {
         if (!res.ok) throw new Error(`Session error ${res.status}`);
         const data = await res.json() as { sessionId: string };
         if (!active) return;
-        setState(prev => ({ ...prev, sessionId: data.sessionId, connectionStatus: 'connected', reconnectAttempt: 0 }));
+
+        const recovered = reconnectAttempt > 0;
         reconnectAttempt = 0;
+
+        setState(prev => ({ ...prev, sessionId: data.sessionId, connectionStatus: 'connected', reconnectAttempt: 0 }));
+        if (recovered) {
+          appendInspectorEvent('connection_resumed', 'Session restored and reconnected');
+        }
         void flushOutbox();
       } catch {
         reconnectAttempt += 1;
@@ -745,6 +792,8 @@ export function useChat(options: UseChatOptions) {
           connectionStatus: reconnectAttempt > 3 ? 'degraded' : 'reconnecting',
           reconnectAttempt,
         }));
+        appendInspectorEvent('connection_retry', `Session reconnect attempt ${reconnectAttempt} failed`);
+        scheduleReconnect();
       }
     };
 
@@ -756,6 +805,7 @@ export function useChat(options: UseChatOptions) {
         setState(prev => ({ ...prev, connectionStatus: 'offline' }));
         return;
       }
+
       try {
         const sessionId = state.sessionId;
         const url = sessionId ? `/api/chat/session?sessionId=${encodeURIComponent(sessionId)}` : '/api/chat/session';
@@ -769,18 +819,18 @@ export function useChat(options: UseChatOptions) {
           connectionStatus: reconnectAttempt > 3 ? 'degraded' : 'reconnecting',
           reconnectAttempt,
         }));
-        if (reconnectAttempt <= 2) {
-          await establishSession();
-        }
+        appendInspectorEvent('heartbeat_missed', `Heartbeat missed (attempt ${reconnectAttempt})`);
+        scheduleReconnect();
       }
-    }, 15000);
+    }, HEARTBEAT_INTERVAL_MS);
 
     return () => {
       active = false;
       clearInterval(heartbeatId);
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [flushOutbox, state.sessionId]);
+  }, [flushOutbox, state.sessionId, appendInspectorEvent]);
 
   /**
    * Process a stream event
@@ -789,21 +839,6 @@ export function useChat(options: UseChatOptions) {
     event: ParsedStreamEvent,
     messageId: string
   ) => {
-    const pushInspectorEvent = (type: string, summary: string) => {
-      setState(prev => ({
-        ...prev,
-        inspectorEvents: [
-          ...prev.inspectorEvents,
-          {
-            id: `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-            type,
-            timestamp: new Date(),
-            summary,
-          },
-        ].slice(-200),
-      }));
-    };
-
     const updateRunMetadata = (newState: RunState, runId?: string) => {
       const now = new Date();
       const isTerminal = newState === 'completed' || newState === 'failed' || newState === 'cancelled';
@@ -839,7 +874,7 @@ export function useChat(options: UseChatOptions) {
       case 'run_created':
         if (event.runId) {
           updateRunMetadata('queued', event.runId as string);
-          pushInspectorEvent('run_created', `Run queued (${event.runId})`);
+          appendInspectorEvent('run_created', `Run queued (${event.runId})`);
         }
         break;
 
@@ -852,7 +887,7 @@ export function useChat(options: UseChatOptions) {
             pipelineState: pipeState,
             pipelineDetail: (event.detail as string) || null,
           }));
-          pushInspectorEvent('run_state', `Run is now ${String(event.state).replace('_', ' ')}`);
+          appendInspectorEvent('run_state', `Run is now ${String(event.state).replace('_', ' ')}`);
         }
         break;
 
@@ -880,7 +915,7 @@ export function useChat(options: UseChatOptions) {
         }));
         if (event.agent && event.reason) {
           onRouting?.(event.agent, event.reason, event.confidence ?? 0);
-          pushInspectorEvent('routing', `${event.agent} selected — ${event.reason}`);
+          appendInspectorEvent('routing', `${event.agent} selected — ${event.reason}`);
         }
         setState(prev => ({
           ...prev,
@@ -898,7 +933,7 @@ export function useChat(options: UseChatOptions) {
             pendingHandoff: null,
           }));
           onAgentStart?.(event.agent);
-          pushInspectorEvent('agent_start', `${event.agent} started execution`);
+          appendInspectorEvent('agent_start', `${event.agent} started execution`);
         }
         break;
 
@@ -918,7 +953,7 @@ export function useChat(options: UseChatOptions) {
             ),
           }));
           onHandoff?.(handoff);
-          pushInspectorEvent('handoff', `${event.from} → ${event.to} (${event.reason})`);
+          appendInspectorEvent('handoff', `${event.from} → ${event.to} (${event.reason})`);
         }
         break;
 
@@ -941,7 +976,7 @@ export function useChat(options: UseChatOptions) {
             ),
           }));
           onToolExecution?.(toolExecution);
-          pushInspectorEvent('tool_start', `${event.tool} started`);
+          appendInspectorEvent('tool_start', `${event.tool} started`);
         }
         break;
 
@@ -972,7 +1007,7 @@ export function useChat(options: UseChatOptions) {
                 : m
             ),
           }));
-          pushInspectorEvent('tool_end', `${event.tool} ${event.success ? 'completed' : 'failed'}`);
+          appendInspectorEvent('tool_end', `${event.tool} ${event.success ? 'completed' : 'failed'}`);
         }
         break;
 
@@ -1097,7 +1132,7 @@ export function useChat(options: UseChatOptions) {
         activeMessageIdRef.current = null;
 
         updateRunMetadata('completed', event.runId as string);
-        pushInspectorEvent('done', `Run completed with ${event.agent || 'orchestrator'}`);
+        appendInspectorEvent('done', `Run completed with ${event.agent || 'orchestrator'}`);
         // Handle images from done event
         const doneImages = event.images?.map(img => ({
           id: `img_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
@@ -1141,7 +1176,7 @@ export function useChat(options: UseChatOptions) {
             m.id === messageId ? { ...m, isReasoning: true } : m
           ),
         }));
-        pushInspectorEvent('reasoning_start', 'Deep reasoning started');
+        appendInspectorEvent('reasoning_start', 'Deep reasoning started');
         break;
 
       case 'reasoning_end':
@@ -1153,7 +1188,7 @@ export function useChat(options: UseChatOptions) {
               : m
           ),
         }));
-        pushInspectorEvent('reasoning_end', 'Reasoning finished');
+        appendInspectorEvent('reasoning_end', 'Reasoning finished');
         break;
 
       case 'guardrail_triggered':
@@ -1172,7 +1207,7 @@ export function useChat(options: UseChatOptions) {
 
       case 'error':
         updateRunMetadata('failed', event.runId as string);
-        pushInspectorEvent('error', event.message || 'Unknown error');
+        appendInspectorEvent('error', event.message || 'Unknown error');
         activeMessageIdRef.current = null;
         setState(prev => ({
           ...prev,
@@ -1218,7 +1253,8 @@ export function useChat(options: UseChatOptions) {
     onMemoryExtracted,
     state.messages,
     saveRunMetadata,
-    flushContentBuffer
+    flushContentBuffer,
+    appendInspectorEvent,
   ]);
 
   /**
