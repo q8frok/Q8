@@ -17,7 +17,10 @@ async function maybeEmitFailureAlert() {
     .limit(2);
 
   if (error || !data || data.length < 2) return;
-  if (data[0].status !== 'failed' || data[1].status !== 'failed') return;
+
+  const [latestRun, previousRun] = data;
+  if (!latestRun || !previousRun) return;
+  if (latestRun.status !== 'failed' || previousRun.status !== 'failed') return;
 
   const alertId = `al-phase27-fail-${Date.now()}`;
   await supabaseAdmin.from('alert_events').insert({

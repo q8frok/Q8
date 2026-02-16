@@ -231,20 +231,26 @@ export async function runAlertsGenerate() {
     night_scene_missed_count_24h: nightSceneMissedCount24h,
   };
 
-  const events = (thresholds ?? [])
-    .filter((t) => metrics[t.metric] !== undefined)
-    .filter((t) => evaluateThreshold(t.operator, metrics[t.metric], Number(t.threshold)))
-    .map((t, idx) => ({
-      id: `evt-${Date.now()}-${idx}`,
-      domain: t.domain,
-      title: `${t.metric} ${t.operator} ${t.threshold} (value=${metrics[t.metric]})`,
-      severity: t.severity,
-      source: 'phase2.7_threshold_eval',
-      metric: t.metric,
-      value: metrics[t.metric],
-      threshold: Number(t.threshold),
-      operator: t.operator,
-    }));
+  const events: ThresholdCandidate[] = (thresholds ?? [])
+    .flatMap((t, idx) => {
+      const value = metrics[t.metric];
+      if (value === undefined) return [];
+      if (!evaluateThreshold(t.operator, value, Number(t.threshold))) return [];
+
+      return [
+        {
+          id: `evt-${Date.now()}-${idx}`,
+          domain: t.domain,
+          title: `${t.metric} ${t.operator} ${t.threshold} (value=${value})`,
+          severity: t.severity,
+          source: 'phase2.7_threshold_eval',
+          metric: t.metric,
+          value,
+          threshold: Number(t.threshold),
+          operator: t.operator,
+        },
+      ];
+    });
 
   if (events.length === 0) return { created: 0, metrics, candidates: [] as typeof events };
 

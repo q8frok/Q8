@@ -38,7 +38,6 @@ import {
   Briefcase,
   ShieldCheck,
   Activity,
-  Brain,
   Users,
   AlertTriangle,
 } from 'lucide-react';
