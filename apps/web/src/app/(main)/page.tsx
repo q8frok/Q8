@@ -49,6 +49,10 @@ const LifeOSDomainWidget = dynamic(
   () => import('@/components/dashboard/widgets/LifeOSDomainWidget').then(m => m.LifeOSDomainWidget),
   { loading: () => <WidgetSkeleton className="col-span-2 row-span-1" />, ssr: false }
 );
+const ApprovalCenterWidget = dynamic(
+  () => import('@/components/dashboard/widgets/ApprovalCenterWidget').then(m => m.ApprovalCenterWidget),
+  { loading: () => <WidgetSkeleton className="col-span-2 row-span-1" />, ssr: false }
+);
 // Heavy chat component - dynamic import
 const UnifiedChatWithThreads = dynamic(
   () => import('@/components/chat/UnifiedChatWithThreads').then(m => m.UnifiedChatWithThreads),
@@ -250,7 +254,7 @@ function DashboardContent() {
                       case 'approvals':
                         return (
                           <BentoItem key="approvals" id="approvals" colSpan={2} rowSpan={1} index={idx}>
-                            <LifeOSDomainWidget kind="approvals" />
+                            <ApprovalCenterWidget />
                           </BentoItem>
                         );
                       case 'health':
