@@ -36,6 +36,11 @@ import {
   TrendingUp,
   Key,
   Plug,
+  Briefcase,
+  ShieldCheck,
+  Activity,
+  Users,
+  AlertTriangle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -572,6 +577,13 @@ const WIDGET_ICONS: Record<DashboardWidgetId, typeof Clock> = {
   github: Github,
   home: Home,
   finance: TrendingUp,
+  'work-ops': Briefcase,
+  approvals: ShieldCheck,
+  health: Activity,
+  knowledge: Brain,
+  people: Users,
+  growth: TrendingUp,
+  alerts: AlertTriangle,
 };
 
 function DisplaySettings({ preferences, updatePreference }: SettingsSectionProps) {
@@ -604,12 +616,32 @@ function DisplaySettings({ preferences, updatePreference }: SettingsSectionProps
 
   const currentMode = useCurrentMode();
   const visibleWidgets = useVisibleWidgets();
-  const { setMode, toggleWidget } = useDashboardActions();
+  const { setMode, toggleWidget, reorderWidgets } = useDashboardActions();
 
   const modeOptions = [
     { id: 'relax' as const, label: 'Relax', icon: Coffee },
     { id: 'productivity' as const, label: 'Focus', icon: Zap },
     { id: 'all' as const, label: 'All', icon: LayoutGrid },
+  ];
+
+  const phase2Order: DashboardWidgetId[] = [
+    'daily-brief',
+    'work-ops',
+    'approvals',
+    'alerts',
+    'finance',
+    'home',
+    'health',
+    'knowledge',
+    'people',
+    'growth',
+    'calendar',
+    'tasks',
+    'quick-notes',
+    'weather',
+    'clock',
+    'content-hub',
+    'github',
   ];
 
   return (
@@ -658,6 +690,19 @@ function DisplaySettings({ preferences, updatePreference }: SettingsSectionProps
               </button>
             );
           })}
+        </div>
+
+        <div className="mt-3 flex items-center justify-between rounded-lg border border-border-subtle bg-surface-3/50 px-3 py-2">
+          <p className="text-xs text-text-muted">Need the newest panels visible right away?</p>
+          <button
+            onClick={() => {
+              setMode('all');
+              reorderWidgets(phase2Order);
+            }}
+            className="text-xs px-2 py-1 rounded bg-neon-primary/20 text-neon-primary hover:bg-neon-primary/30"
+          >
+            Reset to Phase 2 Layout
+          </button>
         </div>
       </div>
 

@@ -17,6 +17,7 @@
     "quality:verbose": "powershell -ExecutionPolicy Bypass -File scripts/quality-check.ps1 -Verbose",
     "quality:fast": "powershell -ExecutionPolicy Bypass -File scripts/quality-check.ps1 -SkipTests -SkipBuild",
     "optimize:claude": "powershell -ExecutionPolicy Bypass -File scripts/optimize-claude.ps1",
+    "supabase:safety": "node scripts/check-supabase-safety.mjs",
     "precommit": "pnpm typecheck && pnpm build --filter=@q8/web"
   },
   "devDependencies": {

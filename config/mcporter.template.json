@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "supabase": {
+      "baseUrl": "https://mcp.supabase.com/mcp",
+      "headers": {
+        "Authorization": "Bearer <SUPABASE_MCP_ACCESS_TOKEN>"
+      },
+      "params": {
+        "project_ref": "<PROJECT_REF>"
+      }
+    },
+    "home-assistant": {
+      "baseUrl": "<HOME_ASSISTANT_MCP_URL>",
+      "headers": {
+        "Authorization": "Bearer <HOME_ASSISTANT_MCP_TOKEN>"
+      }
+    }
+  },
+  "imports": []
+}

@@ -45,6 +45,22 @@ const DailyBriefWidget = dynamic(
   () => import('@/components/dashboard/widgets/DailyBriefWidget').then(m => m.DailyBriefWidget),
   { loading: () => <WidgetSkeleton className="col-span-2 row-span-2" />, ssr: false }
 );
+const LifeOSDomainWidget = dynamic(
+  () => import('@/components/dashboard/widgets/LifeOSDomainWidget').then(m => m.LifeOSDomainWidget),
+  { loading: () => <WidgetSkeleton className="col-span-2 row-span-1" />, ssr: false }
+);
+const ApprovalCenterWidget = dynamic(
+  () => import('@/components/dashboard/widgets/ApprovalCenterWidget').then(m => m.ApprovalCenterWidget),
+  { loading: () => <WidgetSkeleton className="col-span-2 row-span-1" />, ssr: false }
+);
+const WorkOpsWidget = dynamic(
+  () => import('@/components/dashboard/widgets/WorkOpsWidget').then(m => m.WorkOpsWidget),
+  { loading: () => <WidgetSkeleton className="col-span-2 row-span-1" />, ssr: false }
+);
+const AlertsWidget = dynamic(
+  () => import('@/components/dashboard/widgets/AlertsWidget').then(m => m.AlertsWidget),
+  { loading: () => <WidgetSkeleton className="col-span-2 row-span-1" />, ssr: false }
+);
 // Heavy chat component - dynamic import
 const UnifiedChatWithThreads = dynamic(
   () => import('@/components/chat/UnifiedChatWithThreads').then(m => m.UnifiedChatWithThreads),
@@ -235,6 +251,48 @@ function DashboardContent() {
                         return (
                           <BentoItem key="finance" id="finance" colSpan={2} rowSpan={2} index={idx}>
                             <FinanceHubWidget />
+                          </BentoItem>
+                        );
+                      case 'work-ops':
+                        return (
+                          <BentoItem key="work-ops" id="work-ops" colSpan={2} rowSpan={1} index={idx}>
+                            <WorkOpsWidget />
+                          </BentoItem>
+                        );
+                      case 'approvals':
+                        return (
+                          <BentoItem key="approvals" id="approvals" colSpan={2} rowSpan={1} index={idx}>
+                            <ApprovalCenterWidget />
+                          </BentoItem>
+                        );
+                      case 'health':
+                        return (
+                          <BentoItem key="health" id="health" colSpan={2} rowSpan={1} index={idx}>
+                            <LifeOSDomainWidget kind="health" />
+                          </BentoItem>
+                        );
+                      case 'knowledge':
+                        return (
+                          <BentoItem key="knowledge" id="knowledge" colSpan={2} rowSpan={1} index={idx}>
+                            <LifeOSDomainWidget kind="knowledge" />
+                          </BentoItem>
+                        );
+                      case 'people':
+                        return (
+                          <BentoItem key="people" id="people" colSpan={2} rowSpan={1} index={idx}>
+                            <LifeOSDomainWidget kind="people" />
+                          </BentoItem>
+                        );
+                      case 'growth':
+                        return (
+                          <BentoItem key="growth" id="growth" colSpan={2} rowSpan={1} index={idx}>
+                            <LifeOSDomainWidget kind="growth" />
+                          </BentoItem>
+                        );
+                      case 'alerts':
+                        return (
+                          <BentoItem key="alerts" id="alerts" colSpan={2} rowSpan={1} index={idx}>
+                            <AlertsWidget />
                           </BentoItem>
                         );
                       default:

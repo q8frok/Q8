@@ -80,6 +80,16 @@ export function ProtectedRoute({
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        // Development bypass for local UI iteration
+        const isDevAuthBypass =
+          process.env.NODE_ENV === 'development' &&
+          process.env.NEXT_PUBLIC_DEV_AUTH_BYPASS !== 'false';
+        if (isDevAuthBypass) {
+          setIsAuthorized(true);
+          setIsLoading(false);
+          return;
+        }
+
         // Get current session
         const { data: { session } } = await supabase.auth.getSession();
 
