@@ -28,16 +28,25 @@ import { useSession } from '@/components/auth/SessionManager';
 export function useAuth() {
   const { user, isLoading, isAuthenticated, signOut, refreshSession } = useSession();
 
+  const isDevAuthBypass = process.env.NEXT_PUBLIC_DEV_AUTH_BYPASS === 'true';
+  const devUserId = process.env.NEXT_PUBLIC_DEV_AUTH_USER_ID || 'dev-user-q8';
+  const devUserEmail = process.env.NEXT_PUBLIC_DEV_AUTH_EMAIL || 'dev@q8.local';
+  const devUserName = process.env.NEXT_PUBLIC_DEV_AUTH_NAME || 'Q8 Dev User';
+
+  const effectiveUserId = user?.id || (isDevAuthBypass ? devUserId : undefined);
+  const effectiveUserEmail = user?.email || (isDevAuthBypass ? devUserEmail : undefined);
+  const effectiveFullName = user?.user_metadata?.full_name || (isDevAuthBypass ? devUserName : undefined);
+
   return {
     user,
-    isLoading,
-    isAuthenticated,
+    isLoading: isDevAuthBypass ? false : isLoading,
+    isAuthenticated: isDevAuthBypass ? true : isAuthenticated,
     signOut,
     refreshSession,
-    userId: user?.id,
-    userEmail: user?.email,
+    userId: effectiveUserId,
+    userEmail: effectiveUserEmail,
     userRole: user?.user_metadata?.role,
-    fullName: user?.user_metadata?.full_name,
+    fullName: effectiveFullName,
     avatarUrl: user?.user_metadata?.avatar_url,
     isPro: user?.user_metadata?.is_pro,
   };
