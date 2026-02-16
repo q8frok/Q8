@@ -59,10 +59,15 @@ export async function GET(request: NextRequest) {
   const entityIds = searchParams.get('entities')?.split(',').filter(Boolean) || [];
 
   try {
+    const cacheHeaders = {
+      'Cache-Control': 'public, max-age=5, stale-while-revalidate=15',
+      'Vercel-CDN-Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30',
+    };
+
     if (entityIds.length === 0) {
       // Return all states if no specific entities requested
       const states = await haFetch('/states');
-      return NextResponse.json({ states });
+      return NextResponse.json({ states }, { headers: cacheHeaders });
     }
 
     // Fetch specific entities in parallel
@@ -83,7 +88,7 @@ export async function GET(request: NextRequest) {
       })
     );
 
-    return NextResponse.json({ states });
+    return NextResponse.json({ states }, { headers: cacheHeaders });
   } catch (error) {
     logger.error('Home Assistant fetch error', { error: error });
     return errorResponse(error instanceof Error ? error.message : 'Failed to fetch Home Assistant states', 500);

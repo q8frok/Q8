@@ -2,7 +2,20 @@
 const nextConfig = {
   reactStrictMode: true,
   experimental: {
-    optimizePackageImports: ['lucide-react'],
+    optimizePackageImports: [
+      'lucide-react',
+      'framer-motion',
+      'date-fns',
+      'recharts',
+      'react-syntax-highlighter',
+      '@supabase/supabase-js',
+      'rxdb',
+      'rxjs',
+      'zod',
+      '@dnd-kit/core',
+      '@dnd-kit/sortable',
+      '@dnd-kit/utilities',
+    ],
   },
   images: {
     remotePatterns: [

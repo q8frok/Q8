@@ -120,6 +120,11 @@ export async function GET(request: NextRequest) {
       airQuality,
       uvIndex: undefined,
       updatedAt: new Date().toISOString(),
+    }, {
+      headers: {
+        'Cache-Control': 'public, max-age=60, stale-while-revalidate=120',
+        'Vercel-CDN-Cache-Control': 'public, s-maxage=120, stale-while-revalidate=300',
+      },
     });
   } catch (error) {
     logger.error('Weather API error', { error: error });

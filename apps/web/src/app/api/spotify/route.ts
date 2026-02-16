@@ -149,6 +149,11 @@ export async function GET(request: NextRequest) {
       availableDevices = devicesData.devices ?? [];
     }
 
+    const spotifyCacheHeaders = {
+      'Cache-Control': 'public, max-age=5, stale-while-revalidate=10',
+      'Vercel-CDN-Cache-Control': 'public, s-maxage=10, stale-while-revalidate=20',
+    };
+
     // No active playback
     if (playerResponse.status === 204) {
       return NextResponse.json({
@@ -157,7 +162,7 @@ export async function GET(request: NextRequest) {
         device: null,
         availableDevices,
         noActiveDevice: true,
-      });
+      }, { headers: spotifyCacheHeaders });
     }
 
     if (!playerResponse.ok) {
@@ -192,7 +197,7 @@ export async function GET(request: NextRequest) {
           }
         : null,
       availableDevices,
-    });
+    }, { headers: spotifyCacheHeaders });
   } catch (error) {
     logger.error('Spotify API error', { error });
     return NextResponse.json(getMockPlaybackState(), { status: 200 });

@@ -230,7 +230,12 @@ export async function GET(request: NextRequest) {
       result.accountStatuses = accountStatuses;
     }
 
-    return NextResponse.json(result);
+    return NextResponse.json(result, {
+      headers: {
+        'Cache-Control': 'public, max-age=60, stale-while-revalidate=120',
+        'Vercel-CDN-Cache-Control': 'public, s-maxage=120, stale-while-revalidate=300',
+      },
+    });
   } catch (error) {
     logger.error('[Calendar] Error fetching calendar list', { error });
     return NextResponse.json(

@@ -23,5 +23,10 @@ export async function GET() {
     spotify: integrations.spotify.isConfigured,
   };
 
-  return NextResponse.json(status);
+  return NextResponse.json(status, {
+    headers: {
+      'Cache-Control': 'public, max-age=60, stale-while-revalidate=300',
+      'Vercel-CDN-Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+    },
+  });
 }

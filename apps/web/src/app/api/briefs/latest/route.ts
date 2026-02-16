@@ -51,6 +51,11 @@ export async function GET(request: NextRequest) {
       briefId: brief.id,
       hasUnread: !brief.read_at,
       createdAt: brief.created_at,
+    }, {
+      headers: {
+        'Cache-Control': 'public, max-age=60, stale-while-revalidate=120',
+        'Vercel-CDN-Cache-Control': 'public, s-maxage=120, stale-while-revalidate=300',
+      },
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';

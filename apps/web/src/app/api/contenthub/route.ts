@@ -88,7 +88,12 @@ export async function GET(request: NextRequest) {
     // Apply mode filters to all content
     applyModeFilters(result, mode);
 
-    return NextResponse.json(result);
+    return NextResponse.json(result, {
+      headers: {
+        'Cache-Control': 'public, max-age=15, stale-while-revalidate=30',
+        'Vercel-CDN-Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
+      },
+    });
   } catch (error) {
     logger.error('ContentHub aggregation error', { error: error });
     return errorResponse('Failed to aggregate content', 500);

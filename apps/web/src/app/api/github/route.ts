@@ -165,6 +165,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         prs: prsWithChecks,
         total: prsWithChecks.length,
+      }, {
+        headers: {
+          'Cache-Control': 'public, max-age=30, stale-while-revalidate=60',
+          'Vercel-CDN-Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+        },
       });
     }
 
@@ -192,6 +197,11 @@ export async function GET(request: NextRequest) {
           unread: n.unread,
         })),
         total: notifications.length,
+      }, {
+        headers: {
+          'Cache-Control': 'public, max-age=15, stale-while-revalidate=30',
+          'Vercel-CDN-Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
+        },
       });
     }
 
