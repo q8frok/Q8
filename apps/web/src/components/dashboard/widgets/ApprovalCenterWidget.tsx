@@ -11,6 +11,10 @@ const badgeClass: Record<ApprovalItem['severity'], string> = {
   red: 'bg-rose-500/20 text-rose-300',
 };
 
+const APPROVAL_LOCAL_OVERRIDES_KEY = 'q8.approval-overrides.v1';
+
+type OverrideMap = Record<string, ApprovalItem['status']>;
+
 export function ApprovalCenterWidget() {
   const [data, setData] = useState<ApprovalQueueResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -23,7 +27,23 @@ export function ApprovalCenterWidget() {
         const res = await fetch('/api/lifeos/approvals', { cache: 'no-store' });
         if (!res.ok) return;
         const json = (await res.json()) as ApprovalQueueResponse;
-        if (mounted) setData(json);
+
+        let overrides: OverrideMap = {};
+        try {
+          overrides = JSON.parse(localStorage.getItem(APPROVAL_LOCAL_OVERRIDES_KEY) || '{}') as OverrideMap;
+        } catch {
+          overrides = {};
+        }
+
+        const merged: ApprovalQueueResponse = {
+          ...json,
+          items: json.items.map((item) => ({
+            ...item,
+            status: overrides[item.id] ?? item.status,
+          })),
+        };
+
+        if (mounted) setData(merged);
       } finally {
         if (mounted) setIsLoading(false);
       }
@@ -47,16 +67,25 @@ export function ApprovalCenterWidget() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, action }),
       });
+      const nextStatus: ApprovalItem['status'] = action === 'approve' ? 'approved' : 'rejected';
+
       setData((prev) =>
         prev
           ? {
               ...prev,
-              items: prev.items.map((item) =>
-                item.id === id ? { ...item, status: action === 'approve' ? 'approved' : 'rejected' } : item
-              ),
+              items: prev.items.map((item) => (item.id === id ? { ...item, status: nextStatus } : item)),
             }
           : prev
       );
+
+      try {
+        const raw = localStorage.getItem(APPROVAL_LOCAL_OVERRIDES_KEY) || '{}';
+        const current = JSON.parse(raw) as OverrideMap;
+        current[id] = nextStatus;
+        localStorage.setItem(APPROVAL_LOCAL_OVERRIDES_KEY, JSON.stringify(current));
+      } catch {
+        // no-op for local persistence failures
+      }
     } finally {
       setActingId(null);
     }
