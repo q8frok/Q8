@@ -28,7 +28,9 @@ import { useSession } from '@/components/auth/SessionManager';
 export function useAuth() {
   const { user, isLoading, isAuthenticated, signOut, refreshSession } = useSession();
 
-  const isDevAuthBypass = process.env.NEXT_PUBLIC_DEV_AUTH_BYPASS === 'true';
+  const isDevAuthBypass =
+    process.env.NODE_ENV === 'development' &&
+    process.env.NEXT_PUBLIC_DEV_AUTH_BYPASS !== 'false';
   const devUserId = process.env.NEXT_PUBLIC_DEV_AUTH_USER_ID || 'dev-user-q8';
   const devUserEmail = process.env.NEXT_PUBLIC_DEV_AUTH_EMAIL || 'dev@q8.local';
   const devUserName = process.env.NEXT_PUBLIC_DEV_AUTH_NAME || 'Q8 Dev User';

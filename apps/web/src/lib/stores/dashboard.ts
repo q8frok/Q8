@@ -22,7 +22,14 @@ export type DashboardWidgetId =
   | 'content-hub'
   | 'github'
   | 'home'
-  | 'finance';
+  | 'finance'
+  | 'work-ops'
+  | 'approvals'
+  | 'health'
+  | 'knowledge'
+  | 'people'
+  | 'growth'
+  | 'alerts';
 
 export type DashboardMode = 'relax' | 'productivity' | 'all' | 'custom';
 
@@ -41,11 +48,30 @@ export const ALL_WIDGET_IDS: DashboardWidgetId[] = [
   'github',
   'home',
   'finance',
+  'work-ops',
+  'approvals',
+  'health',
+  'knowledge',
+  'people',
+  'growth',
+  'alerts',
 ];
 
 export const MODE_WIDGETS: Record<Exclude<DashboardMode, 'custom'>, DashboardWidgetId[]> = {
-  relax: ['daily-brief', 'clock', 'weather', 'quick-notes', 'content-hub', 'home'],
-  productivity: ['daily-brief', 'clock', 'weather', 'quick-notes', 'tasks', 'calendar', 'home', 'finance'],
+  relax: ['daily-brief', 'clock', 'weather', 'quick-notes', 'content-hub', 'home', 'health'],
+  productivity: [
+    'daily-brief',
+    'clock',
+    'weather',
+    'quick-notes',
+    'tasks',
+    'calendar',
+    'home',
+    'finance',
+    'work-ops',
+    'approvals',
+    'alerts',
+  ],
   all: [...ALL_WIDGET_IDS],
 };
 
@@ -60,6 +86,13 @@ export const WIDGET_META: Record<DashboardWidgetId, { label: string; icon: strin
   'github': { label: 'GitHub', icon: 'Github' },
   'home': { label: 'Smart Home', icon: 'Home' },
   'finance': { label: 'Finance', icon: 'TrendingUp' },
+  'work-ops': { label: 'Work Ops', icon: 'Briefcase' },
+  'approvals': { label: 'Approvals', icon: 'ShieldCheck' },
+  'health': { label: 'Health', icon: 'Activity' },
+  'knowledge': { label: 'Knowledge', icon: 'Brain' },
+  'people': { label: 'People', icon: 'Users' },
+  'growth': { label: 'Growth', icon: 'TrendingUp' },
+  'alerts': { label: 'Alerts', icon: 'AlertTriangle' },
 };
 
 // ============================================================================

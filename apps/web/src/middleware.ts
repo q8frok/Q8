@@ -71,7 +71,9 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Local development auth bypass (for UI iteration)
-  const isDevAuthBypass = process.env.NEXT_PUBLIC_DEV_AUTH_BYPASS === 'true';
+  const isDevAuthBypass =
+    process.env.NODE_ENV === 'development' &&
+    process.env.NEXT_PUBLIC_DEV_AUTH_BYPASS !== 'false';
   if (isDevAuthBypass) {
     return response;
   }
