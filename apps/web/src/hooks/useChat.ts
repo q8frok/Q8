@@ -212,6 +212,8 @@ export interface RunInspectorEvent {
   summary: string;
 }
 
+export type ChatConnectionStatus = 'connecting' | 'connected' | 'reconnecting' | 'degraded' | 'offline';
+
 export interface ChatState {
   messages: StreamingMessage[];
   isLoading: boolean;
@@ -230,6 +232,10 @@ export interface ChatState {
   pipelineState: PipelineState;
   pipelineDetail: string | null;
   inspectorEvents: RunInspectorEvent[];
+  connectionStatus: ChatConnectionStatus;
+  reconnectAttempt: number;
+  queuedMessages: number;
+  sessionId: string | null;
 }
 
 interface UseChatOptions {
@@ -275,6 +281,7 @@ interface UseChatOptions {
 
 export function useChat(options: UseChatOptions) {
   const {
+    userId,
     threadId: initialThreadId,
     userProfile,
     onMessage,
@@ -311,6 +318,10 @@ export function useChat(options: UseChatOptions) {
     pipelineState: null,
     pipelineDetail: null,
     inspectorEvents: [],
+    connectionStatus: typeof navigator !== 'undefined' && !navigator.onLine ? 'offline' : 'connecting',
+    reconnectAttempt: 0,
+    queuedMessages: 0,
+    sessionId: null,
   });
 
   // Track if we should skip the next message load (when thread is created during streaming)
@@ -461,6 +472,8 @@ export function useChat(options: UseChatOptions) {
     };
   }, []);
 
+  const OUTBOX_KEY = `q8_chat_outbox_${userId}`;
+
   const generateRequestId = (): string => {
     if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
       return crypto.randomUUID();
@@ -468,42 +481,95 @@ export function useChat(options: UseChatOptions) {
     return `req_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
   };
 
-  /**
-   * Send a message and stream the response
-   * - No client conversationHistory sent (server fetches canonical history)
-   * - Sends requestId for idempotency
-   */
-  const sendMessage = useCallback(async (content: string) => {
+  type OutboxMessage = {
+    id: string;
+    content: string;
+    threadId: string | null;
+    requestId: string;
+    createdAt: string;
+    userProfile?: UseChatOptions['userProfile'];
+  };
+
+  const readOutbox = useCallback((): OutboxMessage[] => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const raw = localStorage.getItem(OUTBOX_KEY);
+      return raw ? (JSON.parse(raw) as OutboxMessage[]) : [];
+    } catch {
+      return [];
+    }
+  }, [OUTBOX_KEY]);
+
+  const writeOutbox = useCallback((items: OutboxMessage[]) => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(OUTBOX_KEY, JSON.stringify(items));
+    setState(prev => ({ ...prev, queuedMessages: items.length }));
+  }, [OUTBOX_KEY]);
+
+  const enqueueOutbox = useCallback((item: OutboxMessage) => {
+    const items = readOutbox();
+    items.push(item);
+    writeOutbox(items);
+  }, [readOutbox, writeOutbox]);
+
+  const dequeueOutbox = useCallback(() => {
+    const items = readOutbox();
+    items.shift();
+    writeOutbox(items);
+  }, [readOutbox, writeOutbox]);
+
+  const sendMessage = useCallback(async (
+    content: string,
+    options?: { requestId?: string; queueOnFailure?: boolean; optimistic?: boolean; threadId?: string | null; userProfile?: UseChatOptions['userProfile'] }
+  ) => {
+    const requestId = options?.requestId ?? generateRequestId();
+    const queueOnFailure = options?.queueOnFailure ?? true;
+    const optimistic = options?.optimistic ?? true;
+    const effectiveThreadId = options?.threadId ?? state.threadId;
+    const effectiveProfile = options?.userProfile ?? userProfile;
+
+    if (!content.trim()) {
+      return { sent: false, queued: false };
+    }
+
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      if (queueOnFailure) {
+        enqueueOutbox({ id: `out_${Date.now()}`, content, threadId: effectiveThreadId, requestId, createdAt: new Date().toISOString(), userProfile: effectiveProfile });
+        setState(prev => ({ ...prev, connectionStatus: 'offline', error: 'Offline: message queued and will send when connected.' }));
+      }
+      return { sent: false, queued: queueOnFailure };
+    }
+
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
 
-    const requestId = generateRequestId();
+    if (optimistic) {
+      const userMessageId = `msg_${Date.now()}_user`;
+      const userMessage: StreamingMessage = {
+        id: userMessageId,
+        role: 'user',
+        content,
+        isStreaming: false,
+        toolExecutions: [],
+        timestamp: new Date(),
+      };
 
-    const userMessageId = `msg_${Date.now()}_user`;
-    const userMessage: StreamingMessage = {
-      id: userMessageId,
-      role: 'user',
-      content,
-      isStreaming: false,
-      toolExecutions: [],
-      timestamp: new Date(),
-    };
-
-    setState(prev => ({
-      ...prev,
-      messages: [...prev.messages, userMessage],
-      isLoading: true,
-      isStreaming: false,
-      error: null,
-      currentAgent: null,
-      routingReason: null,
-      runState: 'queued',
-      runId: null,
-      runStartedAt: new Date(),
-      runUpdatedAt: new Date(),
-      runEndedAt: null,
-    }));
+      setState(prev => ({
+        ...prev,
+        messages: [...prev.messages, userMessage],
+        isLoading: true,
+        isStreaming: false,
+        error: null,
+        currentAgent: null,
+        routingReason: null,
+        runState: 'queued',
+        runId: null,
+        runStartedAt: new Date(),
+        runUpdatedAt: new Date(),
+        runEndedAt: null,
+      }));
+    }
 
     const assistantMessageId = `msg_${Date.now()}_assistant`;
     const assistantMessage: StreamingMessage = {
@@ -525,26 +591,20 @@ export function useChat(options: UseChatOptions) {
       isStreaming: true,
       pipelineState: 'routing',
       pipelineDetail: null,
+      connectionStatus: 'connected',
     }));
 
     abortControllerRef.current = new AbortController();
 
     try {
-      /**
-       * Deterministic retry/reconnect behavior:
-       * - Local in-flight UI messages are treated as optimistic only.
-       * - The server reconstructs canonical thread history from persisted chat_messages.
-       * - Retries therefore resend only the user intent (`message`) + thread identity,
-       *   never an ad-hoc local transcript that might include unsynced duplicates.
-       */
       const response = await fetch('/api/chat/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: content,
-          threadId: state.threadId,
+          threadId: effectiveThreadId,
           requestId,
-          userProfile,
+          userProfile: effectiveProfile,
         }),
         signal: abortControllerRef.current.signal,
       });
@@ -585,22 +645,142 @@ export function useChat(options: UseChatOptions) {
         }
       }
 
+      return { sent: true, queued: false };
     } catch (error) {
       if ((error as Error).name === 'AbortError') {
-        return;
+        return { sent: false, queued: false };
       }
 
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const shouldQueue = queueOnFailure && !String(errorMessage).includes('HTTP error: 4');
+
+      if (shouldQueue) {
+        enqueueOutbox({ id: `out_${Date.now()}`, content, threadId: effectiveThreadId, requestId, createdAt: new Date().toISOString(), userProfile: effectiveProfile });
+      }
+
       setState(prev => ({
         ...prev,
         isLoading: false,
         isStreaming: false,
-        error: errorMessage,
+        error: shouldQueue ? 'Connection issue: message queued for retry.' : errorMessage,
+        connectionStatus: 'reconnecting',
       }));
       onError?.(errorMessage);
+      return { sent: false, queued: shouldQueue };
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.threadId, userProfile, onError]);
+  }, [state.threadId, userProfile, onError, enqueueOutbox]);
+
+  const flushOutbox = useCallback(async () => {
+    if (state.isStreaming) return;
+    const items = readOutbox();
+    if (!items.length) return;
+
+    for (const item of items) {
+      const result = await sendMessage(item.content, {
+        requestId: item.requestId,
+        queueOnFailure: false,
+        optimistic: true,
+        threadId: item.threadId,
+        userProfile: item.userProfile,
+      });
+
+      if (!result.sent) {
+        break;
+      }
+      dequeueOutbox();
+    }
+  }, [state.isStreaming, readOutbox, sendMessage, dequeueOutbox]);
+
+  useEffect(() => {
+    const updateOnlineState = () => {
+      const online = navigator.onLine;
+      setState(prev => ({
+        ...prev,
+        connectionStatus: online ? 'reconnecting' : 'offline',
+      }));
+      if (online) {
+        void flushOutbox();
+      }
+    };
+
+    window.addEventListener('online', updateOnlineState);
+    window.addEventListener('offline', updateOnlineState);
+
+    return () => {
+      window.removeEventListener('online', updateOnlineState);
+      window.removeEventListener('offline', updateOnlineState);
+    };
+  }, [flushOutbox]);
+
+  useEffect(() => {
+    const queue = readOutbox();
+    setState(prev => ({ ...prev, queuedMessages: queue.length }));
+  }, [readOutbox]);
+
+  useEffect(() => {
+    let active = true;
+    let reconnectAttempt = 0;
+
+    const establishSession = async () => {
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        setState(prev => ({ ...prev, connectionStatus: 'offline' }));
+        return;
+      }
+
+      try {
+        setState(prev => ({ ...prev, connectionStatus: reconnectAttempt === 0 ? 'connecting' : 'reconnecting', reconnectAttempt }));
+        const res = await fetch('/api/chat/session', { method: 'POST' });
+        if (!res.ok) throw new Error(`Session error ${res.status}`);
+        const data = await res.json() as { sessionId: string };
+        if (!active) return;
+        setState(prev => ({ ...prev, sessionId: data.sessionId, connectionStatus: 'connected', reconnectAttempt: 0 }));
+        reconnectAttempt = 0;
+        void flushOutbox();
+      } catch {
+        reconnectAttempt += 1;
+        if (!active) return;
+        setState(prev => ({
+          ...prev,
+          connectionStatus: reconnectAttempt > 3 ? 'degraded' : 'reconnecting',
+          reconnectAttempt,
+        }));
+      }
+    };
+
+    void establishSession();
+
+    const heartbeatId = setInterval(async () => {
+      if (!active) return;
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        setState(prev => ({ ...prev, connectionStatus: 'offline' }));
+        return;
+      }
+      try {
+        const sessionId = state.sessionId;
+        const url = sessionId ? `/api/chat/session?sessionId=${encodeURIComponent(sessionId)}` : '/api/chat/session';
+        const res = await fetch(url, { method: 'GET' });
+        if (!res.ok) throw new Error('heartbeat_failed');
+        setState(prev => ({ ...prev, connectionStatus: 'connected', reconnectAttempt: 0 }));
+      } catch {
+        reconnectAttempt += 1;
+        setState(prev => ({
+          ...prev,
+          connectionStatus: reconnectAttempt > 3 ? 'degraded' : 'reconnecting',
+          reconnectAttempt,
+        }));
+        if (reconnectAttempt <= 2) {
+          await establishSession();
+        }
+      }
+    }, 15000);
+
+    return () => {
+      active = false;
+      clearInterval(heartbeatId);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flushOutbox, state.sessionId]);
 
   /**
    * Process a stream event
@@ -1092,6 +1272,7 @@ export function useChat(options: UseChatOptions) {
       pipelineState: null,
       pipelineDetail: null,
       inspectorEvents: [],
+      queuedMessages: 0,
     }));
   }, []);
 

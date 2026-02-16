@@ -81,6 +81,9 @@ export const UnifiedConversation = forwardRef<UnifiedConversationRef, UnifiedCon
       retryLast,
       pipelineState,
       pipelineDetail,
+      connectionStatus,
+      reconnectAttempt,
+      queuedMessages,
     } = useUnifiedChat({
       userId,
       threadId,
@@ -160,6 +163,9 @@ export const UnifiedConversation = forwardRef<UnifiedConversationRef, UnifiedCon
             onSwitchMode={switchMode}
             onToggleTTS={toggleTTS}
             onClearMessages={clearMessages}
+            connectionStatus={connectionStatus}
+            reconnectAttempt={reconnectAttempt}
+            queuedMessages={queuedMessages}
           />
 
           <AnimatePresence>

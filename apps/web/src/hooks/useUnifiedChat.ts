@@ -395,6 +395,10 @@ export function useUnifiedChat(options: UseUnifiedChatOptions): UseUnifiedChatRe
     runEndedAt: chat.runEndedAt,
     pipelineState: chat.pipelineState,
     pipelineDetail: chat.pipelineDetail,
+    connectionStatus: chat.connectionStatus,
+    reconnectAttempt: chat.reconnectAttempt,
+    queuedMessages: chat.queuedMessages,
+    sessionId: chat.sessionId,
 
     // Mode state
     mode,

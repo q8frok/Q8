@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { AgentBadge } from './AgentHandoff';
 import type { ConversationMode } from '@/hooks/useUnifiedChat';
-import type { AgentType } from '@/hooks/useChat';
+import type { AgentType, ChatConnectionStatus } from '@/hooks/useChat';
 import { MODE_CONFIG } from './modeConfig';
 
 interface ConversationHeaderProps {
@@ -23,6 +23,9 @@ interface ConversationHeaderProps {
   onSwitchMode: (mode: ConversationMode) => void;
   onToggleTTS: () => void;
   onClearMessages: () => void;
+  connectionStatus: ChatConnectionStatus;
+  reconnectAttempt: number;
+  queuedMessages: number;
 }
 
 export function ConversationHeader({
@@ -38,9 +41,32 @@ export function ConversationHeader({
   onSwitchMode,
   onToggleTTS,
   onClearMessages,
+  connectionStatus,
+  reconnectAttempt,
+  queuedMessages,
 }: ConversationHeaderProps) {
   const [showModeSelector, setShowModeSelector] = useState(false);
   const CurrentModeIcon = MODE_CONFIG[mode].icon;
+
+  const connectionLabel =
+    connectionStatus === 'connected'
+      ? 'Connected'
+      : connectionStatus === 'connecting'
+        ? 'Connecting'
+        : connectionStatus === 'reconnecting'
+          ? `Reconnecting${reconnectAttempt ? ` (${reconnectAttempt})` : ''}`
+          : connectionStatus === 'degraded'
+            ? 'Degraded'
+            : 'Offline';
+
+  const connectionClass =
+    connectionStatus === 'connected'
+      ? 'text-green-400 border-green-500/30 bg-green-500/10'
+      : connectionStatus === 'offline'
+        ? 'text-red-400 border-red-500/30 bg-red-500/10'
+        : connectionStatus === 'degraded'
+          ? 'text-amber-400 border-amber-500/30 bg-amber-500/10'
+          : 'text-blue-400 border-blue-500/30 bg-blue-500/10';
 
   return (
     <header className="sticky top-0 z-20 flex items-center justify-between px-3 sm:px-4 py-2 pt-[calc(0.5rem+env(safe-area-inset-top,0px))] border-b border-border-subtle bg-surface-1/80 backdrop-blur-md">
@@ -123,6 +149,16 @@ export function ConversationHeader({
               </span>
             ))}
           </div>
+        )}
+
+        <span className={cn('hidden md:inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium', connectionClass)}>
+          {connectionLabel}
+        </span>
+
+        {queuedMessages > 0 && (
+          <span className="hidden md:inline-flex items-center rounded-full border border-neon-primary/30 bg-neon-primary/10 px-2 py-0.5 text-[11px] font-medium text-neon-primary">
+            Queue {queuedMessages}
+          </span>
         )}
       </div>
 
