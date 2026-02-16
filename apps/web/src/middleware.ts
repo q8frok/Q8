@@ -70,6 +70,12 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
+  // Local development auth bypass (for UI iteration)
+  const isDevAuthBypass = process.env.NEXT_PUBLIC_DEV_AUTH_BYPASS === 'true';
+  if (isDevAuthBypass) {
+    return response;
+  }
+
   // Public routes that don't require authentication
   const publicRoutes = ['/login', '/auth/callback', '/auth/reset-password'];
   const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
