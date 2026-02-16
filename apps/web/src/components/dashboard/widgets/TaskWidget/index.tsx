@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { CheckSquare, Plus, Maximize2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useWidgetSubscription } from '@/contexts/WidgetUpdateContext';
+import { WidgetActionBar } from '@/components/shared/WidgetActionBar';
 import { TaskItem, AddTaskInput, EmptyState } from './components';
 import { useTaskData, useTaskMutations } from './hooks';
 import { TaskCommandCenter } from './expanded';
@@ -125,6 +126,28 @@ export function TaskWidget({
           </button>
         </div>
       </div>
+
+      <WidgetActionBar
+        widgetLabel="Tasks"
+        className="mb-3"
+        context={{
+          pendingCount: incompleteTasks.length,
+          totalCount: tasks?.length ?? 0,
+          showingCompleted: showCompleted,
+        }}
+        quickActions={[
+          {
+            id: 'prioritize',
+            label: 'Prioritize',
+            prompt: 'Prioritize my current tasks and suggest top 3 for today.',
+          },
+          {
+            id: 'plan-day',
+            label: 'Plan day',
+            prompt: 'Build a realistic execution plan for today from my current tasks.',
+          },
+        ]}
+      />
 
       {/* Add Task Input */}
       <AnimatePresence>

@@ -3,6 +3,7 @@
 import { memo } from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { WidgetActionBar } from '@/components/shared/WidgetActionBar';
 
 // Hooks
 import { useCalendarEvents, useNextEvent } from './hooks/useCalendarEvents';
@@ -92,6 +93,34 @@ export const CalendarWidget = memo(function CalendarWidget({
           onCompactPrev={nav.handleCompactPrev}
           onCompactNext={nav.handleCompactNext}
           onCompactToday={nav.handleCompactToday}
+        />
+
+        <WidgetActionBar
+          widgetLabel="Calendar"
+          className="mb-3"
+          context={{
+            compactView: nav.compactView,
+            eventsVisible: displayEvents.length,
+            todayEvents: todayEvents.length,
+            nextEvent: nextEvent
+              ? {
+                  title: nextEvent.title,
+                  startsAt: nextEvent.start_time,
+                }
+              : null,
+          }}
+          quickActions={[
+            {
+              id: 'summarize-day',
+              label: 'Summarize day',
+              prompt: 'Summarize my day from calendar and flag schedule risks.',
+            },
+            {
+              id: 'prep-next',
+              label: 'Prep next meeting',
+              prompt: 'Help me prep for my next meeting with a quick briefing and checklist.',
+            },
+          ]}
         />
 
         <CompactViewContent
