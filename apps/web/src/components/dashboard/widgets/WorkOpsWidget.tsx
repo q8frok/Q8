@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Briefcase } from 'lucide-react';
 import { WidgetWrapper } from './WidgetWrapper';
+import { WidgetActionBar } from '@/components/shared/WidgetActionBar';
+import { buildWorkOpsWidgetActionConfig } from '@/lib/widgets/actionSchemas';
 import type { WorkOpsSnapshot } from '@/types/workops';
 
 type Connector = { configured: boolean; status: string };
@@ -106,6 +108,15 @@ export function WorkOpsWidget() {
         </div>
         <p className="text-xs text-text-muted">Today reservations: {data?.reservations.today ?? 0} · Catering this week: {data?.reservations.cateringEvents ?? 0}</p>
         <p className="text-xs text-neon-primary truncate">Next: {data?.nextAction ?? 'Loading next action...'}</p>
+        <WidgetActionBar
+          {...buildWorkOpsWidgetActionConfig({
+            pendingReplies: data?.reservations.pendingResponses ?? 0,
+            staffingFlags: data?.staffing.varianceFlags ?? 0,
+            stockoutRisks: data?.inventory.stockoutRisks ?? 0,
+            connectors: configuredConnectors,
+            nextAction: data?.nextAction ?? null,
+          })}
+        />
         {jobStatus?.lastRun && (
           <p className="text-[11px] text-text-muted">
             Pipeline: {jobStatus.lastRun.status.toUpperCase()} · {jobStatus.lastRun.duration_ms}ms

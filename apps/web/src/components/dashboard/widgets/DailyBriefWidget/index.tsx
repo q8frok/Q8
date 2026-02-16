@@ -5,6 +5,8 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { WidgetActionBar } from '@/components/shared/WidgetActionBar';
+import { buildDailyBriefWidgetActionConfig } from '@/lib/widgets/actionSchemas';
 import { useBriefData, useBriefTasks, useQuickActions, getDefaultQuickActions, useDismissedInsights } from './hooks';
 import {
   BriefHeader,
@@ -174,6 +176,17 @@ export function DailyBriefWidget({ userId, className }: DailyBriefWidgetProps) {
               isOpen={expandedSections.has('summary')}
               onToggle={() => toggleSection('summary')}
             />
+
+            <div className="px-4 pb-3">
+              <WidgetActionBar
+                {...buildDailyBriefWidgetActionConfig({
+                  timeOfDay,
+                  urgentTasks: urgentTasks.length,
+                  todayTasks: todayTasks.length,
+                  insightCount: visibleInsights.length,
+                })}
+              />
+            </div>
 
             {/* Quick Actions — fall back to defaults for legacy briefs */}
             {(() => {

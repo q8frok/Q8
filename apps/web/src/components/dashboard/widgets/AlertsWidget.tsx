@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { WidgetWrapper } from './WidgetWrapper';
+import { WidgetActionBar } from '@/components/shared/WidgetActionBar';
+import { buildAlertsWidgetActionConfig } from '@/lib/widgets/actionSchemas';
 import type { AlertsResponse, AlertSeverity } from '@/types/alerts';
 
 const severityClass: Record<AlertSeverity, string> = {
@@ -80,6 +82,13 @@ export function AlertsWidget() {
             </div>
           ))
         )}
+        <WidgetActionBar
+          {...buildAlertsWidgetActionConfig({
+            activeThresholds: thresholdCount,
+            topAlerts: top.length,
+            criticalCount: (data?.items ?? []).filter((item) => item.severity === 'critical').length,
+          })}
+        />
         <div>
           <button
             onClick={generateAlerts}
