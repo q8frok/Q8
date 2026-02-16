@@ -86,9 +86,24 @@
 - Added consecutive-failure guard:
   - emits critical alert event after 2 consecutive pipeline failures.
 
-## Next (Phase 2.9)
+## Phase 2.9 (completed in staging/dev)
 
-- Apply `026_lifeos_phase28_provenance.sql` in staging SQL editor.
-- Enforce approval gate in runtime dispatcher (Green auto, Yellow ask once, Red always block).
-- Promote connector provenance across all domains (`source_record_id` everywhere ingestion writes).
-- Add production release gate + rollback checklist and runbook.
+- Enforced runtime approval gate in pipeline dispatcher:
+  - Green: auto execute
+  - Yellow: queue approval once, then use grant for future auto-exec
+  - Red: always block + queue approval
+- Added policy dispatcher module:
+  - `src/lib/lifeos/approval-policy.ts`
+- Integrated dispatcher into `POST /api/lifeos/jobs/phase27/run` and persisted policy outcome in `lifeos_job_runs.details.policy`.
+- Added yellow approval grant persistence on approval action:
+  - `POST /api/lifeos/approvals` now writes grant when yellow item is approved.
+- Added migration scaffold:
+  - `027_lifeos_phase29_approval_grants.sql`
+
+## Phase 2 Closeout (remaining)
+
+- Apply `027_lifeos_phase29_approval_grants.sql` in staging SQL editor.
+- Final release gate package:
+  - staging checklist
+  - rollback runbook
+  - prod cutover plan (fork branch -> PR -> controlled deploy)

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/server';
+import { dispatchWithApprovalPolicy } from '@/lib/lifeos/approval-policy';
 import { runAlertsGenerate, runWorkOpsIngest } from '@/lib/lifeos/pipeline';
 
 function isMissingTableError(error: unknown): boolean {
@@ -32,6 +33,7 @@ export async function POST() {
   const started = Date.now();
   try {
     const [snapshot, alerts] = await Promise.all([runWorkOpsIngest(), runAlertsGenerate()]);
+    const policy = await dispatchWithApprovalPolicy(alerts.candidates ?? []);
     const finished = Date.now();
 
     const { error: runInsertErr } = await supabaseAdmin.from('lifeos_job_runs').insert({
@@ -44,6 +46,7 @@ export async function POST() {
         snapshotId: snapshot?.id,
         alertsCreated: alerts?.created ?? 0,
         metrics: alerts?.metrics ?? {},
+        policy,
       },
     });
 
@@ -55,7 +58,11 @@ export async function POST() {
       ok: true,
       mode: 'db',
       durationMs: finished - started,
-      details: { alertsCreated: alerts?.created ?? 0, metrics: alerts?.metrics ?? {} },
+      details: {
+        alertsCreated: alerts?.created ?? 0,
+        metrics: alerts?.metrics ?? {},
+        policy,
+      },
     });
   } catch (error) {
     const finished = Date.now();

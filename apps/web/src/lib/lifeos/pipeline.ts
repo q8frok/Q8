@@ -8,6 +8,18 @@ type FinanceTx = {
   category: string[] | null;
 };
 
+type ThresholdCandidate = {
+  id: string;
+  domain: 'work-ops' | 'finance' | 'home' | 'personal';
+  title: string;
+  severity: 'info' | 'warning' | 'critical';
+  source: string;
+  metric: string;
+  value: number;
+  threshold: number;
+  operator: string;
+};
+
 function startOfToday() {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
@@ -206,7 +218,7 @@ export async function runAlertsGenerate() {
   ]);
 
   if (tErr || sErr) throw new Error(tErr?.message || sErr?.message || 'pipeline error');
-  if (!snapshot) return { created: 0, metrics: {} as Record<string, number> };
+  if (!snapshot) return { created: 0, metrics: {} as Record<string, number>, candidates: [] as ThresholdCandidate[] };
 
   const [diningSpendDeltaPct7d, nightSceneMissedCount24h] = await Promise.all([
     getDiningSpendDeltaPct7d(),
@@ -228,12 +240,18 @@ export async function runAlertsGenerate() {
       title: `${t.metric} ${t.operator} ${t.threshold} (value=${metrics[t.metric]})`,
       severity: t.severity,
       source: 'phase2.7_threshold_eval',
+      metric: t.metric,
+      value: metrics[t.metric],
+      threshold: Number(t.threshold),
+      operator: t.operator,
     }));
 
-  if (events.length === 0) return { created: 0, metrics };
+  if (events.length === 0) return { created: 0, metrics, candidates: [] as typeof events };
 
-  const { error: insertErr } = await supabaseAdmin.from('alert_events').insert(events);
+  const { error: insertErr } = await supabaseAdmin.from('alert_events').insert(
+    events.map((e) => ({ id: e.id, domain: e.domain, title: e.title, severity: e.severity, source: e.source }))
+  );
   if (insertErr) throw new Error(insertErr.message);
 
-  return { created: events.length, metrics };
+  return { created: events.length, metrics, candidates: events };
 }

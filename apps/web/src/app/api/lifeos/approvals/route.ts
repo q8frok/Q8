@@ -77,9 +77,20 @@ export async function POST(req: Request) {
 
   const status = action === 'approve' ? 'approved' : 'rejected';
 
+  const nowIso = new Date().toISOString();
+  const { data: existing, error: readErr } = await supabaseAdmin
+    .from('approval_queue')
+    .select('id,severity,metadata')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (readErr) {
+    return NextResponse.json({ ok: false, error: readErr.message }, { status: 500 });
+  }
+
   const { error } = await supabaseAdmin
     .from('approval_queue')
-    .update({ status, updated_at: new Date().toISOString() })
+    .update({ status, updated_at: nowIso })
     .eq('id', id);
 
   if (error) {
@@ -95,11 +106,26 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 
+  if (action === 'approve' && existing?.severity === 'yellow') {
+    const actionKey = (existing.metadata as { actionKey?: string } | null)?.actionKey;
+    if (actionKey) {
+      await supabaseAdmin.from('approval_grants').upsert(
+        {
+          action_key: actionKey,
+          source_approval_id: id,
+          active: true,
+          approved_at: nowIso,
+        },
+        { onConflict: 'action_key' }
+      );
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     id,
     status,
-    actedAt: new Date().toISOString(),
+    actedAt: nowIso,
     mode: 'db',
   });
 }
