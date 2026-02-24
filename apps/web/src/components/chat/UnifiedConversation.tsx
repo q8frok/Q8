@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef, forwardRef, useImperativeHandle } from 'react';
+import { useCallback, useRef, forwardRef, useImperativeHandle, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useUnifiedChat, type ConversationMode } from '@/hooks/useUnifiedChat';
@@ -51,6 +51,7 @@ export const UnifiedConversation = forwardRef<UnifiedConversationRef, UnifiedCon
     ref
   ) {
     const inputAreaRef = useRef<ConversationInputAreaRef>(null);
+    const [useQ8, setUseQ8] = useState(false);
 
     const {
       messages,
@@ -89,6 +90,7 @@ export const UnifiedConversation = forwardRef<UnifiedConversationRef, UnifiedCon
       userId,
       threadId,
       userProfile,
+      agentOverride: useQ8 ? 'q8' : null,
       defaultMode,
       autoSpeak: true,
       onRouting: (agent, reason) => logger.info('Routing to agent', { agent, reason }),
@@ -167,6 +169,8 @@ export const UnifiedConversation = forwardRef<UnifiedConversationRef, UnifiedCon
             connectionStatus={connectionStatus}
             reconnectAttempt={reconnectAttempt}
             queuedMessages={queuedMessages}
+            useQ8={useQ8}
+            onToggleQ8={() => setUseQ8((v) => !v)}
           />
 
           <AnimatePresence>

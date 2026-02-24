@@ -15,6 +15,7 @@ export type AgentRole =
   | 'home'
   | 'finance'
   | 'imagegen'
+  | 'q8'
   | 'user';
 
 export interface AgentDisplayConfig {
@@ -105,6 +106,15 @@ export const AGENT_DISPLAY_CONFIG: Record<AgentRole, AgentDisplayConfig> = {
     glowColor: 'shadow-[0_0_12px_rgba(236,72,153,0.15)]',
     description: 'AI image generation and analysis',
     model: 'gpt-image-1.5',
+  },
+  q8: {
+    name: 'Q8',
+    icon: Bot,
+    iconColor: 'text-amber-400',
+    bgColor: 'bg-amber-500/20',
+    glowColor: 'shadow-[0_0_12px_rgba(251,191,36,0.15)]',
+    description: 'Q8 — direct OpenClaw operator mode',
+    model: 'Claude Sonnet',
   },
   user: {
     name: 'You',

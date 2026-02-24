@@ -54,6 +54,9 @@ export interface UseUnifiedChatOptions {
     communicationStyle?: 'concise' | 'detailed';
   };
 
+  /** Route all messages directly to Q8 (OpenClaw) instead of the agent stack. */
+  agentOverride?: 'q8' | null;
+
   // Mode preferences
   defaultMode?: ConversationMode;
   autoSwitchToVoice?: boolean;
@@ -124,6 +127,7 @@ export function useUnifiedChat(options: UseUnifiedChatOptions): UseUnifiedChatRe
     userId,
     threadId,
     userProfile,
+    agentOverride,
     defaultMode = 'text',
     autoSwitchToVoice = true,
     persistMode = true,
@@ -181,6 +185,7 @@ export function useUnifiedChat(options: UseUnifiedChatOptions): UseUnifiedChatRe
     userId,
     threadId,
     userProfile,
+    agentOverride,
     onMessage: (message) => {
       onMessage?.(message);
 

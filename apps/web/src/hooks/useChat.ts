@@ -15,7 +15,7 @@ import { EVENT_SCHEMA_VERSION, hasSupportedEventVersion } from '@/lib/agents/sdk
 import { computeReconnectDelayMs, getChatReliability } from '@/lib/chat/reliability';
 import { sseTransport } from '@/lib/chat/transport/sse-client';
 
-export type AgentType = 'orchestrator' | 'coder' | 'researcher' | 'secretary' | 'personality' | 'home' | 'finance' | 'imagegen';
+export type AgentType = 'orchestrator' | 'coder' | 'researcher' | 'secretary' | 'personality' | 'home' | 'finance' | 'imagegen' | 'q8';
 
 // =============================================================================
 // VERSIONED EVENT PARSING (PR #12)
@@ -262,6 +262,8 @@ interface UseChatOptions {
   };
   /** @deprecated Legacy orchestration toggle is no longer used. */
   useLegacy?: boolean;
+  /** Route all messages through Q8 (OpenClaw) instead of the default agent stack. */
+  agentOverride?: 'q8' | null;
   onMessage?: (message: StreamingMessage) => void;
   onToolExecution?: (tool: ToolExecution) => void;
   onRouting?: (agent: AgentType, reason: string, confidence: number) => void;
@@ -300,8 +302,11 @@ export function useChat(options: UseChatOptions) {
     onWidgetAction,
     onThreadCreated,
     onMemoryExtracted,
-    onError
+    onError,
+    agentOverride,
   } = options;
+
+  const chatStreamUrl = agentOverride === 'q8' ? '/api/chat/q8/stream' : '/api/chat/stream';
 
   const [state, setState] = useState<ChatState>({
     messages: [],
@@ -624,7 +629,7 @@ export function useChat(options: UseChatOptions) {
 
     try {
       await sseTransport.streamJson({
-        url: '/api/chat/stream',
+        url: chatStreamUrl,
         init: {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -673,7 +678,7 @@ export function useChat(options: UseChatOptions) {
       return { sent: false, queued: shouldQueue };
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.threadId, userProfile, onError, enqueueOutbox]);
+  }, [state.threadId, userProfile, onError, enqueueOutbox, chatStreamUrl]);
 
   const flushOutbox = useCallback(async () => {
     if (state.isStreaming) return;

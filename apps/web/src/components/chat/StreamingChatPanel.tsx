@@ -91,6 +91,7 @@ export const StreamingChatPanel = forwardRef<StreamingChatPanelRef, StreamingCha
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<ChatInputRef>(null);
   const [useLegacy, setUseLegacy] = useState(useLegacyDefault);
+  const [useQ8, setUseQ8] = useState(false);
 
   const {
     messages,
@@ -111,8 +112,9 @@ export const StreamingChatPanel = forwardRef<StreamingChatPanelRef, StreamingCha
     threadId,
     userProfile,
     useLegacy,
+    agentOverride: useQ8 ? 'q8' : null,
     onRouting: (agent, reason) => {
-      logger.info('Chat routing to agent', { agent, reason, useLegacy });
+      logger.info('Chat routing to agent', { agent, reason, useLegacy, useQ8 });
     },
     onToolExecution: (tool) => {
       logger.debug('Tool executed', { tool: tool.tool, status: tool.status });
@@ -205,6 +207,20 @@ export const StreamingChatPanel = forwardRef<StreamingChatPanelRef, StreamingCha
           >
             <Sparkles className={cn('h-3 w-3', !useLegacy && 'animate-pulse')} />
             {useLegacy ? 'Legacy' : 'SDK'}
+          </Button>
+
+          {/* Q8 Direct Toggle */}
+          <Button
+            variant={useQ8 ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setUseQ8(!useQ8)}
+            className={cn(
+              'text-xs h-7 gap-1.5 transition-all',
+              useQ8 && 'bg-amber-500/20 text-amber-400 border-amber-500/30 hover:bg-amber-500/30'
+            )}
+            title={useQ8 ? 'Talking to Q8 directly (OpenClaw)' : 'Switch to Q8 direct mode'}
+          >
+            🦞 {useQ8 ? 'Q8' : 'Q8?'}
           </Button>
 
           {messages.length > 0 && (

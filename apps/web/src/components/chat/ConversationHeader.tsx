@@ -26,6 +26,8 @@ interface ConversationHeaderProps {
   connectionStatus: ChatConnectionStatus;
   reconnectAttempt: number;
   queuedMessages: number;
+  useQ8?: boolean;
+  onToggleQ8?: () => void;
 }
 
 export function ConversationHeader({
@@ -44,6 +46,8 @@ export function ConversationHeader({
   connectionStatus,
   reconnectAttempt,
   queuedMessages,
+  useQ8 = false,
+  onToggleQ8,
 }: ConversationHeaderProps) {
   const [showModeSelector, setShowModeSelector] = useState(false);
   const CurrentModeIcon = MODE_CONFIG[mode].icon;
@@ -180,6 +184,20 @@ export function ConversationHeader({
             )}
           </Button>
         )}
+
+        {/* Q8 Direct Mode Toggle */}
+        <Button
+          variant={useQ8 ? 'default' : 'ghost'}
+          size="sm"
+          onClick={onToggleQ8}
+          className={cn(
+            'text-xs h-7 gap-1 transition-all',
+            useQ8 && 'bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:bg-amber-500/30'
+          )}
+          title={useQ8 ? 'Q8 direct mode ON — talking to OpenClaw' : 'Switch to Q8 direct mode'}
+        >
+          🦞 {useQ8 ? 'Q8' : 'Q8?'}
+        </Button>
 
         {/* Clear Button */}
         {messagesCount > 0 && (
